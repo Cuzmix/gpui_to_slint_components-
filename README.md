@@ -59,7 +59,6 @@ Some GPUI behavior needs logic `.slint` cannot express. The `ely-slint` crate co
 | Component | What the host wires up | Rust helper |
 |---|---|---|
 | Button (shortcut hint) | `shortcut: string`, already spelled for the platform | `ely_slint::shortcut_text("secondary-s", Platform::current())` gives `⌘S` or `Ctrl+S` |
-| Theme (platform) | `Theme.platform` | `ely_slint::Platform::current()` |
 | FocusTrap | `FocusSteps.step(forward)`, once per window (export `FocusSteps` from your root file) | `ely_slint::focus::step(window, forward)` |
 | Picture (network or slow sources) | `loading` while it fetches, then `source` | none: use your own loader |
 | IntersectionObserver | `visible-x`/`-y`/`-width`/`-height`, the area that counts as on screen | none |

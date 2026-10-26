@@ -12,7 +12,7 @@ Source: `ely-core/src/theme/{mod.rs,tokens.rs,palette.rs,platform.rs}`, `ely-cor
 | `radius_scale`, `font_scale` | `radius-scale`, `font-scale` | 1.0 |
 | `font_family`, `mono_family` | `font-family`, `mono-family` | "Inter", "JetBrains Mono" |
 | `reduced_motion` | `reduced-motion` | false |
-| `platform` | `platform` | GPUI: build target. Slint: `linux` until the host sets it |
+| `platform` | `platform` | GPUI: build target (macOS → mac, Windows → windows, else linux). Slint: the same mapping from the builtin `Platform.os` |
 | `set_palette(mode, Some/None)` | `use-custom-light/dark`, `custom-light/dark`, bump `custom-revision` | Ely's palettes |
 | `colors` | `colors` (on screen), `palette` (target) | |
 

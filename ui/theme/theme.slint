@@ -14,7 +14,8 @@ export enum Mode {
 }
 
 // Whose conventions the components follow: window buttons, the title bar's layout and key caps.
-export enum Platform {
+// (GPUI's `Platform`; Slint's builtin `Platform` global takes that name here.)
+export enum PlatformStyle {
     mac,
     windows,
     linux,
@@ -150,8 +151,8 @@ export global Theme {
     in-out property <string> mono-family: "JetBrains Mono";
     // Holds repeating motion still and cuts the rest short.
     in-out property <bool> reduced-motion: false;
-    // Whose window buttons, title bar and key caps components draw.
-    in-out property <Platform> platform: Platform.linux;
+    // Whose window buttons, title bar and key caps components draw; starts as the system it runs on.
+    in-out property <PlatformStyle> platform: Platform.os == OperatingSystemType.macos ? PlatformStyle.mac : Platform.os == OperatingSystemType.windows ? PlatformStyle.windows : PlatformStyle.linux;
 
     // The owner's palette for each mode, as an edited or imported theme gives.
     in-out property <bool> use-custom-light: false;
