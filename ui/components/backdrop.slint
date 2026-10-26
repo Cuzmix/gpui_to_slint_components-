@@ -1,0 +1,73 @@
+// Port of ely-core/src/primitives/backdrop.rs (`Backdrop`, `Place`).
+// A full-window scrim in `colors.backdrop` that fades in over 200 ms (ease-out-cubic);
+// its children sit above it, centered or along an edge. A left press on the scrim, outside
+// the children, fires `dismiss`.
+//
+// GPUI raises it over the page from anywhere in the tree. In Slint, place it as the last
+// child of the window (or of the box it should cover); it fills its parent.
+
+import { Theme } from "../theme/theme.slint";
+
+// Where a Backdrop holds its children.
+export enum Place {
+    // In the middle.
+    center,
+    // Along the left edge, full height.
+    left,
+    // Along the right edge, full height.
+    right,
+    // Along the top edge, full width.
+    top,
+    // Along the bottom edge, full width.
+    bottom,
+}
+
+export component Backdrop {
+    // Edges stretch children along that edge.
+    in property <Place> place: Place.center;
+    // Runs on a left press outside the children.
+    callback dismiss();
+
+    width: 100%;
+    height: 100%;
+
+    private property <bool> along-row: place == Place.center || place == Place.left || place == Place.right;
+    private property <float> shown: 0;
+
+    init => {
+        shown = 1;
+    }
+
+    scrim := Rectangle {
+        background: Theme.colors.backdrop;
+        opacity: root.shown;
+        animate opacity {
+            duration: Theme.motion-base;
+            easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+        }
+        TouchArea {
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                    root.dismiss();
+                }
+            }
+        }
+    }
+
+    panel := Rectangle {
+        width: root.place == Place.top || root.place == Place.bottom ? root.width : Math.min(root.width, flow.preferred-width);
+        height: root.place == Place.left || root.place == Place.right ? root.height : Math.min(root.height, flow.preferred-height);
+        x: root.place == Place.left || root.place == Place.top || root.place == Place.bottom ? 0 : root.place == Place.right ? root.width - self.width : (root.width - self.width) / 2;
+        y: root.place == Place.top || root.place == Place.left || root.place == Place.right ? 0 : root.place == Place.bottom ? root.height - self.height : (root.height - self.height) / 2;
+
+        // Occludes the scrim under the children.
+        TouchArea { }
+
+        flow := FlexboxLayout {
+            flex-direction: root.along-row ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            cross-axis-alignment: root.place == Place.center ? CrossAxisAlignment.center : CrossAxisAlignment.stretch;
+            @children
+        }
+    }
+}
