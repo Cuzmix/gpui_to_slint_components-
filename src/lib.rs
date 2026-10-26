@@ -4,6 +4,7 @@
 //! cannot express (key syntax parsing, date math, large models) take plain values or models,
 //! and this crate computes them. Nothing here holds UI state.
 
+pub mod focus;
 pub mod keys;
 
 pub use keys::{Keystroke, KeystrokeError, Platform, key_label, keystroke, keystroke_labels, shortcut_text};

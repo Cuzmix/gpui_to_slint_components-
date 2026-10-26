@@ -1,0 +1,110 @@
+// Port of ely-core/src/primitives/focus.rs (`FocusScope::trap`).
+// Keeps Tab and Shift-Tab inside, as a dialog does: Tab on the last stop goes to the first,
+// Shift-Tab on the first goes to the last. Tab from outside enters it as usual.
+//
+// Slint moves focus one stop only from its own Tab handling, so the trap needs the host:
+// a sentinel stop at each end catches focus as it leaves and asks `FocusSteps.step` to move
+// one stop on. Wire it once per window (Rust):
+//
+//     let weak = app.as_weak();
+//     app.global::<FocusSteps>().on_step(move |forward| {
+//         if let Some(app) = weak.upgrade() { ely_slint::focus::step(app.window(), forward) }
+//     });
+//
+// Unwired, a wrap stops on the far sentinel, which draws nothing; the next Tab goes on.
+
+// The host's Tab: moves focus one stop forward or back.
+export global FocusSteps {
+    callback step(forward: bool);
+}
+
+// A Tab stop that draws nothing, at one end of a trap.
+component Sentinel inherits FocusScope {
+    width: 0;
+    height: 0;
+    focus-on-click: false;
+    accessible-role: none;
+}
+
+// Lays its children out top to bottom; give it one child to arrange them otherwise.
+export component FocusTrap inherits FocusScope {
+    // False lets Tab leave, like an untrapped scope.
+    in property <bool> trapping: true;
+
+    // Which way the Tab inside the trap was headed: 1 forward, -1 back, 0 none.
+    private property <int> heading: 0;
+    // True while this trap asks the host to step, so a sentinel it reaches passes focus on.
+    private property <bool> stepping: false;
+
+    function step(forward: bool) {
+        stepping = true;
+        FocusSteps.step(forward);
+        stepping = false;
+    }
+
+    focus-on-click: false;
+    focus-on-tab-navigation: false;
+    capture-key-pressed(event) => {
+        if event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift) {
+            heading = -1;
+        } else if event.text == Key.Tab {
+            heading = 1;
+        }
+        reject
+    }
+
+    VerticalLayout {
+        start := Sentinel {
+            enabled: root.trapping;
+            focus-gained(reason) => {
+                if reason != FocusReason.tab-navigation || root.stepping {
+                    return;
+                }
+                if root.heading == -1 {
+                    // Shift-Tab on the first stop: wrap to the last.
+                    root.heading = 0;
+                    end.focus();
+                    root.step(false);
+                } else {
+                    // Entering from before the trap: on to the first stop, or past an empty trap.
+                    root.step(true);
+                    if end.has-focus {
+                        root.step(true);
+                    }
+                }
+            }
+        }
+
+        @children
+
+        end := Sentinel {
+            enabled: root.trapping;
+            focus-gained(reason) => {
+                if reason != FocusReason.tab-navigation || root.stepping {
+                    return;
+                }
+                if root.heading == 1 {
+                    // Tab on the last stop: wrap to the first.
+                    root.heading = 0;
+                    start.focus();
+                    root.step(true);
+                } else {
+                    // Entering from after the trap with Shift-Tab: on to the last stop, or past an empty trap.
+                    root.step(false);
+                    if start.has-focus {
+                        root.step(false);
+                    }
+                }
+            }
+        }
+    }
+
+    // A Tab that moved between stops inside leaves `heading` set; clear it before the next event.
+    Timer {
+        interval: 1ms;
+        running: root.heading != 0;
+        triggered => {
+            root.heading = 0;
+        }
+    }
+}
