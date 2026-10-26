@@ -5,7 +5,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 
 | Component | Source | Props | Callbacks | Keyboard | Mouse/touch | Animation | Visuals | A11y | Tests | Gaps | Done |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Theme (tokens, palettes, fade) | theme/, motion/curve.rs | ✓ | n/a | n/a | n/a | ✓ (ThemeFader) | ✓ | n/a | ✓ `tests/theme.rs` | G1 G2 G4 | ✓ |
+| Theme (tokens, palettes, fade) | theme/, motion/curve.rs | ✓ | n/a | n/a | n/a | ✓ (ThemeFader) | ✓ | n/a | ✓ `tests/theme.rs` | G1 G2 | ✓ |
 | Elevated | theme/tokens.rs `elevation` | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ (shadow tokens in `tests/theme.rs`) | G3 | ✓ |
 | Icon | primitives/icon.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/primitives.rs` | | ✓ |
 | Spinner | motion/spinner.rs | ✓ | n/a | n/a | n/a | ✓ periods, reduced motion | ✓ | ✓ progress indicator | ✓ `tests/primitives.rs` | G5 | ✓ |
@@ -22,7 +22,9 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | FocusRing | primitives/focus.rs | ✓ | n/a | ✓ | n/a | n/a | ✓ | n/a | ✓ `tests/primitives2.rs` | | ✓ |
 | FocusTrap (FocusScope `.trap()`) | primitives/focus.rs | ✓ | n/a | ✓ wrap both ways, enter, pass over empty | n/a | n/a | n/a | ✓ (owner sets role/label) | ✓ `tests/focus_trap.rs` | G18 G19 | ✓ |
 | Measure, IntersectionObserver | primitives/measure.rs | ✓ | ✓ | n/a | n/a | n/a | n/a | n/a | ✓ `tests/measure.rs` | G16 G17 | ✓ |
-| HelpTooltip, TooltipTrigger | primitives/tooltip.rs | ✓ | n/a | n/a | ✓ 500 / 400 ms, hide on leave and press | ✓ (TooltipController) | ✓ | n/a | ✓ `tests/tooltip.rs` | G7 G15 | ✓ |
+| HelpTooltip, TooltipTrigger | primitives/tooltip.rs | ✓ | n/a | n/a | ✓ 500 / 400 ms, hide on leave and press | ✓ (TooltipController) | ✓ | n/a | ✓ `tests/tooltip.rs` (rich content too) | G7 | ✓ |
+| VisuallyHidden | tasks/ch01-10.md (GPUI shipped none) | ✓ | n/a | n/a | n/a | n/a | ✓ draws nothing | ✓ text role and label | ✓ `tests/primitives2.rs` | | ✓ |
+| KeyStrokes (gpui `Keystroke::unparse`) | gpui platform/keystroke.rs | ✓ | n/a | ✓ | n/a | n/a | n/a | n/a | ✓ `tests/keystroke.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
