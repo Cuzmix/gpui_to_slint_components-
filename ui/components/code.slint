@@ -1,0 +1,32 @@
+// Port of ely-core/src/typography/inline.rs (`Code`).
+// A monospace fragment on a quiet fill.
+
+import { Theme, TextSize, Radius } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Code inherits Rectangle {
+    in property <string> text;
+
+    border-radius: Theme.radius(Radius.sm);
+    background: Theme.colors.sunken;
+    border-width: Theme.hairline;
+    border-color: Theme.colors.border;
+    // As wide and tall as its text, as gpui sizes a fragment in a row.
+    width: content.preferred-width;
+    height: content.preferred-height;
+
+    // gpui pads inside the border: 4 px across, nothing down.
+    content := HorizontalLayout {
+        padding-left: 4px + Theme.hairline;
+        padding-right: 4px + Theme.hairline;
+        padding-top: Theme.hairline;
+        padding-bottom: Theme.hairline;
+        TypeText {
+            text: root.text;
+            font-family: Theme.mono-family;
+            line-ratio: Theme.mono-line-ratio;
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.fg;
+        }
+    }
+}

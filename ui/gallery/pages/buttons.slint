@@ -4,7 +4,7 @@ import { Button, ButtonVariant } from "../../components/button.slint";
 import { IconButton } from "../../components/icon-button.slint";
 import { Icons } from "../../icons/icons.slint";
 import { ControlSize } from "../../theme/theme.slint";
-import { Section, Row, Specimens, Specimen, Code } from "../kit.slint";
+import { Section, Row, Specimens, Specimen, CodeHint } from "../kit.slint";
 
 struct VariantRow {
     variant: ButtonVariant,
@@ -158,7 +158,7 @@ export component ButtonsPage inherits VerticalLayout {
             }
         }
 
-        Code {
+        CodeHint {
             text: "Button { text: \"Save\"; shortcut: \"Ctrl+S\"; }";
         }
     }
