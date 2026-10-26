@@ -1,0 +1,44 @@
+// Port of ely-core/src/primitives/pressable.rs (`Pressable`).
+// Pressed state and long press for any content. Children read `pressed`.
+//
+// - `pressed` is true from a left press on it until the button lifts anywhere.
+// - With `long-press-enabled`, resting down 500 ms fires `long-press` once, and the release
+//   that follows fires nothing.
+// - `press` fires when the button lifts over it before any long press.
+
+export component Pressable {
+    // Whether the left button is down on it.
+    out property <bool> pressed: touch.pressed;
+    // Arms the 500 ms long press; GPUI arms it when an `on_long_press` handler is set.
+    in property <bool> long-press-enabled: false;
+    // Runs when the pointer lifts before a long press.
+    callback press();
+    // Runs once the pointer rests down 500 ms.
+    callback long-press();
+
+    private property <bool> long-fired: false;
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.long-fired = false;
+            }
+        }
+        clicked => {
+            if !root.long-fired {
+                root.press();
+            }
+            root.long-fired = false;
+        }
+        @children
+    }
+
+    Timer {
+        interval: 500ms;
+        running: root.long-press-enabled && touch.pressed && !root.long-fired;
+        triggered => {
+            root.long-fired = true;
+            root.long-press();
+        }
+    }
+}
