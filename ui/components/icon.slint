@@ -1,0 +1,32 @@
+// Port of ely-core/src/primitives/icon.rs (`Icon`).
+// A Lucide icon, or an app's own SVG, in the theme's sizes and colors.
+// GPUI's svg() paints only with its text color; here `colorize` tints the glyph the same way.
+
+import { Theme, IconSize } from "../theme/theme.slint";
+
+export component Icon {
+    // The SVG to draw, usually `Icons.<name>`.
+    in property <image> source;
+    // Its box size.
+    in property <IconSize> size: IconSize.md;
+    // Defaults to the theme's body text.
+    in property <color> color: Theme.colors.fg;
+    // Turns it about its center.
+    in property <angle> rotation: 0deg;
+    // Draws the glyph larger or smaller inside the same box.
+    in property <float> scale: 1.0;
+
+    width: Theme.icon-size(size);
+    height: Theme.icon-size(size);
+    accessible-role: none;
+
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.source;
+        colorize: root.color;
+        image-fit: contain;
+        transform-rotation: root.rotation;
+        transform-scale: root.scale;
+    }
+}

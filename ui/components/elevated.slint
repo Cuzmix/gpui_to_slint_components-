@@ -1,0 +1,26 @@
+// The two-layer box shadows of ely-core/src/theme/tokens.rs (`Theme::elevation`).
+// Slint draws one drop shadow per element, so the second layer is a same-sized child.
+
+import { Theme, Elevation } from "../theme/theme.slint";
+
+export component Elevated inherits Rectangle {
+    in property <Elevation> elevation: Elevation.floating;
+
+    drop-shadow-offset-y: Theme.shadow-near(elevation).offset-y;
+    drop-shadow-blur: Theme.shadow-near(elevation).blur;
+    drop-shadow-color: Theme.shadow-near(elevation).color;
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        border-radius: root.border-radius;
+        background: root.background;
+        drop-shadow-offset-y: Theme.shadow-far(elevation).offset-y;
+        drop-shadow-blur: Theme.shadow-far(elevation).blur;
+        drop-shadow-color: Theme.shadow-far(elevation).color;
+    }
+
+    @children
+}
