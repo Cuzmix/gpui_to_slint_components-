@@ -1,0 +1,15 @@
+// VisuallyHidden, from ely-core's task list (tasks/ch01-10.md): "a box that draws nothing,
+// with an aria_label, must reach the [accessibility] tree with its label". GPUI never shipped
+// it (its gallery shows a blocked note); Slint builds the accessibility tree on every desktop
+// backend, so this port provides it as the task describes.
+
+// Text for screen readers only.
+export component VisuallyHidden {
+    // What assistive technology reads.
+    in property <string> text;
+
+    width: 0;
+    height: 0;
+    accessible-role: AccessibleRole.text;
+    accessible-label: text;
+}

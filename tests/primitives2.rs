@@ -3,7 +3,7 @@ mod common;
 use common::*;
 
 slint::slint! {
-    import { Disclosure, Picture, Backdrop, Place, Severity, Severities, Theme, TextSize, Icons, FocusRing, DragGhost } from "ui/index.slint";
+    import { Disclosure, Picture, Backdrop, Place, Severity, Severities, Theme, TextSize, Icons, FocusRing, DragGhost, VisuallyHidden } from "ui/index.slint";
     export component Harness inherits Window {
         width: 400px;
         height: 300px;
@@ -32,6 +32,7 @@ slint::slint! {
         ring := FocusRing { x: 100px; y: 0; width: 20px; height: 20px; focused: ring-focused; rest-color: Theme.colors.border; }
         ghost := DragGhost { x: 150px; y: 0; title: "main.rs"; icon: Icons.file; }
         ghost-text := Text { visible: false; text: "main.rs"; font-size: Theme.text-size(TextSize.sm); font-family: Theme.font-family; }
+        hidden := VisuallyHidden { x: 300px; y: 0; text: "3 unread messages"; }
         d := Disclosure { x: 0; y: 0; open: open; }
         pic := Picture { x: 50px; y: 0; width: 40px; height: 40px; has-source: pic-has; loading: pic-loading; source: @image-url("ui/icons/check.svg"); }
         if show-backdrop: Backdrop {
@@ -120,4 +121,14 @@ fn drag_ghost_box() {
     assert_eq!(h.get_ghost_h(), h.get_sm_line() + 8.0);
 }
 
-cases!(primitives2: disclosure_is_still_on_first_paint_and_turns_in_120ms, picture_states, severity_maps_to_palette, backdrop_dismisses_outside_children_only, backdrop_right_edge_stretches_full_height, focus_ring_turns_focus_colored, drag_ghost_box);
+fn visually_hidden_reads_but_draws_nothing() {
+    let h = harness();
+    let found: Vec<_> = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&h, "3 unread messages").collect();
+    assert!(!found.is_empty());
+    for e in found {
+        assert_eq!(e.accessible_role(), Some(i_slint_backend_testing::AccessibleRole::Text));
+        assert_eq!(e.size().width, 0.0);
+    }
+}
+
+cases!(primitives2: disclosure_is_still_on_first_paint_and_turns_in_120ms, picture_states, severity_maps_to_palette, backdrop_dismisses_outside_children_only, backdrop_right_edge_stretches_full_height, focus_ring_turns_focus_colored, drag_ghost_box, visually_hidden_reads_but_draws_nothing);
