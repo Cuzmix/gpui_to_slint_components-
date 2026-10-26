@@ -1,0 +1,165 @@
+// Page 5, Buttons & Actions, after ely-gallery/src/pages/buttons/basics.rs.
+
+import { Button, ButtonVariant } from "../../components/button.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import { Icons } from "../../icons/icons.slint";
+import { ControlSize } from "../../theme/theme.slint";
+import { Section, Row, Specimens, Specimen, Code } from "../kit.slint";
+
+struct VariantRow {
+    variant: ButtonVariant,
+    name: string,
+}
+
+struct SizeRow {
+    size: ControlSize,
+    name: string,
+}
+
+export component ButtonsPage inherits VerticalLayout {
+    // Shortcut hints as the host spelled them (`ely_slint::shortcut_text`).
+    in property <string> save-shortcut: "Ctrl+S";
+    in property <string> find-shortcut: "Ctrl+Shift+F";
+    callback clicked(string);
+
+    private property <[VariantRow]> variants: [
+        { variant: ButtonVariant.primary, name: "Primary" },
+        { variant: ButtonVariant.secondary, name: "Secondary" },
+        { variant: ButtonVariant.outline, name: "Outline" },
+        { variant: ButtonVariant.ghost, name: "Ghost" },
+        { variant: ButtonVariant.subtle, name: "Subtle" },
+        { variant: ButtonVariant.danger, name: "Danger" },
+        { variant: ButtonVariant.link, name: "Link" },
+    ];
+    private property <[SizeRow]> sizes: [
+        { size: ControlSize.sm, name: "Small" },
+        { size: ControlSize.md, name: "Medium" },
+        { size: ControlSize.lg, name: "Large" },
+    ];
+
+    alignment: start;
+
+    Section {
+        title: "Button";
+        note: "Primary is ink. Color is saved for meaning.";
+        Row {
+            for v in root.variants: Button {
+                text: v.name;
+                variant: v.variant;
+                clicked => {
+                    root.clicked(v.name);
+                }
+            }
+        }
+
+        Row {
+            for v in root.variants: Button {
+                text: v.name;
+                variant: v.variant;
+                enabled: false;
+            }
+        }
+    }
+
+    Section {
+        title: "Sizes";
+        note: "Heights follow density. Tab moves the focus ring.";
+        Row {
+            for s in root.sizes: Button {
+                text: s.name;
+                variant: ButtonVariant.primary;
+                size: s.size;
+            }
+        }
+    }
+
+    Section {
+        title: "With icons";
+        note: "Leading icon for verbs. Trailing for menus.";
+        Row {
+            Button {
+                text: "New file";
+                variant: ButtonVariant.primary;
+                icon: Icons.plus;
+            }
+
+            Button {
+                text: "Share";
+                icon: Icons.share-2;
+            }
+
+            Button {
+                text: "Sort";
+                variant: ButtonVariant.ghost;
+                trailing-icon: Icons.chevron-down;
+            }
+
+            Button {
+                text: "Delete";
+                variant: ButtonVariant.danger;
+                icon: Icons.trash-2;
+            }
+        }
+    }
+
+    Section {
+        title: "Icon button";
+        note: "Square. Ghost by default.";
+        Specimens {
+            for s in root.sizes: Specimen {
+                caption: s.name;
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: start;
+                    IconButton {
+                        icon: Icons.bold;
+                        icon-name: "bold";
+                        size: s.size;
+                    }
+
+                    IconButton {
+                        icon: Icons.italic;
+                        icon-name: "italic";
+                        size: s.size;
+                    }
+
+                    IconButton {
+                        icon: Icons.underline;
+                        icon-name: "underline";
+                        size: s.size;
+                        variant: ButtonVariant.subtle;
+                    }
+
+                    IconButton {
+                        icon: Icons.link;
+                        icon-name: "link";
+                        size: s.size;
+                        variant: ButtonVariant.outline;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ShortcutHint";
+        note: "The keystroke rides along, quiet, in the platform's spelling.";
+        Row {
+            Button {
+                text: "Save";
+                shortcut: root.save-shortcut;
+            }
+
+            Button {
+                text: "Find";
+                variant: ButtonVariant.ghost;
+                icon: Icons.search;
+                shortcut: root.find-shortcut;
+            }
+        }
+
+        Code {
+            text: "Button { text: \"Save\"; shortcut: \"Ctrl+S\"; }";
+        }
+    }
+}

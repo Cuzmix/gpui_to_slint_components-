@@ -1,0 +1,108 @@
+// The Ely gallery: one page per chapter, after crates/ely-gallery (stories.json).
+
+import { Theme, Mode, TextSize } from "theme/theme.slint";
+import { ThemeFader } from "theme/fader.slint";
+import { Button, ButtonVariant } from "components/button.slint";
+import { ButtonsPage } from "gallery/pages/buttons.slint";
+import "fonts/Inter-Regular.ttf";
+import "fonts/Inter-Medium.ttf";
+import "fonts/Inter-SemiBold.ttf";
+import "fonts/JetBrainsMono-Regular.ttf";
+
+export struct GalleryPage {
+    number: int,
+    slug: string,
+    title: string,
+    summary: string,
+}
+
+export component Gallery inherits Window {
+    title: "Ely gallery";
+    preferred-width: 1100px;
+    preferred-height: 760px;
+    background: Theme.colors.bg;
+    default-font-family: Theme.font-family;
+
+    in-out property <[GalleryPage]> pages: [
+        {
+            number: 5,
+            slug: "buttons",
+            title: "Buttons & Actions",
+            summary: "Seven variants, three sizes, one focus ring, and the verbs around them."
+        },
+    ];
+    in-out property <int> current: 0;
+    in property <string> save-shortcut: "Ctrl+S";
+    in property <string> find-shortcut: "Ctrl+Shift+F";
+    // Opens in dark mode; for captures.
+    in property <bool> start-dark: false;
+    callback clicked(string);
+
+    changed start-dark => {
+        Theme.set-mode-now(start-dark ? Mode.dark : Mode.light);
+    }
+
+    ThemeFader { }
+
+    HorizontalLayout {
+        Rectangle {
+            width: Theme.sidebar-width(false);
+            background: Theme.colors.sunken;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 4px;
+                alignment: start;
+                Text {
+                    text: "Ely";
+                    font-size: Theme.text-size(TextSize.lg);
+                    font-weight: 600;
+                    color: Theme.colors.fg;
+                }
+
+                for page[i] in root.pages: Button {
+                    text: page.number + ". " + page.title;
+                    variant: i == root.current ? ButtonVariant.subtle : ButtonVariant.ghost;
+                    full-width: true;
+                    clicked => {
+                        root.current = i;
+                    }
+                }
+                Button {
+                    text: Theme.is-dark ? "Light mode" : "Dark mode";
+                    variant: ButtonVariant.outline;
+                    clicked => {
+                        Theme.mode = Theme.is-dark ? Mode.light : Mode.dark;
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            VerticalLayout {
+                padding: 32px;
+                padding-top: 24px;
+                alignment: start;
+                Text {
+                    text: root.pages[root.current].title;
+                    font-size: Theme.text-size(TextSize.xl);
+                    font-weight: 600;
+                    color: Theme.colors.fg;
+                }
+
+                Text {
+                    text: root.pages[root.current].summary;
+                    font-size: Theme.text-size(TextSize.base);
+                    color: Theme.colors.fg-muted;
+                }
+
+                if root.pages[root.current].slug == "buttons": ButtonsPage {
+                    save-shortcut: root.save-shortcut;
+                    find-shortcut: root.find-shortcut;
+                    clicked(name) => {
+                        root.clicked(name);
+                    }
+                }
+            }
+        }
+    }
+}

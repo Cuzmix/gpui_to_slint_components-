@@ -1,0 +1,64 @@
+// Gallery scaffolding, after ely-gallery/src/ui.rs: section, row, specimen, code.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+
+// Titled block of demos.
+export component Section inherits VerticalLayout {
+    in property <string> title;
+    in property <string> note;
+    spacing: 16px;
+    padding-top: 40px;
+    VerticalLayout {
+        spacing: 4px;
+        Text {
+            text: root.title;
+            font-size: Theme.text-size(TextSize.md);
+            font-weight: 600;
+            font-family: Theme.font-family;
+            color: Theme.colors.fg;
+        }
+
+        Text {
+            text: root.note;
+            font-size: Theme.text-size(TextSize.sm);
+            font-family: Theme.font-family;
+            color: Theme.colors.fg-muted;
+            wrap: word-wrap;
+        }
+    }
+
+    @children
+}
+
+// A wrapping row, 12 px apart, centered on the cross axis.
+export component Row inherits FlexboxLayout {
+    spacing: 12px;
+    cross-axis-alignment: center;
+}
+
+// Row whose captions share one line.
+export component Specimens inherits FlexboxLayout {
+    spacing: 24px;
+    cross-axis-alignment: end;
+}
+
+// Demo with a caption beneath.
+export component Specimen inherits VerticalLayout {
+    in property <string> caption;
+    spacing: 8px;
+    alignment: end;
+    @children
+    Text {
+        text: root.caption;
+        font-size: Theme.text-size(TextSize.xs);
+        font-family: Theme.font-family;
+        color: Theme.colors.fg-subtle;
+    }
+}
+
+// Monospace hint naming the call.
+export component Code inherits Text {
+    font-family: Theme.mono-family;
+    font-size: Theme.text-size(TextSize.xs);
+    color: Theme.colors.fg-muted;
+}
