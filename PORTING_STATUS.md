@@ -26,6 +26,10 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | VisuallyHidden | tasks/ch01-10.md (GPUI shipped none) | ✓ | n/a | n/a | n/a | n/a | ✓ draws nothing | ✓ text role and label | ✓ `tests/primitives2.rs` | | ✓ |
 | KeyStrokes (gpui `Keystroke::unparse`) | gpui platform/keystroke.rs | ✓ | n/a | ✓ | n/a | n/a | n/a | n/a | ✓ `tests/keystroke.rs` | | ✓ |
 | Title, Subtitle, Paragraph, Label, Caption, Overline, Heading (TypeText) | typography/text.rs | ✓ | n/a | n/a | n/a | n/a | ✓ sizes, weights, inks, pixel-snapped leading | ✓ text role | ✓ `tests/typography.rs` | G20 | ✓ |
+| Code | typography/inline.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/inline.rs` | G20 | ✓ |
+| Blockquote | typography/inline.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/inline.rs` | G21 | ✓ |
+| KeyCap, Kbd, KbdCombo | typography/inline.rs, keys.rs | ✓ | n/a | n/a | n/a | n/a | ✓ per platform | ✓ each cap reads its label | ✓ `tests/inline.rs` | G20 | ✓ |
+| Highlight | typography/inline.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ reads the whole text | ✓ `tests/inline.rs` | G22 | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

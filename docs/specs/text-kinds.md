@@ -23,3 +23,5 @@ Slint: every kind `inherits TypeText`, which inherits `Text`, so all Text proper
 `tabular` and `literal` (font features) are not portable: gap G20.
 
 Text that sets no leading takes gpui's default, phi (1.618034). `TypeText` defaults to it, so every content-sized text in this port (Divider label, DragGhost, Tooltip, Code, Kbd) uses `TypeText`, and boxes around text come out as tall as gpui's. A fixed-height control (Button) centers its label, so its line height shows nowhere.
+
+A text that sets no size or ink takes what the window root hands down. Every Ely window sets `fg` and the Inter face; the story app also sets size `base` (13 px), while `ely-core`'s own windows leave gpui's 16 px default. `TypeText` takes the story app's `base`, so a text placed outside a kind (the `+` in KbdCombo) matches the gallery the source is checked against.

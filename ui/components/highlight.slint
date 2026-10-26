@@ -1,0 +1,34 @@
+// Port of ely-core/src/typography/inline.rs (`Highlight`).
+// Text with marked ranges, as for search matches: each mark on a warning-subtle fill in fg ink.
+//
+// Finding matches needs the host: `TextFormat.highlight-runs` (Highlight::matching). For marks
+// at given ranges (Highlight::new), set `runs` from `ely_slint::text::highlight_runs`. With no
+// runs, the text shows unmarked. Runs sit in one row and do not wrap (gap G22).
+
+import { Theme } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat } from "text-format.slint";
+
+export component Highlight inherits HorizontalLayout {
+    in property <string> text;
+    // Every case-insensitive occurrence is marked; empty marks nothing.
+    in property <string> query;
+    // Plain and marked runs in turn, starting plain.
+    in property <[string]> runs: TextFormat.highlight-runs(root.text, root.query);
+
+    alignment: start;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    for run[ix] in root.runs.length > 0 ? root.runs : [root.text]: Rectangle {
+        background: Math.mod(ix, 2) == 1 ? Theme.colors.warning-subtle : transparent;
+        accessible-role: none;
+        HorizontalLayout {
+            TypeText {
+                text: run;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+        }
+    }
+}
