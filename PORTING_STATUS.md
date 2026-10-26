@@ -12,5 +12,18 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | TooltipController / TooltipSurface | primitives/tooltip.rs (`Tooltip`) | ✓ | n/a | n/a | ✓ 500 ms, hide on leave/press/scroll | ✓ 120 ms ease-out rise | ✓ | n/a | ✓ `tests/icon_button.rs` | G6 G7 | ✓ |
 | Button | buttons/button.rs | ✓ | ✓ | ✓ Enter/Space rules | ✓ | n/a (GPUI states are instant) | ✓ | ✓ | ✓ `tests/button.rs` | G8 G9 G11 | ✓ |
 | IconButton, CloseButton, BackButton, MoreButton | buttons/icon_button.rs | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ `tests/icon_button.rs` | G10 G11 | ✓ |
+| Divider, VerticalDivider | primitives/divider.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/divider_pressable.rs` | | ✓ |
+| Pressable | primitives/pressable.rs | ✓ | ✓ | n/a | ✓ 500 ms long press, release outside | n/a | n/a | ✓ (no node) | ✓ `tests/divider_pressable.rs` | | ✓ |
+| Severity, Severities | primitives/severity.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/primitives2.rs` | | ✓ |
+| Disclosure | primitives/disclosure.rs | ✓ | n/a | n/a | n/a | ✓ 120 ms ease-out, still on first paint | ✓ | ✓ (no node) | ✓ `tests/primitives2.rs` | G14 | ✓ |
+| DragGhost | primitives/ghost.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/primitives2.rs` | G3 | ✓ |
+| Picture (GPUI `Image`) | primitives/image.rs | ✓ | n/a | n/a | n/a | ✓ 1600 ms pulse, reduced motion | ✓ | ✓ (no node) | ✓ `tests/primitives2.rs` | G13 | ✓ |
+| Backdrop, Place | primitives/backdrop.rs | ✓ | ✓ | n/a | ✓ dismiss outside children | ✓ 200 ms fade | ✓ | n/a | ✓ `tests/primitives2.rs` | G12 | ✓ |
+| FocusRing | primitives/focus.rs | ✓ | n/a | ✓ | n/a | n/a | ✓ | n/a | ✓ `tests/primitives2.rs` | | ✓ |
+| FocusTrap (FocusScope `.trap()`) | primitives/focus.rs | ✓ | n/a | ✓ wrap both ways, enter, pass over empty | n/a | n/a | n/a | ✓ (owner sets role/label) | ✓ `tests/focus_trap.rs` | G18 G19 | ✓ |
+| Measure, IntersectionObserver | primitives/measure.rs | ✓ | ✓ | n/a | n/a | n/a | n/a | n/a | ✓ `tests/measure.rs` | G16 G17 | ✓ |
+| HelpTooltip, TooltipTrigger | primitives/tooltip.rs | ✓ | n/a | n/a | ✓ 500 / 400 ms, hide on leave and press | ✓ (TooltipController) | ✓ | n/a | ✓ `tests/tooltip.rs` | G7 G15 | ✓ |
+
+Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
 Not started: everything else in `INVENTORY.md`, in its port order.

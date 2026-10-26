@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: No std-widgets (on the clean checkout, before anything is built)
+      - name: No Slint widget library (on the clean checkout, before anything is built)
         run: |
           if grep -r "std""-widgets" .; then exit 1; fi
       - uses: dtolnay/rust-toolchain@stable
