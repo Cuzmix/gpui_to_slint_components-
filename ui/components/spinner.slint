@@ -1,0 +1,171 @@
+// Port of ely-core/src/motion/spinner.rs (`Spinner`, `SpinnerStyle`).
+// A small busy mark, one of six motions. Under reduced motion it rests on one frame.
+
+import { Theme, IconSize } from "../theme/theme.slint";
+
+// How a spinner moves.
+export enum SpinnerStyle {
+    // An arc that runs around a faint ring.
+    ring,
+    // Three dots that brighten in turn.
+    dots,
+    // Four bars that rise in turn.
+    bars,
+    // A dot that sends out a fading ring.
+    pulse,
+    // A dot that circles a faint ring.
+    orbit,
+    // Three dots that bob in a wave.
+    wave,
+}
+
+component Dot inherits Rectangle {
+    in property <length> center-x;
+    in property <length> center-y;
+    in property <length> radius;
+    in property <color> fill;
+    x: center-x - radius;
+    y: center-y - radius;
+    width: radius * 2;
+    height: radius * 2;
+    border-radius: radius;
+    background: fill;
+}
+
+component Circle inherits Rectangle {
+    in property <length> center-x;
+    in property <length> center-y;
+    // Radius of the stroke's middle line.
+    in property <length> radius;
+    in property <length> stroke;
+    in property <color> ring;
+    x: center-x - radius - stroke / 2;
+    y: center-y - radius - stroke / 2;
+    width: (radius + stroke / 2) * 2;
+    height: (radius + stroke / 2) * 2;
+    border-radius: self.width / 2;
+    border-width: stroke;
+    border-color: ring;
+}
+
+export component Spinner {
+    // How it moves.
+    in property <SpinnerStyle> kind: SpinnerStyle.ring;
+    // Its size.
+    in property <IconSize> size: IconSize.md;
+    // Defaults to muted text.
+    in property <color> color: Theme.colors.fg-muted;
+
+    width: Theme.icon-size(size);
+    height: Theme.icon-size(size);
+    accessible-role: progress-indicator;
+
+    private property <duration> period: kind == SpinnerStyle.ring ? 900ms : kind == SpinnerStyle.bars ? 1000ms : kind == SpinnerStyle.pulse ? 1400ms : kind == SpinnerStyle.orbit ? 1100ms : 1200ms;
+    // Where in its cycle it is, 0..1; a still spinner rests at 0.3.
+    out property <float> phase: t;
+    private property <float> t: Theme.reduced-motion ? 0.3 : Math.mod(animation-tick() / period, 1.0);
+    private property <length> side: Math.min(self.width, self.height);
+    private property <length> cx: self.width / 2;
+    private property <length> cy: self.height / 2;
+    private property <length> stroke: side / 8;
+    private property <color> faint: Theme.opacity(color, 0.2);
+
+    // A 0..1 bump that peaks once per cycle, `lag` cycles late.
+    pure function bump(at: float, lag: float) -> float {
+        0.5 - 0.5 * Math.cos(360deg * (at - lag))
+    }
+
+    if kind == SpinnerStyle.ring: ring-box := Rectangle {
+        private property <length> radius: side / 2 - stroke;
+        private property <angle> from: -90deg + 360deg * t;
+        private property <angle> sweep: 360deg * (0.2 + 0.3 * bump(t, 0));
+        Circle {
+            center-x: cx;
+            center-y: cy;
+            radius: ring-box.radius;
+            stroke: stroke;
+            ring: faint;
+        }
+
+        Path {
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+            viewbox-width: root.width / 1px;
+            viewbox-height: root.height / 1px;
+            stroke: root.color;
+            stroke-width: stroke;
+            fill: transparent;
+            MoveTo {
+                x: (cx + ring-box.radius * Math.cos(ring-box.from)) / 1px;
+                y: (cy + ring-box.radius * Math.sin(ring-box.from)) / 1px;
+            }
+
+            ArcTo {
+                x: (cx + ring-box.radius * Math.cos(ring-box.from + ring-box.sweep)) / 1px;
+                y: (cy + ring-box.radius * Math.sin(ring-box.from + ring-box.sweep)) / 1px;
+                radius-x: ring-box.radius / 1px;
+                radius-y: ring-box.radius / 1px;
+                sweep: true;
+                large-arc: false;
+            }
+        }
+    }
+    if kind == SpinnerStyle.dots || kind == SpinnerStyle.wave: Rectangle {
+        private property <length> radius: side / 9;
+        for ix in 3: Dot {
+            center-x: cx + (ix - 1) * parent.radius * 3.2;
+            center-y: kind == SpinnerStyle.dots ? cy : cy + side * 0.11 - side * 0.22 * bump(t, ix * 0.18);
+            radius: parent.radius;
+            fill: kind == SpinnerStyle.dots ? Theme.opacity(root.color, 0.3 + 0.7 * bump(t, ix * 0.18)) : root.color;
+        }
+    }
+    if kind == SpinnerStyle.bars: Rectangle {
+        private property <length> bar: side / 8;
+        for ix in 4: Rectangle {
+            private property <length> tall: side * (0.3 + 0.55 * bump(t, ix * 0.14));
+            x: cx + (ix - 1.5) * parent.bar * 2 - parent.bar / 2;
+            y: cy - self.tall / 2;
+            width: parent.bar;
+            height: self.tall;
+            border-radius: parent.bar / 2;
+            background: root.color;
+        }
+    }
+    if kind == SpinnerStyle.pulse: Rectangle {
+        private property <length> core: side / 6;
+        Circle {
+            center-x: cx;
+            center-y: cy;
+            radius: parent.core + (side / 2 - parent.core) * t;
+            stroke: stroke * 0.75;
+            ring: Theme.opacity(root.color, 1 - t);
+        }
+
+        Dot {
+            center-x: cx;
+            center-y: cy;
+            radius: parent.core;
+            fill: root.color;
+        }
+    }
+    if kind == SpinnerStyle.orbit: Rectangle {
+        private property <length> radius: side / 2 - stroke;
+        private property <angle> at: -90deg + 360deg * t;
+        Circle {
+            center-x: cx;
+            center-y: cy;
+            radius: parent.radius;
+            stroke: stroke * 0.75;
+            ring: faint;
+        }
+
+        Dot {
+            center-x: cx + parent.radius * Math.cos(parent.at);
+            center-y: cy + parent.radius * Math.sin(parent.at);
+            radius: stroke * 1.1;
+            fill: root.color;
+        }
+    }
+}
