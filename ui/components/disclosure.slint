@@ -1,0 +1,34 @@
+// Port of ely-core/src/primitives/disclosure.rs (`Disclosure`).
+// A chevron that points right when shut and down when open, turning on each change
+// over 120 ms with ease-out-cubic, and still on first paint.
+
+import { Theme, IconSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { Icon } from "icon.slint";
+
+export component Disclosure {
+    in property <bool> open: false;
+    // Its icon size.
+    in property <IconSize> size: IconSize.xs;
+    // The subtle foreground unless set.
+    in property <color> color: Theme.colors.fg-subtle;
+
+    // The chevron's turn now, 0° shut to 90° open.
+    out property <angle> turn: icon.rotation;
+
+    width: icon.width;
+    height: icon.height;
+    accessible-role: none;
+
+    icon := Icon {
+        source: Icons.chevron-right;
+        size: root.size;
+        color: root.color;
+        rotation: root.open ? 90deg : 0deg;
+        // cubic-bezier(1/3, 1, 2/3, 1) is ease-out-cubic exactly.
+        animate rotation {
+            duration: Theme.motion-fast;
+            easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+        }
+    }
+}
