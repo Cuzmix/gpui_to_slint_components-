@@ -1,0 +1,34 @@
+// gpui's `Keystroke::unparse`, for a Slint KeyEvent: "ctrl-shift-a", "cmd-s", "escape".
+// Modifiers go fn, ctrl, alt, platform (cmd / win / super), shift, then the key, joined by "-".
+
+import { Theme, PlatformStyle } from "../theme/theme.slint";
+
+export global KeyStrokes {
+    // gpui's name for the key alone: "a", "enter", "left", "f5"; empty for a modifier on its own.
+    public pure function key-name(text: string) -> string {
+        text == Key.Return ? "enter" : text == Key.Escape ? "escape" : text == Key.Tab || text == Key.Backtab ? "tab" : text == Key.Backspace ? "backspace" : text == Key.Delete ? "delete" : text == Key.Space ? "space" : text == Key.LeftArrow ? "left" : text == Key.RightArrow ? "right" : text == Key.UpArrow ? "up" : text == Key.DownArrow ? "down" : text == Key.Home ? "home" : text == Key.End ? "end" : text == Key.PageUp ? "pageup" : text == Key.PageDown ? "pagedown" : text == Key.Insert ? "insert" : text == Key.Menu ? "menu" : text == Key.F1 ? "f1" : text == Key.F2 ? "f2" : text == Key.F3 ? "f3" : text == Key.F4 ? "f4" : text == Key.F5 ? "f5" : text == Key.F6 ? "f6" : text == Key.F7 ? "f7" : text == Key.F8 ? "f8" : text == Key.F9 ? "f9" : text == Key.F10 ? "f10" : text == Key.F11 ? "f11" : text == Key.F12 ? "f12" : is-modifier(text) ? "" : text.to-lowercase()
+    }
+
+    // Whether the key is a modifier pressed on its own; gpui reports those as modifier changes, not keys.
+    public pure function is-modifier(text: string) -> bool {
+        text == Key.Shift || text == Key.ShiftR || text == Key.Control || text == Key.ControlR || text == Key.Alt || text == Key.AltGr || text == Key.Meta || text == Key.MetaR || text == Key.CapsLock
+    }
+
+    // The whole keystroke in gpui key syntax. Slint reports Command as `control` on macOS and
+    // Control as `meta`, so they swap there. Backtab is Shift-Tab.
+    public pure function unparse(event: KeyEvent) -> string {
+        (control(event) ? "ctrl-" : "") + (event.modifiers.alt ? "alt-" : "") + (platform-key(event) ? platform-prefix() : "") + (event.modifiers.shift || event.text == Key.Backtab ? "shift-" : "") + key-name(event.text)
+    }
+
+    pure function control(event: KeyEvent) -> bool {
+        Theme.platform == PlatformStyle.mac ? event.modifiers.meta : event.modifiers.control
+    }
+
+    pure function platform-key(event: KeyEvent) -> bool {
+        Theme.platform == PlatformStyle.mac ? event.modifiers.control : event.modifiers.meta
+    }
+
+    pure function platform-prefix() -> string {
+        Theme.platform == PlatformStyle.mac ? "cmd-" : Theme.platform == PlatformStyle.windows ? "win-" : "super-"
+    }
+}
