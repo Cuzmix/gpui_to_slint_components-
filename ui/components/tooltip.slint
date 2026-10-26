@@ -14,8 +14,16 @@
 //     }
 // Place the controller at the host's origin (it has no size).
 
-import { Theme, Elevation, Radius, TextSize } from "../theme/theme.slint";
+import {
+    Theme,
+    Elevation,
+    Radius,
+    TextSize,
+    IconSize,
+} from "../theme/theme.slint";
 import { Elevated } from "elevated.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
 
 // The body every tooltip draws: title, and an optional quiet trailing hint.
 export component TooltipSurface inherits Elevated {
@@ -66,6 +74,8 @@ export component TooltipController {
     in property <duration> delay: 500ms;
     // Moves the tip with the pointer.
     in property <bool> follow-mouse: false;
+    // gpui's own tooltips sit 1 px off the pointer; TooltipTrigger's sit on it.
+    in property <length> nudge: 1px;
     // Whether the tip is on screen.
     out property <bool> shown: false;
 
@@ -96,6 +106,25 @@ export component TooltipController {
         }
     }
 
+    // Starts the delay at once, as `TooltipTrigger` does when the pointer enters.
+    public function arm(x: length, y: length) {
+        mouse-x = x;
+        mouse-y = y;
+        if !shown && text != "" {
+            pending = true;
+        }
+    }
+
+    // Tracks the pointer; a following tip moves with it.
+    public function track(x: length, y: length) {
+        mouse-x = x;
+        mouse-y = y;
+        if shown && follow-mouse {
+            at-x = x;
+            at-y = y;
+        }
+    }
+
     // Hides the tip and cancels a pending show: pointer left, pressed or scrolled.
     public function dismiss() {
         pending = false;
@@ -118,8 +147,8 @@ export component TooltipController {
     }
 
     popup := PopupWindow {
-        x: root.at-x + 1px;
-        y: root.at-y + 1px;
+        x: root.at-x + root.nudge;
+        y: root.at-y + root.nudge;
         close-policy: PopupClosePolicy.no-auto-close;
 
         property <float> entered: 0;
@@ -139,6 +168,91 @@ export component TooltipController {
                 meta: root.meta;
                 progress: popup.entered;
             }
+        }
+    }
+}
+
+// A help mark, ?, whose tip shows on hover (`HelpTooltip`).
+export component HelpTooltip {
+    // What the tip reads.
+    in property <string> text;
+    // Whether the tip is on screen.
+    out property <bool> shown: tip.shown;
+
+    width: mark.width;
+    height: mark.height;
+    accessible-role: none;
+
+    mark := Icon {
+        source: Icons.circle-help;
+        size: IconSize.xs;
+        color: Theme.colors.fg-subtle;
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.text;
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+}
+
+// A tooltip with its own delay, and optional cursor tracking (`TooltipTrigger`).
+// Wraps its children; the delay starts when the pointer enters, and a press hides the tip.
+export component TooltipTrigger inherits VerticalLayout {
+    in property <string> text;
+    in property <string> meta;
+    // How long the pointer rests before the tip shows.
+    in property <duration> delay: 400ms;
+    // Moves the tip with the pointer.
+    in property <bool> follow-mouse: false;
+    out property <bool> shown: tip.shown;
+
+    area := TouchArea {
+        tip := TooltipController {
+            x: 0;
+            y: 0;
+            text: root.text;
+            meta: root.meta;
+            delay: root.delay;
+            follow-mouse: root.follow-mouse;
+            nudge: 0;
+        }
+
+        changed has-hover => {
+            if self.has-hover {
+                tip.arm(self.mouse-x, self.mouse-y);
+            } else {
+                tip.dismiss();
+            }
+        }
+        changed mouse-x => {
+            tip.track(self.mouse-x, self.mouse-y);
+        }
+        changed mouse-y => {
+            tip.track(self.mouse-x, self.mouse-y);
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                tip.dismiss();
+            }
+        }
+        VerticalLayout {
+            @children
         }
     }
 }

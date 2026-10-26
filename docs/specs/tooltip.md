@@ -7,5 +7,5 @@ Source: `ely-core/src/primitives/tooltip.rs`; show rules from gpui `elements/div
 - Placement: view origin at pointer + (1, 1) px; body 18 px (cursor offset) below that. Flips left/up when it would leave the window.
 - Show: 500 ms (gpui default) after the first pointer move over the host; position fixed at show time.
 - Hide: pointer leaves, any mouse down not on the tooltip, scroll. Touch long press shows it (gpui).
-- TooltipTrigger: own delay (default 400 ms), optional follow-mouse; hides on any mouse down.
+- TooltipTrigger: own delay (default 400 ms), counted from the pointer entering; position read when it shows; no 1 px nudge; optional follow-mouse; hides on leaving and on any mouse down, including presses its children handle.
 - HelpTooltip: `circle-help` icon xs in `fg_subtle` with a text tooltip.
