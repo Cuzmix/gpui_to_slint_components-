@@ -4,6 +4,11 @@ import { Theme, Mode, TextSize } from "theme/theme.slint";
 import { ThemeFader } from "theme/fader.slint";
 import { Button, ButtonVariant } from "components/button.slint";
 import { ButtonsPage } from "gallery/pages/buttons.slint";
+import { PrimitivesPage } from "gallery/pages/primitives.slint";
+import { Backdrop } from "components/backdrop.slint";
+import { Elevated } from "components/elevated.slint";
+import { Elevation, Radius } from "theme/theme.slint";
+export { FocusSteps } from "components/focus-trap.slint";
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-Medium.ttf";
 import "fonts/Inter-SemiBold.ttf";
@@ -25,6 +30,12 @@ export component Gallery inherits Window {
 
     in-out property <[GalleryPage]> pages: [
         {
+            number: 1,
+            slug: "primitives",
+            title: "Primitives",
+            summary: "The smallest parts. Most are gpui itself; Ely adds the rest."
+        },
+        {
             number: 5,
             slug: "buttons",
             title: "Buttons & Actions",
@@ -32,6 +43,7 @@ export component Gallery inherits Window {
         },
     ];
     in-out property <int> current: 0;
+    in-out property <bool> backdrop-open: false;
     in property <string> save-shortcut: "Ctrl+S";
     in property <string> find-shortcut: "Ctrl+Shift+F";
     // Opens in dark mode; for captures.
@@ -95,11 +107,44 @@ export component Gallery inherits Window {
                     color: Theme.colors.fg-muted;
                 }
 
+                if root.pages[root.current].slug == "primitives": PrimitivesPage {
+                    backdrop-open <=> root.backdrop-open;
+                }
                 if root.pages[root.current].slug == "buttons": ButtonsPage {
                     save-shortcut: root.save-shortcut;
                     find-shortcut: root.find-shortcut;
                     clicked(name) => {
                         root.clicked(name);
+                    }
+                }
+            }
+        }
+    }
+
+    if root.backdrop-open: Backdrop {
+        dismiss => {
+            root.backdrop-open = false;
+        }
+        Elevated {
+            width: 320px;
+            elevation: Elevation.modal;
+            background: Theme.colors.overlay;
+            border-radius: Theme.radius(Radius.lg);
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+                Text {
+                    text: "Click outside to close.";
+                    color: Theme.colors.fg-muted;
+                }
+
+                HorizontalLayout {
+                    alignment: end;
+                    Button {
+                        text: "Close";
+                        clicked => {
+                            root.backdrop-open = false;
+                        }
                     }
                 }
             }

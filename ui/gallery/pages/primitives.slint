@@ -1,0 +1,382 @@
+// Page 1, Primitives, after ely-gallery/src/pages/primitives/parts.rs.
+
+import { Theme, IconSize, Radius, TextSize } from "../../theme/theme.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Icon } from "../../components/icon.slint";
+import { Picture } from "../../components/picture.slint";
+import { Divider, VerticalDivider } from "../../components/divider.slint";
+import { Backdrop } from "../../components/backdrop.slint";
+import { Button } from "../../components/button.slint";
+import { FocusRing } from "../../components/focus-ring.slint";
+import { FocusTrap } from "../../components/focus-trap.slint";
+import { Pressable } from "../../components/pressable.slint";
+import { Measure } from "../../components/measure.slint";
+import { TooltipTrigger, HelpTooltip } from "../../components/tooltip.slint";
+import { Disclosure } from "../../components/disclosure.slint";
+import { Spinner, SpinnerStyle } from "../../components/spinner.slint";
+import { Section, Row, Specimens, Specimen, Code } from "../kit.slint";
+
+struct SizeName {
+    size: IconSize,
+    name: string,
+}
+
+struct ToneName {
+    tone: color,
+    name: string,
+}
+
+component Chip inherits FocusScope {
+    in property <string> text;
+    focus-on-click: false;
+    accessible-role: button;
+    accessible-label: text;
+    FocusRing {
+        focused: root.has-focus;
+        rest-color: Theme.colors.border;
+        border-radius: Theme.radius(Radius.md);
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 6px;
+            padding-bottom: 6px;
+            Text {
+                text: root.text;
+                color: Theme.colors.fg;
+                font-size: Theme.text-size(TextSize.base);
+            }
+        }
+    }
+}
+
+export component PrimitivesPage inherits VerticalLayout {
+    // Where the backdrop lives: the gallery window's root.
+    in-out property <bool> backdrop-open: false;
+    private property <int> taps;
+    private property <int> holds;
+    private property <length> measured-w;
+    private property <length> measured-h;
+    private property <bool> wide;
+    private property <bool> open;
+    private property <[SizeName]> sizes: [
+        { size: IconSize.xs, name: "xs" },
+        { size: IconSize.sm, name: "sm" },
+        { size: IconSize.md, name: "md" },
+        { size: IconSize.lg, name: "lg" },
+        { size: IconSize.xl, name: "xl" },
+        { size: IconSize.xxl, name: "xxl" },
+    ];
+    private property <[ToneName]> tones: [
+        { tone: Theme.colors.fg, name: "fg" },
+        { tone: Theme.colors.fg-muted, name: "muted" },
+        { tone: Theme.colors.focus, name: "focus" },
+        { tone: Theme.colors.success, name: "success" },
+        { tone: Theme.colors.warning, name: "warning" },
+        { tone: Theme.colors.danger, name: "danger" },
+    ];
+
+    alignment: start;
+
+    Section {
+        title: "Icon";
+        note: "Bundled Lucide or an application's SVG asset, drawn as a themed mask.";
+        Specimens {
+            for s in root.sizes: Specimen {
+                caption: s.name;
+                Icon {
+                    source: Icons.sparkles;
+                    size: s.size;
+                }
+            }
+        }
+
+        Specimens {
+            for t in root.tones: Specimen {
+                caption: t.name;
+                Icon {
+                    source: Icons.circle-check;
+                    color: t.tone;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Image";
+        note: "Loading pulses. Failure and emptiness show a quiet mark.";
+        Specimens {
+            Specimen {
+                caption: "loading";
+                Picture {
+                    width: 198px;
+                    height: 132px;
+                    border-radius: Theme.radius(Radius.lg);
+                    loading: true;
+                }
+            }
+
+            Specimen {
+                caption: "empty";
+                Picture {
+                    width: 198px;
+                    height: 132px;
+                    border-radius: Theme.radius(Radius.lg);
+                    has-source: false;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Divider / Separator";
+        note: "One hairline. Across, down, or holding a word.";
+        VerticalLayout {
+            spacing: 16px;
+            Divider { }
+
+            Divider {
+                text: "or";
+            }
+
+            HorizontalLayout {
+                height: 24px;
+                spacing: 12px;
+                alignment: start;
+                Text {
+                    text: "Left";
+                    color: Theme.colors.fg;
+                }
+
+                VerticalDivider { }
+
+                Text {
+                    text: "Right";
+                    color: Theme.colors.fg;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Overlay / Backdrop";
+        note: "A scrim that fades in, blocks the page, and hears outside clicks.";
+        Row {
+            Button {
+                text: "Show backdrop";
+                clicked => {
+                    root.backdrop-open = true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "FocusRing";
+        note: "Any focusable element. Press Tab to walk these.";
+        Row {
+            Chip {
+                text: "First";
+            }
+
+            Chip {
+                text: "Second";
+            }
+
+            Chip {
+                text: "Third";
+            }
+
+            Code {
+                text: "FocusRing { focused: scope.has-focus; }";
+            }
+        }
+    }
+
+    Section {
+        title: "FocusScope / FocusTrap";
+        note: "Tab into the box. Tab then circles inside it.";
+        FocusTrap {
+            Rectangle {
+                border-radius: Theme.radius(Radius.lg);
+                border-width: 1px;
+                border-color: Theme.colors.border-strong;
+                Row {
+                    padding: 12px;
+                    Chip {
+                        text: "One";
+                    }
+
+                    Chip {
+                        text: "Two";
+                    }
+
+                    Chip {
+                        text: "Three";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Pressable";
+        note: "Knows when it is held. Hold half a second for a long press.";
+        Row {
+            press := Pressable {
+                width: 160px;
+                height: 64px;
+                long-press-enabled: true;
+                press => {
+                    root.taps += 1;
+                }
+                long-press => {
+                    root.holds += 1;
+                }
+                Rectangle {
+                    border-radius: Theme.radius(Radius.lg);
+                    background: press.pressed ? Theme.colors.active : Theme.colors.sunken;
+                    border-width: 1px;
+                    border-color: Theme.colors.border;
+                    Text {
+                        text: press.pressed ? "Holding" : "Press";
+                        color: Theme.colors.fg;
+                    }
+                }
+            }
+
+            Code {
+                text: "taps " + root.taps + " · holds " + root.holds;
+            }
+        }
+    }
+
+    Section {
+        title: "Measure";
+        note: "Reports bounds when they change. This is also the ResizeObserver.";
+        Row {
+            Measure {
+                width: root.wide ? 240px : 160px;
+                height: 48px;
+                measured(x, y, w, h) => {
+                    root.measured-w = w;
+                    root.measured-h = h;
+                }
+                Rectangle {
+                    border-radius: Theme.radius(Radius.md);
+                    background: Theme.colors.sunken;
+                    border-width: 1px;
+                    border-color: Theme.colors.border;
+                }
+            }
+
+            Button {
+                text: root.wide ? "Narrow" : "Widen";
+                clicked => {
+                    root.wide = !root.wide;
+                }
+            }
+
+            Code {
+                text: Math.round(root.measured-w / 1px) + " × " + Math.round(root.measured-h / 1px);
+            }
+        }
+    }
+
+    Section {
+        title: "Tooltip Trigger";
+        note: "gpui's trigger with Ely's body, or Ely's own trigger for delay and tracking.";
+        Row {
+            TooltipTrigger {
+                text: "42 visits";
+                delay: 200ms;
+                follow-mouse: true;
+                Rectangle {
+                    width: 160px;
+                    height: 48px;
+                    border-radius: Theme.radius(Radius.md);
+                    background: Theme.colors.sunken;
+                    Text {
+                        text: "Hover me";
+                        color: Theme.colors.fg-muted;
+                    }
+                }
+            }
+
+            HelpTooltip {
+                text: "Requests per minute, averaged over five minutes.";
+            }
+        }
+    }
+
+    Section {
+        title: "Disclosure";
+        note: "A chevron that turns on each change.";
+        Row {
+            Disclosure {
+                open: root.open;
+                size: IconSize.md;
+            }
+
+            Button {
+                text: root.open ? "Close" : "Open";
+                clicked => {
+                    root.open = !root.open;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Spinner";
+        note: "Six motions. Held still under reduced motion.";
+        Specimens {
+            Specimen {
+                caption: "ring";
+                Spinner {
+                    kind: SpinnerStyle.ring;
+                    size: IconSize.xl;
+                }
+            }
+
+            Specimen {
+                caption: "dots";
+                Spinner {
+                    kind: SpinnerStyle.dots;
+                    size: IconSize.xl;
+                }
+            }
+
+            Specimen {
+                caption: "bars";
+                Spinner {
+                    kind: SpinnerStyle.bars;
+                    size: IconSize.xl;
+                }
+            }
+
+            Specimen {
+                caption: "pulse";
+                Spinner {
+                    kind: SpinnerStyle.pulse;
+                    size: IconSize.xl;
+                }
+            }
+
+            Specimen {
+                caption: "orbit";
+                Spinner {
+                    kind: SpinnerStyle.orbit;
+                    size: IconSize.xl;
+                }
+            }
+
+            Specimen {
+                caption: "wave";
+                Spinner {
+                    kind: SpinnerStyle.wave;
+                    size: IconSize.xl;
+                }
+            }
+        }
+    }
+}

@@ -9,5 +9,11 @@ fn main() -> Result<(), slint::PlatformError> {
     gallery.set_save_shortcut(spell("cmd-s").into());
     gallery.set_find_shortcut(spell("cmd-shift-f").into());
     gallery.on_clicked(|name| eprintln!("gallery: {name} clicked"));
+    let weak = gallery.as_weak();
+    gallery.global::<FocusSteps>().on_step(move |forward| {
+        if let Some(gallery) = weak.upgrade() {
+            ely_slint::focus::step(gallery.window(), forward);
+        }
+    });
     gallery.run()
 }
