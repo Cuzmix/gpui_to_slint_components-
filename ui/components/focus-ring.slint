@@ -1,0 +1,13 @@
+// Port of ely-core/src/primitives/focus.rs (`FocusRing`).
+// A 1 px border that turns focus-colored while focused; give it the resting border color.
+// GPUI paints shadows under the element, so Ely's ring is a border, never a shadow.
+
+import { Theme } from "../theme/theme.slint";
+
+export component FocusRing inherits Rectangle {
+    in property <bool> focused;
+    // The border at rest; transparent unless set.
+    in property <color> rest-color: transparent;
+    border-width: 1px;
+    border-color: focused ? Theme.colors.focus : rest-color;
+}
