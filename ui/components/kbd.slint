@@ -1,0 +1,90 @@
+// Port of ely-core/src/typography/inline.rs (`Kbd`, `KbdCombo`).
+// Key caps for a keystroke or a chord sequence, labeled for `Theme.platform`.
+//
+// Reading gpui key syntax needs the host: `TextFormat.key-labels` and `key-chords`. Unwired,
+// each keystroke shows its source text on a single cap.
+
+import { Theme, TextSize, Radius, PlatformStyle } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat } from "text-format.slint";
+
+// One cap: a 1 px border with a 2 px bottom edge, as a key's lip.
+export component KeyCap inherits Rectangle {
+    in property <string> label;
+
+    private property <length> r: Theme.radius(Radius.sm);
+
+    min-width: Theme.text-size(TextSize.xs) * 1.8;
+    border-radius: r;
+    background: Theme.colors.border-strong;
+    accessible-role: AccessibleRole.text;
+    accessible-label: label;
+
+    Rectangle {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 3px;
+        border-top-left-radius: max(0, root.r - 1px);
+        border-top-right-radius: max(0, root.r - 1px);
+        border-bottom-left-radius: max(0, root.r - 2px);
+        border-bottom-right-radius: max(0, root.r - 2px);
+        background: Theme.colors.surface;
+    }
+
+    HorizontalLayout {
+        padding-left: 1px + 4px;
+        padding-right: 1px + 4px;
+        padding-top: 1px;
+        padding-bottom: 2px;
+        alignment: center;
+        TypeText {
+            text: root.label;
+            font-size: Theme.text-size(TextSize.xs);
+            font-weight: 500;
+            color: Theme.colors.fg-muted;
+            accessible-role: none;
+        }
+    }
+}
+
+// One keystroke: `"secondary-s"` reads ⌘ S on the Mac and Ctrl S elsewhere.
+export component Kbd inherits HorizontalLayout {
+    // gpui key syntax.
+    in property <string> source;
+
+    private property <[string]> labels: TextFormat.key-labels(root.source, Theme.platform);
+
+    spacing: 2px;
+    alignment: start;
+    for label in root.labels.length > 0 ? root.labels : [root.source]: KeyCap {
+        label: label;
+    }
+}
+
+// A chord sequence such as `"cmd-k cmd-s"`; off the Mac, a `+` joins each chord's caps.
+export component KbdCombo inherits HorizontalLayout {
+    // Chords separated by spaces, each in gpui key syntax.
+    in property <string> source;
+
+    private property <[[string]]> chords: TextFormat.key-chords(root.source, Theme.platform);
+    private property <bool> spelled: Theme.platform != PlatformStyle.mac;
+
+    spacing: 8px;
+    alignment: start;
+    for chord in root.chords.length > 0 ? root.chords : [[root.source]]: HorizontalLayout {
+        spacing: 2px;
+        for label[ix] in chord: HorizontalLayout {
+            spacing: 2px;
+            KeyCap {
+                label: label;
+            }
+
+            if root.spelled && ix < chord.length - 1: TypeText {
+                text: "+";
+                color: Theme.colors.fg-subtle;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
