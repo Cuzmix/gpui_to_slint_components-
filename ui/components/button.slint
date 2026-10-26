@@ -81,8 +81,9 @@ export component Button {
                 font-weight: 500;
                 font-family: Theme.font-family;
                 vertical-alignment: center;
+                // Text never wraps by default. Spelling out `wrap: no-wrap` makes Slint 1.18.1
+                // measure the Text by width, and a FlexboxLayout then misplaces the button.
                 overflow: elide;
-                wrap: no-wrap;
                 min-width: 0;
 
                 // GPUI underlines a link while hovered.
@@ -109,7 +110,6 @@ export component Button {
                     font-weight: 400;
                     font-family: Theme.font-family;
                     vertical-alignment: center;
-                    wrap: no-wrap;
                 }
             }
         }

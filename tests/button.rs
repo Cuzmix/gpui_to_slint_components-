@@ -177,4 +177,31 @@ fn focus_turns_the_border_focus_colored() {
     assert_eq!(h.get_border(), h.get_c_focus());
 }
 
-cases!(button: hover_and_press_fill_follow_the_tone, primary_tone, disabled_shows_no_hover, focus_turns_the_border_focus_colored, mouse_click_fires_and_does_not_take_focus, press_outside_release_inside_does_not_click, disabled_ignores_press_and_leaves_tab_order, loading_ignores_press_but_keeps_tab_stop, enter_clicks_on_release_not_press, space_clicks_and_keys_are_interchangeable, another_key_between_cancels, modified_enter_does_not_click, focus_move_cancels_pending_key, height_follows_size_and_density);
+mod flex {
+    slint::slint! {
+        import { Button } from "ui/index.slint";
+        export component FlexHarness inherits Window {
+            width: 300px;
+            height: 100px;
+            out property <length> tall-y: tall.y;
+            out property <length> button-y: button.y;
+            FlexboxLayout {
+                cross-axis-alignment: center;
+                cross-axis-line-alignment: start;
+                tall := Rectangle { width: 20px; height: 40px; }
+                button := Button { text: "Open"; shortcut: "Ctrl+O"; }
+            }
+        }
+    }
+}
+
+// The ely-gallery row centers each item on the cross axis; a 28 px button beside a 40 px item sits 6 px down.
+fn centers_in_a_flexbox_row() {
+    init();
+    let h = flex::FlexHarness::new().unwrap();
+    show(&h);
+    assert_eq!(h.get_tall_y(), 0.0);
+    assert_eq!(h.get_button_y(), 6.0);
+}
+
+cases!(button: hover_and_press_fill_follow_the_tone, primary_tone, disabled_shows_no_hover, focus_turns_the_border_focus_colored, mouse_click_fires_and_does_not_take_focus, press_outside_release_inside_does_not_click, disabled_ignores_press_and_leaves_tab_order, loading_ignores_press_but_keeps_tab_stop, enter_clicks_on_release_not_press, space_clicks_and_keys_are_interchangeable, another_key_between_cancels, modified_enter_does_not_click, focus_move_cancels_pending_key, height_follows_size_and_density, centers_in_a_flexbox_row);

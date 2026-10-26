@@ -34,12 +34,14 @@ export component Section inherits VerticalLayout {
 export component Row inherits FlexboxLayout {
     spacing: 12px;
     cross-axis-alignment: center;
+    cross-axis-line-alignment: start;
 }
 
 // Row whose captions share one line.
 export component Specimens inherits FlexboxLayout {
     spacing: 24px;
     cross-axis-alignment: end;
+    cross-axis-line-alignment: start;
 }
 
 // Demo with a caption beneath.
