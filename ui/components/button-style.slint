@@ -1,0 +1,105 @@
+// Shared button looks, from ely-core/src/buttons/button.rs (`ButtonVariant`, `tone`, `label_size`).
+
+import { Theme, ControlSize, TextSize, IconSize } from "../theme/theme.slint";
+
+// A button's look, from the filled accent to a bare link.
+export enum ButtonVariant {
+    // Filled with the accent; the one action a view leads with.
+    primary,
+    // On the surface with a hairline border.
+    secondary,
+    // A strong border and no fill.
+    outline,
+    // No fill and no border until hovered.
+    ghost,
+    // A faint fill and no border.
+    subtle,
+    // Confirms a gain, such as a purchase; green.
+    success,
+    // Destroys or removes; red.
+    danger,
+    // Text in the link color, nothing around it.
+    link,
+}
+
+// Where a button sits inside a ButtonGroup.
+export enum GroupSlot {
+    // Alone, rounded all round.
+    none,
+    first,
+    middle,
+    last,
+}
+
+export struct ButtonTone {
+    bg: color,
+    hover: color,
+    pressed: color,
+    fg: color,
+    border: color,
+}
+
+export global ButtonStyle {
+    // The fills, text and border of `variant` in the palette on screen.
+    public pure function tone(variant: ButtonVariant) -> ButtonTone {
+        variant == ButtonVariant.primary ? {
+            bg: Theme.colors.accent,
+            hover: Theme.colors.accent-hover,
+            pressed: Theme.mix(Theme.colors.accent-hover, Theme.colors.on-accent, 0.12),
+            fg: Theme.colors.on-accent,
+            border: transparent,
+        } : variant == ButtonVariant.secondary ? {
+            bg: Theme.colors.surface,
+            hover: Theme.colors.hover,
+            pressed: Theme.colors.active,
+            fg: Theme.colors.fg,
+            border: Theme.colors.border,
+        } : variant == ButtonVariant.outline ? {
+            bg: transparent,
+            hover: Theme.colors.hover,
+            pressed: Theme.colors.active,
+            fg: Theme.colors.fg,
+            border: Theme.colors.border-strong,
+        } : variant == ButtonVariant.ghost ? {
+            bg: transparent,
+            hover: Theme.colors.hover,
+            pressed: Theme.colors.active,
+            fg: Theme.colors.fg,
+            border: transparent,
+        } : variant == ButtonVariant.subtle ? {
+            bg: Theme.colors.hover,
+            hover: Theme.colors.active,
+            pressed: Theme.mix(Theme.colors.active, Theme.colors.border-strong, 0.5),
+            fg: Theme.colors.fg,
+            border: transparent,
+        } : variant == ButtonVariant.success ? {
+            bg: Theme.colors.success,
+            hover: Theme.mix(Theme.colors.success, Theme.colors.fg, 0.14),
+            pressed: Theme.mix(Theme.colors.success, Theme.colors.fg, 0.24),
+            fg: Theme.colors.on-accent,
+            border: transparent,
+        } : variant == ButtonVariant.danger ? {
+            bg: Theme.colors.danger,
+            hover: Theme.mix(Theme.colors.danger, Theme.colors.fg, 0.14),
+            pressed: Theme.mix(Theme.colors.danger, Theme.colors.fg, 0.24),
+            fg: Theme.colors.on-accent,
+            border: transparent,
+        } : {
+            bg: transparent,
+            hover: transparent,
+            pressed: transparent,
+            fg: Theme.colors.link,
+            border: transparent,
+        }
+    }
+
+    // The label's text step at `size`.
+    public pure function text-size(size: ControlSize) -> TextSize {
+        size == ControlSize.sm ? TextSize.sm : size == ControlSize.md ? TextSize.base : TextSize.md
+    }
+
+    // The icon step at `size`.
+    public pure function icon-size(size: ControlSize) -> IconSize {
+        size == ControlSize.sm ? IconSize.xs : size == ControlSize.md ? IconSize.sm : IconSize.md
+    }
+}

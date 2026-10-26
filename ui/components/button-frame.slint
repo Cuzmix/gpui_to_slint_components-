@@ -1,0 +1,141 @@
+// The pressable box shared by Button and IconButton (ely-core/src/buttons/button.rs, icon_button.rs):
+// fill by state, 1 px border that turns focus-colored while focused, group-slot corners,
+// GPUI's click rules for mouse and keyboard, and the optional tooltip.
+//
+// Mouse: a left press and release inside fires `clicked`. A press never takes focus
+// (GPUI prevents default on mouse down); Tab still reaches the button.
+// Keyboard (gpui div.rs): Enter or Space pressed without modifiers arms a click; the next
+// release of Enter or Space, with no other key in between and focus unchanged, fires it.
+
+import { Theme, Radius } from "../theme/theme.slint";
+import {
+    ButtonVariant,
+    ButtonTone,
+    ButtonStyle,
+    GroupSlot,
+} from "button-style.slint";
+import { TooltipController } from "tooltip.slint";
+
+export component ButtonFrame {
+    in property <ButtonVariant> variant: ButtonVariant.secondary;
+    // False dims it to 45 %, takes no press and leaves the Tab order.
+    in property <bool> enabled: true;
+    // Takes focus but ignores presses, shows no hover or pressed fill.
+    in property <bool> busy: false;
+    in property <GroupSlot> group-slot: GroupSlot.none;
+    in property <string> tooltip;
+    in property <string> tooltip-meta;
+    in property <string> accessible-name;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <ButtonTone> tone: ButtonStyle.tone(variant);
+    out property <bool> has-hover: touch.has-hover;
+    out property <bool> pressed: touch.pressed;
+    out property <bool> has-focus: focus.has-focus;
+    out property <bool> interactive: enabled && !busy;
+    // The fill and border drawn now, for tests and for owners that mirror them.
+    out property <color> current-fill: interactive && touch.pressed ? tone.pressed : interactive && touch.has-hover ? tone.hover : tone.bg;
+    out property <color> current-border: focus.has-focus ? Theme.colors.focus : tone.border;
+    out property <bool> tooltip-shown: tip.shown;
+
+    callback clicked();
+
+    accessible-role: button;
+    accessible-label: accessible-name;
+    accessible-enabled: enabled;
+    accessible-description: enabled ? "" : unavailable-text;
+    accessible-action-default => {
+        if interactive {
+            clicked();
+        }
+    }
+
+    forward-focus: focus;
+    opacity: enabled ? 1.0 : 0.45;
+
+    private property <length> radius: Theme.radius(Radius.md);
+    private property <bool> pending-key: false;
+    private property <bool> cut-left: group-slot == GroupSlot.middle || group-slot == GroupSlot.last;
+
+    public function focus-button() {
+        focus.focus();
+    }
+
+    // Clips away the left border of middle and last group members.
+    Rectangle {
+        clip: root.cut-left;
+        frame := Rectangle {
+            x: root.cut-left ? -1px : 0;
+            width: parent.width + (root.cut-left ? 1px : 0);
+            height: parent.height;
+            border-width: 1px;
+            border-color: root.current-border;
+            background: root.current-fill;
+            border-top-left-radius: root.group-slot == GroupSlot.none || root.group-slot == GroupSlot.first ? root.radius : 0;
+            border-bottom-left-radius: self.border-top-left-radius;
+            border-top-right-radius: root.group-slot == GroupSlot.none || root.group-slot == GroupSlot.last ? root.radius : 0;
+            border-bottom-right-radius: self.border-top-right-radius;
+        }
+    }
+
+    @children
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.tooltip;
+        meta: root.tooltip-meta;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: !root.enabled ? MouseCursor.not-allowed : root.busy ? MouseCursor.default : MouseCursor.pointer;
+        clicked => {
+            if root.interactive {
+                root.clicked();
+            }
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
+                return reject;
+            }
+            root.pending-key = (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta;
+            reject
+        }
+        key-released(event) => {
+            if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
+                return reject;
+            }
+            if (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta {
+                if root.pending-key {
+                    root.pending-key = false;
+                    if root.interactive {
+                        root.clicked();
+                    }
+                }
+            } else {
+                root.pending-key = false;
+            }
+            reject
+        }
+        focus-changed-event => {
+            root.pending-key = false;
+        }
+    }
+}
