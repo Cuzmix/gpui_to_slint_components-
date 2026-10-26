@@ -1,0 +1,25 @@
+// The text work `.slint` cannot do on its own: parsing key syntax, cutting text to fit and
+// finding matches. Each is a pure callback the host wires once to `ely_slint` (Rust):
+//
+//     ely_slint::wire_text_format!(app);
+//
+// The host exports `TextFormat` and `PlatformStyle` from its root `.slint` file. Unwired, each
+// callback returns an empty value and its component falls back to a plain rendering, noted
+// where the component is.
+
+import { PlatformStyle } from "../theme/theme.slint";
+
+export global TextFormat {
+    // The caps of one keystroke in gpui key syntax (`secondary-s`), modifiers first in the
+    // platform's order: ⌘ and S on the Mac, Ctrl and S elsewhere. Empty if it does not parse.
+    pure callback key-labels(source: string, platform: PlatformStyle) -> [string];
+    // The caps of each chord in a space-separated sequence (`cmd-k cmd-s`).
+    pure callback key-chords(source: string, platform: PlatformStyle) -> [[string]];
+    // Every cut of `text` at the end with an ellipsis, shortest first, each once.
+    pure callback end-cuts(text: string) -> [string];
+    // Every cut of `text` in the middle with an ellipsis, shortest first, each once.
+    pure callback middle-cuts(text: string) -> [string];
+    // `text` split into runs that alternate plain and marked, first plain, marking every
+    // case-insensitive match of `query`.
+    pure callback highlight-runs(text: string, query: string) -> [string];
+}

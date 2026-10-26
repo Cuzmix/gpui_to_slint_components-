@@ -8,5 +8,7 @@ pub mod focus;
 pub mod format;
 pub mod keys;
 pub mod text;
+#[doc(hidden)]
+pub mod wire;
 
 pub use keys::{Keystroke, KeystrokeError, Platform, key_label, keystroke, keystroke_labels, shortcut_text};

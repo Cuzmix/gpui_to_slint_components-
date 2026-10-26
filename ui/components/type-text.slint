@@ -4,7 +4,7 @@
 // natural height comes from the Theme, not `font-metrics`: Slint reads the metrics through the
 // line height, so binding one to the other is a loop.
 
-import { Theme } from "../theme/theme.slint";
+import { Theme, TextSize } from "../theme/theme.slint";
 
 export component TypeText inherits Text {
     // Line height as a multiple of the font size, as GPUI's `line_height(relative(…))`.
@@ -13,7 +13,10 @@ export component TypeText inherits Text {
     // The face's natural line height over its size; set with `font-family`.
     in property <float> line-ratio: Theme.font-line-ratio;
 
+    // What an Ely window hands every text: its face, fg ink, and base size as the story app sets it.
     font-family: Theme.font-family;
+    font-size: Theme.text-size(TextSize.base);
+    color: Theme.colors.fg;
     wrap: word-wrap;
     // GPUI snaps a line to whole device pixels, rounding half down.
     private property <length> line: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
