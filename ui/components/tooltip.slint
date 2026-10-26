@@ -25,10 +25,13 @@ import { Elevated } from "elevated.slint";
 import { Icon } from "icon.slint";
 import { Icons } from "../icons/icons.slint";
 
-// The body every tooltip draws: title, and an optional quiet trailing hint.
+// The body every tooltip draws: title, and an optional quiet trailing hint;
+// or, when `rich`, its children (`Tooltip::rich`).
 export component TooltipSurface inherits Elevated {
     in property <string> text;
     in property <string> meta;
+    // Draws the children in place of text and meta.
+    in property <bool> rich: false;
     // 0..1 entrance progress, linear; eased here.
     in property <float> progress: 1.0;
     private property <float> eased: Theme.ease-out-cubic(progress);
@@ -44,23 +47,30 @@ export component TooltipSurface inherits Elevated {
         padding-right: 8px;
         padding-top: 4px;
         padding-bottom: 4px;
-        spacing: 8px;
         alignment: start;
-        Text {
-            text: root.text;
-            color: Theme.colors.tooltip-fg;
-            font-size: Theme.text-size(TextSize.sm);
-            font-family: Theme.font-family;
-            wrap: word-wrap;
-            vertical-alignment: center;
+        // Empty unless the owner gives children.
+        VerticalLayout {
+            @children
         }
 
-        if root.meta != "": Text {
-            text: root.meta;
-            color: Theme.opacity(Theme.colors.tooltip-fg, 0.6);
-            font-size: Theme.text-size(TextSize.sm);
-            font-family: Theme.font-family;
-            vertical-alignment: center;
+        if !root.rich: HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.text;
+                color: Theme.colors.tooltip-fg;
+                font-size: Theme.text-size(TextSize.sm);
+                font-family: Theme.font-family;
+                wrap: word-wrap;
+                vertical-alignment: center;
+            }
+
+            if root.meta != "": Text {
+                text: root.meta;
+                color: Theme.opacity(Theme.colors.tooltip-fg, 0.6);
+                font-size: Theme.text-size(TextSize.sm);
+                font-family: Theme.font-family;
+                vertical-alignment: center;
+            }
         }
     }
 }
@@ -70,6 +80,8 @@ export component TooltipController {
     in property <string> text;
     // A quiet trailing hint, such as a shortcut.
     in property <string> meta;
+    // Shows the children in the tip in place of text and meta.
+    in property <bool> rich: false;
     // How long the pointer rests before the tip shows.
     in property <duration> delay: 500ms;
     // Moves the tip with the pointer.
@@ -100,7 +112,7 @@ export component TooltipController {
                     at-x = x;
                     at-y = y;
                 }
-            } else if !pending && text != "" {
+            } else if !pending && (text != "" || rich) {
                 pending = true;
             }
         }
@@ -110,7 +122,7 @@ export component TooltipController {
     public function arm(x: length, y: length) {
         mouse-x = x;
         mouse-y = y;
-        if !shown && text != "" {
+        if !shown && (text != "" || rich) {
             pending = true;
         }
     }
@@ -166,7 +178,9 @@ export component TooltipController {
                 height: self.preferred-height;
                 text: root.text;
                 meta: root.meta;
+                rich: root.rich;
                 progress: popup.entered;
+                @children
             }
         }
     }

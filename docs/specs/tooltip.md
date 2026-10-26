@@ -9,3 +9,4 @@ Source: `ely-core/src/primitives/tooltip.rs`; show rules from gpui `elements/div
 - Hide: pointer leaves, any mouse down not on the tooltip, scroll. Touch long press shows it (gpui).
 - TooltipTrigger: own delay (default 400 ms), counted from the pointer entering; position read when it shows; no 1 px nudge; optional follow-mouse; hides on leaving and on any mouse down, including presses its children handle.
 - HelpTooltip: `circle-help` icon xs in `fg_subtle` with a text tooltip.
+- Rich (`Tooltip::rich`): any content in the same body. Slint: `TooltipController { rich: true; … }` with the content as its children.
