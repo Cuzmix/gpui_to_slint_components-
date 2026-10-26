@@ -1,0 +1,76 @@
+// Port of ely-core/src/buttons/icon_button.rs (`IconButton`, `close_button`, `back_button`, `more_button`).
+// A square button holding one icon. Ghost unless told otherwise.
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { ButtonVariant, ButtonStyle } from "button-style.slint";
+import { ButtonFrame } from "button-frame.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+
+export component IconButton {
+    // The icon it shows.
+    in property <image> icon;
+    // Its look.
+    in property <ButtonVariant> variant: ButtonVariant.ghost;
+    // Its height and icon size.
+    in property <ControlSize> size: ControlSize.md;
+    // False dims it and takes no press; a disabled button is no Tab stop. Its tooltip still shows.
+    in property <bool> enabled: true;
+    // Names what the icon does, on hover; also its accessible name.
+    in property <string> tooltip;
+    // The accessible name when there is no tooltip. GPUI falls back to the icon's Lucide name.
+    in property <string> icon-name;
+
+    out property <bool> has-focus: frame.has-focus;
+    out property <color> current-fill: frame.current-fill;
+    out property <color> current-border: frame.current-border;
+    out property <bool> tooltip-shown: frame.tooltip-shown;
+
+    // Runs on a press, or on Enter or Space released while focused.
+    callback clicked();
+
+    forward-focus: frame;
+    width: Theme.control-height(size);
+    height: Theme.control-height(size);
+
+    frame := ButtonFrame {
+        width: 100%;
+        height: 100%;
+        variant: root.variant;
+        enabled: root.enabled;
+        tooltip: root.tooltip;
+        accessible-name: root.tooltip != "" ? root.tooltip : root.icon-name;
+        clicked => {
+            root.clicked();
+        }
+
+        Icon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            source: root.icon;
+            size: ButtonStyle.icon-size(root.size);
+            color: frame.tone.fg;
+        }
+    }
+}
+
+// Closes a panel, dialog or tab.
+export component CloseButton inherits IconButton {
+    icon: Icons.x;
+    icon-name: "x";
+    tooltip: @tr("Close");
+}
+
+// Returns to the previous view.
+export component BackButton inherits IconButton {
+    icon: Icons.arrow-left;
+    icon-name: "arrow-left";
+    tooltip: @tr("Back");
+}
+
+// Opens more actions.
+export component MoreButton inherits IconButton {
+    icon: Icons.ellipsis;
+    icon-name: "ellipsis";
+    tooltip: @tr("More");
+}
