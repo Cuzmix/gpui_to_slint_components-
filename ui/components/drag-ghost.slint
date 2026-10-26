@@ -1,0 +1,49 @@
+// Port of ely-core/src/primitives/ghost.rs (`DragGhost`).
+// What follows the pointer while a tab or panel drags. The owner positions it at the pointer.
+
+import {
+    Theme,
+    Elevation,
+    Radius,
+    TextSize,
+    IconSize,
+} from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { Icon } from "icon.slint";
+
+export component DragGhost inherits Elevated {
+    in property <string> title;
+    in property <image> icon;
+
+    elevation: Elevation.floating;
+    border-radius: Theme.radius(Radius.md);
+    background: Theme.colors.overlay;
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    // It hugs its content wherever the owner drops it.
+    width: content.preferred-width;
+    height: content.preferred-height;
+
+    content := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 6px;
+        if root.icon.width > 0: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                size: IconSize.sm;
+                color: Theme.colors.fg-muted;
+            }
+        }
+        Text {
+            text: root.title;
+            font-size: Theme.text-size(TextSize.sm);
+            font-family: Theme.font-family;
+            color: Theme.colors.fg;
+            vertical-alignment: center;
+        }
+    }
+}
