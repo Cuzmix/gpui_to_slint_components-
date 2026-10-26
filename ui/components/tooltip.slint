@@ -1,0 +1,144 @@
+// Port of ely-core/src/primitives/tooltip.rs (`Tooltip`, `TooltipTrigger`) and of the
+// show/hide rules of GPUI's own `.tooltip()` (gpui elements/div.rs):
+// - shows `delay` after the pointer first moves over the host (GPUI default 500 ms),
+//   at the pointer position plus 1 px, its body 18 px (cursor-offset) below;
+// - hides when the pointer leaves, on any mouse down, and on scroll;
+// - fades in and rises 4 px over 120 ms with ease-out-cubic.
+//
+// Slint has no hover-tooltip hook, so the host feeds pointer events in:
+//     tip := TooltipController { text: "Close"; }
+//     TouchArea {
+//         pointer-event(e) => { tip.pointer-event(e, self.mouse-x, self.mouse-y); }
+//         scroll-event(e) => { tip.dismiss(); reject }
+//         changed has-hover => { if !self.has-hover { tip.dismiss(); } }
+//     }
+// Place the controller at the host's origin (it has no size).
+
+import { Theme, Elevation, Radius, TextSize } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+
+// The body every tooltip draws: title, and an optional quiet trailing hint.
+export component TooltipSurface inherits Elevated {
+    in property <string> text;
+    in property <string> meta;
+    // 0..1 entrance progress, linear; eased here.
+    in property <float> progress: 1.0;
+    private property <float> eased: Theme.ease-out-cubic(progress);
+
+    elevation: Elevation.floating;
+    border-radius: Theme.radius(Radius.md);
+    background: Theme.colors.tooltip-bg;
+    opacity: eased;
+    max-width: Theme.tooltip-max-width;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 8px;
+        alignment: start;
+        Text {
+            text: root.text;
+            color: Theme.colors.tooltip-fg;
+            font-size: Theme.text-size(TextSize.sm);
+            font-family: Theme.font-family;
+            wrap: word-wrap;
+            vertical-alignment: center;
+        }
+
+        if root.meta != "": Text {
+            text: root.meta;
+            color: Theme.opacity(Theme.colors.tooltip-fg, 0.6);
+            font-size: Theme.text-size(TextSize.sm);
+            font-family: Theme.font-family;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component TooltipController {
+    // What the tip reads; empty shows nothing.
+    in property <string> text;
+    // A quiet trailing hint, such as a shortcut.
+    in property <string> meta;
+    // How long the pointer rests before the tip shows.
+    in property <duration> delay: 500ms;
+    // Moves the tip with the pointer.
+    in property <bool> follow-mouse: false;
+    // Whether the tip is on screen.
+    out property <bool> shown: false;
+
+    width: 0;
+    height: 0;
+
+    private property <bool> pending: false;
+    private property <length> mouse-x;
+    private property <length> mouse-y;
+    private property <length> at-x;
+    private property <length> at-y;
+
+    // Feed every pointer event of the host's TouchArea, with its mouse-x and mouse-y.
+    public function pointer-event(event: PointerEvent, x: length, y: length) {
+        mouse-x = x;
+        mouse-y = y;
+        if event.kind == PointerEventKind.down {
+            dismiss();
+        } else if event.kind == PointerEventKind.move {
+            if shown {
+                if follow-mouse {
+                    at-x = x;
+                    at-y = y;
+                }
+            } else if !pending && text != "" {
+                pending = true;
+            }
+        }
+    }
+
+    // Hides the tip and cancels a pending show: pointer left, pressed or scrolled.
+    public function dismiss() {
+        pending = false;
+        if shown {
+            shown = false;
+            popup.close();
+        }
+    }
+
+    Timer {
+        interval: root.delay;
+        running: root.pending;
+        triggered => {
+            root.pending = false;
+            root.at-x = root.mouse-x;
+            root.at-y = root.mouse-y;
+            root.shown = true;
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        x: root.at-x + 1px;
+        y: root.at-y + 1px;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        property <float> entered: 0;
+        animate entered { duration: Theme.motion-fast; }
+        init => {
+            self.entered = 1;
+        }
+        Rectangle {
+            width: body.preferred-width;
+            height: body.preferred-height + Theme.cursor-offset;
+            body := TooltipSurface {
+                x: 0;
+                y: Theme.cursor-offset + Theme.nudge * (1 - Theme.ease-out-cubic(popup.entered));
+                width: self.preferred-width;
+                height: self.preferred-height;
+                text: root.text;
+                meta: root.meta;
+                progress: popup.entered;
+            }
+        }
+    }
+}
