@@ -1,19 +1,30 @@
-// Page 1, Primitives, after ely-gallery/src/pages/primitives/parts.rs.
+// Page 1, Primitives, after ely-gallery/src/pages/primitives/{mod,parts,native}.rs, story for story.
+// gpui's builtins (div, svg, canvas, deferred, when, children…) show their Slint builtins here.
 
-import { Theme, IconSize, Radius, TextSize } from "../../theme/theme.slint";
-import { Icons } from "../../icons/icons.slint";
+import {
+    Theme,
+    IconSize,
+    Radius,
+    TextSize,
+    Elevation,
+} from "../../theme/theme.slint";
+import { Icons, IconEntry } from "../../icons/icons.slint";
 import { Icon } from "../../components/icon.slint";
 import { Picture } from "../../components/picture.slint";
 import { Divider, VerticalDivider } from "../../components/divider.slint";
-import { Backdrop } from "../../components/backdrop.slint";
-import { Button } from "../../components/button.slint";
+import { Button, ButtonVariant } from "../../components/button.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import { Elevated } from "../../components/elevated.slint";
 import { FocusRing } from "../../components/focus-ring.slint";
 import { FocusTrap } from "../../components/focus-trap.slint";
 import { Pressable } from "../../components/pressable.slint";
-import { Measure } from "../../components/measure.slint";
-import { TooltipTrigger, HelpTooltip } from "../../components/tooltip.slint";
-import { Disclosure } from "../../components/disclosure.slint";
-import { Spinner, SpinnerStyle } from "../../components/spinner.slint";
+import { Measure, IntersectionObserver } from "../../components/measure.slint";
+import {
+    TooltipController,
+    TooltipTrigger,
+} from "../../components/tooltip.slint";
+import { VisuallyHidden } from "../../components/visually-hidden.slint";
+import { KeyStrokes } from "../../components/keystroke.slint";
 import { Section, Row, Specimens, Specimen, Code } from "../kit.slint";
 
 struct SizeName {
@@ -26,6 +37,7 @@ struct ToneName {
     name: string,
 }
 
+// A focusable chip: role button, 1 px ring.
 component Chip inherits FocusScope {
     in property <string> text;
     focus-on-click: false;
@@ -43,8 +55,87 @@ component Chip inherits FocusScope {
             Text {
                 text: root.text;
                 color: Theme.colors.fg;
-                font-size: Theme.text-size(TextSize.base);
             }
+        }
+    }
+}
+
+// gpui's `.tooltip(…)` on a box: the tip waits 500 ms from the first move over it.
+component Tipped inherits TouchArea {
+    in property <string> text;
+    in property <string> meta;
+    in property <bool> rich;
+    width: self.preferred-width;
+    height: self.preferred-height;
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.text;
+        meta: root.meta;
+        rich: root.rich;
+        if root.rich: VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: "Rich content";
+                font-weight: 500;
+                color: Theme.colors.tooltip-fg;
+                font-size: Theme.text-size(TextSize.sm);
+            }
+
+            Text {
+                text: "Any element fits here.";
+                color: Theme.opacity(Theme.colors.tooltip-fg, 0.7);
+                font-size: Theme.text-size(TextSize.sm);
+            }
+        }
+    }
+
+    changed mouse-x => {
+        tip.track(self.mouse-x, self.mouse-y);
+        if self.has-hover && !tip.shown {
+            tip.arm(self.mouse-x, self.mouse-y);
+        }
+    }
+    changed mouse-y => {
+        tip.track(self.mouse-x, self.mouse-y);
+        if self.has-hover && !tip.shown {
+            tip.arm(self.mouse-x, self.mouse-y);
+        }
+    }
+    changed has-hover => {
+        if !self.has-hover {
+            tip.dismiss();
+        }
+    }
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.down {
+            tip.dismiss();
+        }
+    }
+    HorizontalLayout {
+        @children
+    }
+}
+
+// A titled frame whose body the caller fills (`fn framed(body: impl IntoElement)`).
+component Framed inherits Rectangle {
+    in property <string> title;
+    width: 180px;
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        Text {
+            text: root.title;
+            font-size: Theme.text-size(TextSize.xs);
+            color: Theme.colors.fg-subtle;
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            @children
         }
     }
 }
@@ -52,19 +143,25 @@ component Chip inherits FocusScope {
 export component PrimitivesPage inherits VerticalLayout {
     // Where the backdrop lives: the gallery window's root.
     in-out property <bool> backdrop-open: false;
+    private property <bool> portal-open: false;
+    private property <bool> shown: true;
+    private property <string> last-key: "—";
+    private property <string> pasted;
     private property <int> taps;
     private property <int> holds;
+    private property <bool> measured: false;
     private property <length> measured-w;
     private property <length> measured-h;
     private property <bool> wide;
-    private property <bool> open;
+    private property <bool> seen;
+    private property <[string]> steps: ["Draft", "Review", "Ship"];
     private property <[SizeName]> sizes: [
-        { size: IconSize.xs, name: "xs" },
-        { size: IconSize.sm, name: "sm" },
-        { size: IconSize.md, name: "md" },
-        { size: IconSize.lg, name: "lg" },
-        { size: IconSize.xl, name: "xl" },
-        { size: IconSize.xxl, name: "xxl" },
+        { size: IconSize.xs, name: "12" },
+        { size: IconSize.sm, name: "14" },
+        { size: IconSize.md, name: "16" },
+        { size: IconSize.lg, name: "20" },
+        { size: IconSize.xl, name: "24" },
+        { size: IconSize.xxl, name: "32" },
     ];
     private property <[ToneName]> tones: [
         { tone: Theme.colors.fg, name: "fg" },
@@ -76,6 +173,67 @@ export component PrimitivesPage inherits VerticalLayout {
     ];
 
     alignment: start;
+
+    Section {
+        title: "Box / View";
+        note: "Slint's Rectangle is the box. Ely adds nothing.";
+        Row {
+            spacing: 16px;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: Theme.colors.border;
+                background: Theme.colors.surface;
+            }
+
+            Rectangle {
+                width: 128px;
+                height: 64px;
+                border-radius: 8px;
+                background: Theme.colors.sunken;
+            }
+
+            Code {
+                text: "Rectangle { }";
+            }
+        }
+    }
+
+    Section {
+        title: "Text";
+        note: "Text draws a string. One Text per run styles part of it.";
+        Row {
+            spacing: 24px;
+            Text {
+                text: "Plain text, as a child.";
+                color: Theme.colors.fg;
+            }
+
+            HorizontalLayout {
+                Text {
+                    text: "One ";
+                    color: Theme.colors.fg;
+                }
+
+                Text {
+                    text: "accent";
+                    font-weight: 600;
+                    color: Theme.colors.fg;
+                }
+
+                Text {
+                    text: ", used once.";
+                    color: Theme.colors.fg;
+                }
+            }
+
+            Code {
+                text: "Text { text: \"…\"; }";
+            }
+        }
+    }
 
     Section {
         title: "Icon";
@@ -99,6 +257,64 @@ export component PrimitivesPage inherits VerticalLayout {
                 }
             }
         }
+
+        Specimens {
+            Specimen {
+                caption: "custom SVG";
+                Icon {
+                    source: @image-url("../assets/mark.svg");
+                    size: IconSize.xl;
+                    color: Theme.colors.accent;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "IconSet / IconRegistry";
+        note: "Icons.all lists every bundled icon. Hover for its name.";
+        FlexboxLayout {
+            spacing: 4px;
+            for entry in Icons.all: Tipped {
+                text: entry.name;
+                Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 6px;
+                    background: parent.has-hover ? Theme.colors.hover : transparent;
+                    Icon {
+                        source: entry.image;
+                        color: Theme.colors.fg-muted;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Svg";
+        note: "Image draws any SVG from the application's assets, tinted.";
+        Row {
+            spacing: 24px;
+            Image {
+                source: @image-url("../assets/mark.svg");
+                width: 48px;
+                height: 48px;
+                colorize: Theme.colors.fg-muted;
+            }
+
+            Image {
+                source: @image-url("../assets/mark.svg");
+                width: 48px;
+                height: 48px;
+                colorize: Theme.colors.fg-muted;
+                transform-rotation: 0.6rad;
+            }
+
+            Code {
+                text: "Image { source: @image-url(\"…svg\"); colorize: … }";
+            }
+        }
     }
 
     Section {
@@ -106,12 +322,22 @@ export component PrimitivesPage inherits VerticalLayout {
         note: "Loading pulses. Failure and emptiness show a quiet mark.";
         Specimens {
             Specimen {
-                caption: "loading";
+                caption: "loaded";
                 Picture {
                     width: 198px;
                     height: 132px;
                     border-radius: Theme.radius(Radius.lg);
-                    loading: true;
+                    source: @image-url("../assets/atrium.jpg");
+                }
+            }
+
+            Specimen {
+                caption: "failed";
+                // A source that decodes to nothing, as a missing file does.
+                Picture {
+                    width: 198px;
+                    height: 132px;
+                    border-radius: Theme.radius(Radius.lg);
                 }
             }
 
@@ -128,10 +354,32 @@ export component PrimitivesPage inherits VerticalLayout {
     }
 
     Section {
+        title: "Canvas";
+        note: "Path paints with commands.";
+        Row {
+            spacing: 24px;
+            Path {
+                width: 320px;
+                height: 80px;
+                viewbox-width: 320;
+                viewbox-height: 80;
+                commands: "M 0.00 40.00 L 3.33 37.04 L 6.67 34.13 L 10.00 31.31 L 13.33 28.61 L 16.67 26.04 L 20.00 23.64 L 23.33 21.42 L 26.67 19.40 L 30.00 17.60 L 33.33 16.04 L 36.67 14.73 L 40.00 13.67 L 43.33 12.88 L 46.67 12.36 L 50.00 12.11 L 53.33 12.13 L 56.67 12.43 L 60.00 12.98 L 63.33 13.79 L 66.67 14.84 L 70.00 16.12 L 73.33 17.62 L 76.67 19.32 L 80.00 21.19 L 83.33 23.23 L 86.67 25.40 L 90.00 27.68 L 93.33 30.06 L 96.67 32.51 L 100.00 35.00 L 103.33 37.50 L 106.67 40.00 L 110.00 42.47 L 113.33 44.88 L 116.67 47.22 L 120.00 49.45 L 123.33 51.57 L 126.67 53.55 L 130.00 55.37 L 133.33 57.02 L 136.67 58.48 L 140.00 59.75 L 143.33 60.81 L 146.67 61.65 L 150.00 62.27 L 153.33 62.67 L 156.67 62.85 L 160.00 62.80 L 163.33 62.53 L 166.67 62.05 L 170.00 61.36 L 173.33 60.48 L 176.67 59.41 L 180.00 58.17 L 183.33 56.77 L 186.67 55.23 L 190.00 53.56 L 193.33 51.79 L 196.67 49.93 L 200.00 48.00 L 203.33 46.02 L 206.67 44.02 L 210.00 42.00 L 213.33 40.00 L 216.67 38.03 L 220.00 36.11 L 223.33 34.25 L 226.67 32.49 L 230.00 30.82 L 233.33 29.27 L 236.67 27.85 L 240.00 26.56 L 243.33 25.44 L 246.67 24.47 L 250.00 23.66 L 253.33 23.03 L 256.67 22.58 L 260.00 22.30 L 263.33 22.19 L 266.67 22.27 L 270.00 22.51 L 273.33 22.92 L 276.67 23.48 L 280.00 24.20 L 283.33 25.06 L 286.67 26.05 L 290.00 27.15 L 293.33 28.36 L 296.67 29.65 L 300.00 31.03 L 303.33 32.46 L 306.67 33.94 L 310.00 35.45 L 313.33 36.97 L 316.67 38.49 L 320.00 40.00";
+                stroke: Theme.colors.focus;
+                stroke-width: 1.5px;
+            }
+
+            Code {
+                text: "Path { commands: \"M … L …\"; }";
+            }
+        }
+    }
+
+    Section {
         title: "Divider / Separator";
         note: "One hairline. Across, down, or holding a word.";
         VerticalLayout {
-            spacing: 16px;
+            width: 420px;
+            spacing: 20px;
             Divider { }
 
             Divider {
@@ -145,6 +393,7 @@ export component PrimitivesPage inherits VerticalLayout {
                 Text {
                     text: "Left";
                     color: Theme.colors.fg;
+                    vertical-alignment: center;
                 }
 
                 VerticalDivider { }
@@ -152,7 +401,104 @@ export component PrimitivesPage inherits VerticalLayout {
                 Text {
                     text: "Right";
                     color: Theme.colors.fg;
+                    vertical-alignment: center;
                 }
+            }
+        }
+    }
+
+    Section {
+        title: "Spacer";
+        note: "A stretching element takes the slack. No component needed.";
+        Rectangle {
+            width: 420px;
+            height: 40px;
+            border-radius: Theme.radius(Radius.md);
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                Icon {
+                    y: (parent.height - self.height) / 2;
+                    source: Icons.menu;
+                    color: Theme.colors.fg-muted;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Code {
+                    vertical-alignment: center;
+                    text: "horizontal-stretch: 1";
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Icon {
+                    y: (parent.height - self.height) / 2;
+                    source: Icons.settings;
+                    color: Theme.colors.fg-muted;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Portal";
+        note: "PopupWindow escapes clipping and paints on top.";
+        Row {
+            spacing: 24px;
+            Rectangle {
+                width: 220px;
+                height: 64px;
+                clip: true;
+                border-radius: Theme.radius(Radius.md);
+                border-width: 1px;
+                border-color: Theme.colors.border;
+                portal-toggle := Button {
+                    x: 12px;
+                    y: 12px;
+                    text: root.portal-open ? "Hide note" : "Show note";
+                    clicked => {
+                        root.portal-open = !root.portal-open;
+                        if root.portal-open {
+                            note.show();
+                        } else {
+                            note.close();
+                        }
+                    }
+                }
+
+                note := PopupWindow {
+                    x: 12px;
+                    y: 12px + portal-toggle.height + 8px;
+                    close-policy: PopupClosePolicy.no-auto-close;
+                    Elevated {
+                        width: 260px;
+                        elevation: Elevation.floating;
+                        border-radius: Theme.radius(Radius.lg);
+                        background: Theme.colors.overlay;
+                        border-width: 1px;
+                        border-color: Theme.colors.border;
+                        VerticalLayout {
+                            padding: 12px;
+                            Text {
+                                text: "Painted last, above the clipped box.";
+                                font-size: Theme.text-size(TextSize.sm);
+                                color: Theme.colors.fg;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Code {
+                text: "PopupWindow { }";
             }
         }
     }
@@ -165,6 +511,125 @@ export component PrimitivesPage inherits VerticalLayout {
                 text: "Show backdrop";
                 clicked => {
                     root.backdrop-open = true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Slot";
+        note: "@children takes the caller's elements. The caller fills the hole.";
+        Row {
+            spacing: 16px;
+            Framed {
+                title: "slot: icon";
+                Icon {
+                    source: Icons.sparkles;
+                }
+            }
+
+            Framed {
+                title: "slot: button";
+                Button {
+                    text: "Save";
+                    variant: ButtonVariant.primary;
+                }
+            }
+
+            Code {
+                text: "component Framed { @children }";
+            }
+        }
+    }
+
+    Section {
+        title: "Show / When";
+        note: "if cond: Element { } branches in the tree.";
+        Row {
+            spacing: 16px;
+            Button {
+                text: root.shown ? "Hide" : "Show";
+                clicked => {
+                    root.shown = !root.shown;
+                }
+            }
+
+            if root.shown: Text {
+                text: "Here while true.";
+                color: Theme.colors.fg-muted;
+            }
+            Code {
+                text: "if cond: Element { }";
+            }
+        }
+    }
+
+    Section {
+        title: "For / Each";
+        note: "for item in model: repeats an element.";
+        Row {
+            spacing: 24px;
+            for step[ix] in root.steps: HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: (ix + 1 < 10 ? "0" : "") + (ix + 1);
+                    font-family: Theme.mono-family;
+                    font-size: Theme.text-size(TextSize.xs);
+                    color: Theme.colors.fg-subtle;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: step;
+                    color: Theme.colors.fg;
+                    vertical-alignment: center;
+                }
+            }
+            Code {
+                text: "for item in model: Element { }";
+            }
+        }
+    }
+
+    Section {
+        title: "Fragment";
+        note: "Several elements in one place; the parent layout adopts them.";
+        Row {
+            spacing: 8px;
+            Icon {
+                source: Icons.layers;
+                color: Theme.colors.fg-muted;
+            }
+
+            Text {
+                text: "two siblings, no wrapper";
+                color: Theme.colors.fg-muted;
+            }
+
+            Rectangle {
+                width: 24px;
+            }
+
+            Code {
+                text: "Row { a; b; }";
+            }
+        }
+    }
+
+    Section {
+        title: "VisuallyHidden";
+        note: "Text for screen readers only.";
+        Row {
+            // Not a layout, so the hidden text takes no room in the row.
+            Rectangle {
+                width: hint.preferred-width;
+                height: hint.preferred-height;
+                hint := Code {
+                    text: "VisuallyHidden { text: \"Three unread messages.\"; }";
+                }
+
+                VisuallyHidden {
+                    text: "Three unread messages.";
                 }
             }
         }
@@ -219,9 +684,86 @@ export component PrimitivesPage inherits VerticalLayout {
     }
 
     Section {
+        title: "ClickOutside";
+        note: "A PopupWindow closes when a press lands outside it.";
+        Row {
+            spacing: 16px;
+            open-panel := Button {
+                text: "Open panel";
+                enabled: !panel.is-open;
+                clicked => {
+                    panel.show();
+                }
+            }
+
+            panel := PopupWindow {
+                x: open-panel.x + open-panel.width + 16px;
+                y: open-panel.y + (open-panel.height - panel-box.preferred-height) / 2;
+                close-policy: PopupClosePolicy.close-on-click-outside;
+                panel-box := Rectangle {
+                    border-radius: Theme.radius(Radius.md);
+                    background: Theme.colors.sunken;
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        Text {
+                            text: "Click anywhere else.";
+                            color: Theme.colors.fg;
+                        }
+                    }
+                }
+            }
+
+            // Keeps the panel's room in the row while it is open, as GPUI's panel takes it.
+            if panel.is-open: HorizontalLayout {
+                opacity: 0;
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+                Text {
+                    text: "Click anywhere else.";
+                }
+            }
+            Code {
+                text: "PopupWindow { close-policy: close-on-click-outside; }";
+            }
+        }
+    }
+
+    Section {
+        title: "HoverArea";
+        note: "TouchArea reports has-hover as the pointer enters and leaves.";
+        Row {
+            spacing: 16px;
+            hover := TouchArea {
+                width: 220px;
+                height: 64px;
+                Rectangle {
+                    border-radius: Theme.radius(Radius.lg);
+                    border-width: 1px;
+                    border-color: Theme.colors.border;
+                    background: hover.has-hover ? Theme.colors.hover : transparent;
+                    Text {
+                        text: hover.has-hover ? "Pointer inside" : "Pointer outside";
+                        color: Theme.colors.fg;
+                    }
+                }
+            }
+
+            Code {
+                text: "TouchArea { has-hover }";
+            }
+        }
+    }
+
+    Section {
         title: "Pressable";
         note: "Knows when it is held. Hold half a second for a long press.";
         Row {
+            spacing: 24px;
             press := Pressable {
                 width: 160px;
                 height: 64px;
@@ -251,24 +793,41 @@ export component PrimitivesPage inherits VerticalLayout {
     }
 
     Section {
-        title: "Measure";
-        note: "Reports bounds when they change. This is also the ResizeObserver.";
+        title: "KeyboardHandler";
+        note: "key-pressed on a focused FocusScope. Click, then type.";
         Row {
-            Measure {
-                width: root.wide ? 240px : 160px;
-                height: 48px;
-                measured(x, y, w, h) => {
-                    root.measured-w = w;
-                    root.measured-h = h;
+            spacing: 16px;
+            keys := FocusScope {
+                width: 220px;
+                height: 64px;
+                key-pressed(event) => {
+                    if !KeyStrokes.is-modifier(event.text) {
+                        root.last-key = KeyStrokes.unparse(event);
+                    }
+                    reject
                 }
-                Rectangle {
-                    border-radius: Theme.radius(Radius.md);
-                    background: Theme.colors.sunken;
-                    border-width: 1px;
-                    border-color: Theme.colors.border;
+                FocusRing {
+                    focused: keys.has-focus;
+                    rest-color: Theme.colors.border;
+                    border-radius: Theme.radius(Radius.lg);
+                    Text {
+                        text: root.last-key;
+                        font-family: Theme.mono-family;
+                        color: Theme.colors.fg;
+                    }
                 }
             }
 
+            Code {
+                text: "FocusScope { key-pressed(event) => { … } }";
+            }
+        }
+    }
+
+    Section {
+        title: "Measure";
+        note: "Reports bounds when they change. This is also the ResizeObserver.";
+        Row {
             Button {
                 text: root.wide ? "Narrow" : "Widen";
                 clicked => {
@@ -277,106 +836,194 @@ export component PrimitivesPage inherits VerticalLayout {
             }
 
             Code {
-                text: Math.round(root.measured-w / 1px) + " × " + Math.round(root.measured-h / 1px);
+                text: root.measured ? Math.round(root.measured-w / 1px) + " × " + Math.round(root.measured-h / 1px) : "measuring…";
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            Measure {
+                width: root.wide ? 420px : 220px;
+                measured(x, y, w, h) => {
+                    root.measured = true;
+                    root.measured-w = w;
+                    root.measured-h = h;
+                }
+                Rectangle {
+                    border-radius: Theme.radius(Radius.lg);
+                    background: Theme.colors.sunken;
+                    VerticalLayout {
+                        padding: 12px;
+                        Text {
+                            text: "Text wraps to the width it gets. The box reports each new size once.";
+                            color: Theme.colors.fg-muted;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "IntersectionObserver";
+        note: "Scroll the box. The marker reports entering and leaving.";
+        Row {
+            spacing: 24px;
+            Rectangle {
+                width: 260px;
+                height: 120px;
+                border-radius: Theme.radius(Radius.lg);
+                border-width: 1px;
+                border-color: Theme.colors.border;
+                scroller := Flickable {
+                    width: 100%;
+                    height: 100%;
+                    VerticalLayout {
+                        Rectangle {
+                            height: 140px;
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            IntersectionObserver {
+                                visible-x: scroller.absolute-position.x;
+                                visible-y: scroller.absolute-position.y;
+                                visible-width: scroller.width;
+                                visible-height: scroller.height;
+                                visibility-changed(visible) => {
+                                    root.seen = visible;
+                                }
+                                Rectangle {
+                                    border-radius: Theme.radius(Radius.md);
+                                    background: Theme.colors.info-subtle;
+                                    HorizontalLayout {
+                                        padding: 8px;
+                                        Text {
+                                            text: "Marker";
+                                            color: Theme.colors.info;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: 140px;
+                        }
+                    }
+                }
+            }
+
+            Code {
+                text: root.seen ? "in view" : "out of view";
+            }
+        }
+    }
+
+    Section {
+        title: "Clipboard";
+        note: "TextInput's copy() and paste() reach the system clipboard.";
+        Row {
+            Button {
+                text: "Copy “Ely”";
+                icon: Icons.copy;
+                clicked => {
+                    clip.text = "Ely";
+                    clip.select-all();
+                    clip.copy();
+                    clip.text = "";
+                }
+            }
+
+            Button {
+                text: "Paste";
+                variant: ButtonVariant.ghost;
+                icon: Icons.clipboard;
+                clicked => {
+                    clip.text = "";
+                    clip.paste();
+                    root.pasted = clip.text != "" ? clip.text : "The clipboard holds no text.";
+                    clip.text = "";
+                }
+            }
+
+            if root.pasted != "": Text {
+                text: root.pasted;
+                color: Theme.colors.fg-muted;
+            }
+            // Not a layout, so the clipboard's carrier takes no room in the row.
+            Rectangle {
+                width: clip-hint.preferred-width;
+                height: clip-hint.preferred-height;
+                clip-hint := Code {
+                    text: "TextInput.copy() / paste()";
+                }
+
+                // Carries text to and from the clipboard; never drawn.
+                clip := TextInput {
+                    visible: false;
+                    width: 0;
+                    height: 0;
+                }
             }
         }
     }
 
     Section {
         title: "Tooltip Trigger";
-        note: "gpui's trigger with Ely's body, or Ely's own trigger for delay and tracking.";
+        note: "A tooltip with Ely's body, or Ely's own trigger for delay and tracking.";
         Row {
+            spacing: 8px;
+            IconButton {
+                icon: Icons.copy;
+                tooltip: "Copy";
+            }
+
+            Tipped {
+                text: "Search";
+                meta: "⌘K";
+                IconButton {
+                    icon: Icons.search;
+                    icon-name: "search";
+                }
+            }
+
+            Tipped {
+                rich: true;
+                IconButton {
+                    icon: Icons.info;
+                    icon-name: "info";
+                }
+            }
+
+            Rectangle {
+                width: 16px;
+            }
+
             TooltipTrigger {
-                text: "42 visits";
-                delay: 200ms;
+                text: "No delay. I follow.";
+                delay: 0ms;
                 follow-mouse: true;
                 Rectangle {
-                    width: 160px;
+                    width: 260px;
                     height: 48px;
-                    border-radius: Theme.radius(Radius.md);
-                    background: Theme.colors.sunken;
+                    border-radius: Theme.radius(Radius.lg);
+                    border-width: 1px;
+                    border-color: Theme.colors.border;
                     Text {
-                        text: "Hover me";
+                        text: "Move across me";
                         color: Theme.colors.fg-muted;
                     }
                 }
             }
-
-            HelpTooltip {
-                text: "Requests per minute, averaged over five minutes.";
-            }
         }
-    }
 
-    Section {
-        title: "Disclosure";
-        note: "A chevron that turns on each change.";
-        Row {
-            Disclosure {
-                open: root.open;
-                size: IconSize.md;
-            }
-
-            Button {
-                text: root.open ? "Close" : "Open";
-                clicked => {
-                    root.open = !root.open;
-                }
-            }
-        }
-    }
-
-    Section {
-        title: "Spinner";
-        note: "Six motions. Held still under reduced motion.";
-        Specimens {
-            Specimen {
-                caption: "ring";
-                Spinner {
-                    kind: SpinnerStyle.ring;
-                    size: IconSize.xl;
-                }
-            }
-
-            Specimen {
-                caption: "dots";
-                Spinner {
-                    kind: SpinnerStyle.dots;
-                    size: IconSize.xl;
-                }
-            }
-
-            Specimen {
-                caption: "bars";
-                Spinner {
-                    kind: SpinnerStyle.bars;
-                    size: IconSize.xl;
-                }
-            }
-
-            Specimen {
-                caption: "pulse";
-                Spinner {
-                    kind: SpinnerStyle.pulse;
-                    size: IconSize.xl;
-                }
-            }
-
-            Specimen {
-                caption: "orbit";
-                Spinner {
-                    kind: SpinnerStyle.orbit;
-                    size: IconSize.xl;
-                }
-            }
-
-            Specimen {
-                caption: "wave";
-                Spinner {
-                    kind: SpinnerStyle.wave;
-                    size: IconSize.xl;
-                }
-            }
+        Text {
+            text: "Ely's trigger waits 400ms by default; the plain tooltip waits 500ms.";
+            font-size: Theme.text-size(TextSize.xs);
+            color: Theme.colors.fg-subtle;
         }
     }
 }
