@@ -1,0 +1,44 @@
+// Port of ely-core/src/primitives/divider.rs (`Divider`).
+// A hairline rule, across or down, in `colors.border`.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+
+component Line inherits VerticalLayout {
+    alignment: center;
+    horizontal-stretch: 1;
+    Rectangle {
+        height: Theme.hairline;
+        background: Theme.colors.border;
+    }
+}
+
+// A rule across its container; with `text`, the text sits centered on it.
+export component Divider inherits HorizontalLayout {
+    // Text centered on the rule.
+    in property <string> text;
+
+    accessible-role: none;
+    spacing: 12px;
+    vertical-stretch: 0;
+
+    Line { }
+
+    if root.text != "": Text {
+        text: root.text;
+        font-size: Theme.text-size(TextSize.xs);
+        font-family: Theme.font-family;
+        color: Theme.colors.fg-subtle;
+        vertical-alignment: center;
+        horizontal-stretch: 0;
+    }
+    if root.text != "": Line { }
+}
+
+// A rule down its container.
+export component VerticalDivider inherits Rectangle {
+    accessible-role: none;
+    width: Theme.hairline;
+    vertical-stretch: 1;
+    horizontal-stretch: 0;
+    background: Theme.colors.border;
+}
