@@ -1,7 +1,8 @@
 // Port of ely-core/src/primitives/measure.rs (`Measure`, `IntersectionObserver`).
 
 // A box that reports its bounds in window coordinates whenever they change.
-export component Measure {
+// It lays its children out top to bottom and takes their size, as GPUI's div does.
+export component Measure inherits VerticalLayout {
     // x, y, width, height of this box in the window.
     callback measured(length, length, length, length);
 
@@ -26,7 +27,8 @@ export component Measure {
 // A box that reports when it enters or leaves the visible area.
 // GPUI reads the clip it paints under; Slint does not expose it, so the owner passes the
 // visible area (for example a Flickable's viewport) in window coordinates.
-export component IntersectionObserver {
+// It lays its children out top to bottom and takes their size.
+export component IntersectionObserver inherits VerticalLayout {
     in property <length> visible-x;
     in property <length> visible-y;
     in property <length> visible-width;
