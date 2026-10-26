@@ -1,0 +1,378 @@
+// Design tokens, ported from Ely-GPUI-Components ely-core/src/theme (mod.rs, tokens.rs)
+// and ely-core/src/motion/curve.rs. Every value is copied from the source.
+
+import { Palette, Palettes } from "palette.slint";
+
+export { Palette, Syntax } from "palette.slint";
+
+// Light or dark.
+export enum Mode {
+    // Dark text on light grounds.
+    light,
+    // Light text on dark grounds.
+    dark,
+}
+
+// Whose conventions the components follow: window buttons, the title bar's layout and key caps.
+export enum Platform {
+    mac,
+    windows,
+    linux,
+}
+
+// How much room controls take.
+export enum Density {
+    // Controls 4 px shorter.
+    compact,
+    // The default room.
+    standard,
+    // Controls 4 px taller.
+    comfortable,
+}
+
+// How large a control is.
+export enum ControlSize {
+    // 24 px tall at standard density.
+    sm,
+    // 28 px tall at standard density.
+    md,
+    // 32 px tall at standard density.
+    lg,
+}
+
+// How large an avatar is.
+export enum AvatarSize {
+    xs,
+    sm,
+    md,
+    lg,
+    xl,
+}
+
+// How large an icon is.
+export enum IconSize {
+    // 12 px.
+    xs,
+    // 14 px.
+    sm,
+    // 16 px.
+    md,
+    // 20 px.
+    lg,
+    // 24 px.
+    xl,
+    // 32 px.
+    xxl,
+}
+
+// A step on the type scale.
+export enum TextSize {
+    // 11 px.
+    xs,
+    // 12 px.
+    sm,
+    // 13 px, body text.
+    base,
+    // 14 px.
+    md,
+    // 16 px.
+    lg,
+    // 20 px.
+    xl,
+    // 24 px.
+    xxl,
+    // 32 px.
+    display,
+}
+
+// How wide a container may grow.
+export enum ContainerSize {
+    sm,
+    md,
+    lg,
+}
+
+// How round a corner is.
+export enum Radius {
+    // 4 px.
+    sm,
+    // 6 px.
+    md,
+    // 8 px.
+    lg,
+    // 12 px.
+    xl,
+}
+
+// How high a box floats.
+export enum Elevation {
+    // A shallow shadow.
+    raised,
+    // A middle shadow, for what floats over the page.
+    floating,
+    // The deepest shadow, for dialogs.
+    modal,
+}
+
+// One drop shadow layer.
+export struct ShadowLayer {
+    offset-y: length,
+    blur: length,
+    color: color,
+}
+
+// What the theme fade watches: a change to any field starts a fade.
+export struct ThemeTarget {
+    mode: Mode,
+    high-contrast: bool,
+    color-blind-safe: bool,
+    custom-revision: int,
+}
+
+// Design tokens. One global per app.
+export global Theme {
+    // The mode shown, or the one a fade heads to. Setting it cross-fades the palette
+    // over `motion-theme` when a `ThemeFader` is in the window, and switches at once otherwise.
+    in-out property <Mode> mode: Mode.light;
+    // Strengthens Ely's own palettes alone.
+    in-out property <bool> high-contrast: false;
+    // Chart hues that stay apart for color-blind eyes, in Ely's own palettes.
+    in-out property <bool> color-blind-safe: false;
+    // How much room controls take.
+    in-out property <Density> density: Density.standard;
+    // Scales every radius.
+    in-out property <float> radius-scale: 1.0;
+    // Scales every text and icon size.
+    in-out property <float> font-scale: 1.0;
+    // The face text sets in.
+    in-out property <string> font-family: "Inter";
+    // The face code sets in.
+    in-out property <string> mono-family: "JetBrains Mono";
+    // Holds repeating motion still and cuts the rest short.
+    in-out property <bool> reduced-motion: false;
+    // Whose window buttons, title bar and key caps components draw.
+    in-out property <Platform> platform: Platform.linux;
+
+    // The owner's palette for each mode, as an edited or imported theme gives.
+    in-out property <bool> use-custom-light: false;
+    in-out property <Palette> custom-light;
+    in-out property <bool> use-custom-dark: false;
+    in-out property <Palette> custom-dark;
+    // Bump after changing a custom palette so the fade runs.
+    in-out property <int> custom-revision: 0;
+
+    // Whether the mode is dark.
+    out property <bool> is-dark: mode == Mode.dark;
+
+    // The palette the shown mode fades to: the owner's, or Ely's.
+    out property <Palette> palette: mode == Mode.dark ? (use-custom-dark ? custom-dark : dark-base) : (use-custom-light ? custom-light : light-base);
+    private property <Palette> light-base: Palettes.with-chart(high-contrast ? Palettes.light-high-contrast : Palettes.light, color-blind-safe ? Palettes.color-blind-chart-light : Palettes.light.chart);
+    private property <Palette> dark-base: Palettes.with-chart(high-contrast ? Palettes.dark-high-contrast : Palettes.dark, color-blind-safe ? Palettes.color-blind-chart-dark : Palettes.dark.chart);
+
+    out property <ThemeTarget> target: {
+        mode: mode,
+        high-contrast: high-contrast,
+        color-blind-safe: color-blind-safe,
+        custom-revision: custom-revision,
+    };
+
+    // Fade state, driven by `ThemeFader`.
+    in-out property <bool> fader-present: false;
+    in-out property <Palette> fade-from;
+    in-out property <Palette> fade-to;
+    in-out property <float> fade: 1.0;
+
+    // The palette on screen, between two during a fade.
+    out property <Palette> colors: !fader-present ? palette : fade >= 1.0 ? fade-to : Palettes.mix-palette(fade-from, fade-to, ease-in-out-cubic(fade));
+
+    // The chart's hues by name.
+    out property <[string]> hue-names: ["Blue", "Teal", "Ochre", "Rose", "Violet", "Green", "Rust", "Cyan"];
+
+    // Sets `m` at once, stopping any fade under way.
+    public function set-mode-now(m: Mode) {
+        mode = m;
+        fade-from = palette;
+        fade-to = palette;
+        fade = 1.0;
+    }
+
+    // Starts a fade from the colors on screen to `palette`; `ThemeFader` calls it.
+    public function begin-fade() {
+        fade-from = colors;
+        fade-to = palette;
+        fade = 0.0;
+    }
+
+    // ---- Motion (motion/curve.rs) ----
+
+    // A short move, 120 ms.
+    out property <duration> motion-fast: reduced-motion ? 1ms : 120ms;
+    // The common move, 200 ms.
+    out property <duration> motion-base: reduced-motion ? 1ms : 200ms;
+    // A long move, 320 ms.
+    out property <duration> motion-slow: reduced-motion ? 1ms : 320ms;
+    // The fade between light and dark, 280 ms.
+    out property <duration> motion-theme: reduced-motion ? 1ms : 280ms;
+    // Travel of small entrances.
+    out property <length> nudge: 4px;
+
+    // `base`, or one millisecond under reduced motion.
+    public pure function duration(base: duration) -> duration {
+        reduced-motion ? 1ms : base
+    }
+
+    // Slint's `spring(0.25)` with this duration matches GPUI's `motion::spring`
+    // (damping 0.75, omega 6.91 / 0.75 over the animation's span) run over `base`.
+    public pure function spring-duration(base: duration) -> duration {
+        reduced-motion ? 1ms : base * 0.6819789
+    }
+
+    // Fast at first, gentle at the end.
+    public pure function ease-out-cubic(t: float) -> float {
+        1 - Math.pow(1 - t, 3)
+    }
+
+    // Gentle at both ends, fast between.
+    public pure function ease-in-out-cubic(t: float) -> float {
+        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    }
+
+    // ---- Measures (theme/tokens.rs) ----
+
+    // A control's height at `size`, moved 4 px by density.
+    public pure function control-height(size: ControlSize) -> length {
+        (size == ControlSize.sm ? 24px : size == ControlSize.md ? 28px : 32px) + (density == Density.compact ? -4px : density == Density.comfortable ? 4px : 0px)
+    }
+
+    // A control's side padding at `size`, moved 2 px by density.
+    public pure function control-padding(size: ControlSize) -> length {
+        (size == ControlSize.sm ? 8px : size == ControlSize.md ? 12px : 16px) + (density == Density.compact ? -2px : density == Density.comfortable ? 2px : 0px)
+    }
+
+    // An avatar's side at `size`.
+    public pure function avatar-size(size: AvatarSize) -> length {
+        size == AvatarSize.xs ? 20px : size == AvatarSize.sm ? 24px : size == AvatarSize.md ? 32px : size == AvatarSize.lg ? 40px : 56px
+    }
+
+    // An icon's side at `size`, scaled with the text.
+    public pure function icon-size(size: IconSize) -> length {
+        (size == IconSize.xs ? 12px : size == IconSize.sm ? 14px : size == IconSize.md ? 16px : size == IconSize.lg ? 20px : size == IconSize.xl ? 24px : 32px) * font-scale
+    }
+
+    // Text at `size`, scaled by `font-scale`.
+    public pure function text-size(size: TextSize) -> length {
+        (size == TextSize.xs ? 11px : size == TextSize.sm ? 12px : size == TextSize.base ? 13px : size == TextSize.md ? 14px : size == TextSize.lg ? 16px : size == TextSize.xl ? 20px : size == TextSize.xxl ? 24px : 32px) * font-scale
+    }
+
+    // A corner's radius at `size`, scaled by `radius-scale`.
+    public pure function radius(size: Radius) -> length {
+        (size == Radius.sm ? 4px : size == Radius.md ? 6px : size == Radius.lg ? 8px : 12px) * radius-scale
+    }
+
+    // A container's cap at `size`.
+    public pure function container-width(size: ContainerSize) -> length {
+        size == ContainerSize.sm ? 640px : size == ContainerSize.md ? 960px : 1200px
+    }
+
+    // A table row's height at `d`.
+    public pure function table-row(d: Density) -> length {
+        d == Density.compact ? 28px : d == Density.standard ? 36px : 44px
+    }
+
+    // A sidebar's width: 56 px folded to a rail, 240 px open.
+    public pure function sidebar-width(collapsed: bool) -> length {
+        collapsed ? 56px : 240px
+    }
+
+    // The first (closer) shadow layer for `level` in the mode shown.
+    public pure function shadow-near(level: Elevation) -> ShadowLayer {
+        is-dark ? (level == Elevation.raised ? layer(1px, 2px, 0.4) : level == Elevation.floating ? layer(2px, 4px, 0.3) : layer(4px, 8px, 0.3)) : (level == Elevation.raised ? layer(1px, 2px, 0.06) : level == Elevation.floating ? layer(1px, 2px, 0.04) : layer(2px, 4px, 0.04))
+    }
+
+    // The second (wider) shadow layer for `level`; raised has none.
+    public pure function shadow-far(level: Elevation) -> ShadowLayer {
+        level == Elevation.raised ? layer(0px, 0px, 0) : is-dark ? (level == Elevation.floating ? layer(8px, 24px, 0.45) : layer(20px, 48px, 0.55)) : (level == Elevation.floating ? layer(6px, 16px, 0.08) : layer(16px, 40px, 0.14))
+    }
+
+    pure function layer(y: length, blur: length, alpha: float) -> ShadowLayer {
+        { offset-y: y, blur: blur, color: colors.shadow.with-alpha(alpha) }
+    }
+
+    // `c` with its alpha multiplied by `factor`, like GPUI's `Hsla::opacity`.
+    public pure function opacity(c: color, factor: float) -> color {
+        c.with-alpha(c.alpha / 255 * factor)
+    }
+
+    // GPUI's `Mix`: a share `t` of the way from `a` to `b`.
+    public pure function mix(a: color, b: color, t: float) -> color {
+        Palettes.mix(a, b, t)
+    }
+
+    out property <length> sheet-size: 380px;
+    out property <length> scrollbar-thickness: 6px;
+    out property <length> scrollbar-min-thumb: 24px;
+    out property <length> pane-min: 160px;
+    out property <length> titlebar-height: 38px;
+    out property <length> traffic-light-inset: 78px;
+    out property <length> underline-thickness: 1px;
+    out property <length> hairline: 1px;
+    out property <length> caret-width: 1.5px;
+    out property <length> fab-size: 56px;
+    out property <length> progress-thickness: 2px;
+    out property <length> progress-ring: 48px;
+    out property <length> base-rem: 16px;
+    out property <length> window-margin: 24px;
+    out property <length> traffic-light: 12px;
+    out property <length> caption-button-width: 46px;
+    out property <length> window-inset: 10px;
+    out property <length> rail-width: 48px;
+    out property <length> tab-min-width: 96px;
+    out property <length> tab-max-width: 200px;
+    out property <length> tab-indicator: 2px;
+    out property <length> nav-panel-width: 480px;
+    out property <length> pie-radius: 84px;
+    out property <length> pie-button: 40px;
+    out property <length> float-gap: 6px;
+    out property <length> dialog-width: 440px;
+    out property <length> toast-width: 360px;
+    out property <length> glow-reach: 20px;
+    out property <length> page-cover: 208px;
+    out property <length> page-icon: 64px;
+    out property <length> skeleton-media: 128px;
+    out property <length> grid-column: 96px;
+    out property <length> spark-width: 64px;
+    out property <length> spark-height: 18px;
+    out property <length> tree-indent: 16px;
+    out property <length> list-overdraw: 240px;
+    out property <length> swipe-action: 72px;
+    out property <length> qr-code: 160px;
+    out property <length> barcode-module: 2px;
+    out property <length> barcode-height: 56px;
+    out property <length> gauge: 144px;
+    out property <length> meter-track: 6px;
+    out property <length> watermark-tile-width: 200px;
+    out property <length> watermark-tile-height: 96px;
+    out property <length> label-width: 160px;
+    out property <length> prose-width: 320px;
+    out property <length> menu-width: 200px;
+    out property <length> palette-width: 600px;
+    out property <length> palette-height: 400px;
+    out property <length> grip-width: 36px;
+    out property <length> grip-height: 4px;
+    out property <length> handle-hit: 6px;
+    out property <length> cursor-offset: 18px;
+    out property <length> check-size: 16px;
+    out property <length> radio-dot: 6px;
+    out property <length> status-dot: 6px;
+    out property <length> switch-track-width: 32px;
+    out property <length> switch-track-height: 18px;
+    out property <length> slider-track: 4px;
+    out property <length> slider-thumb: 16px;
+    out property <length> knob-diameter: 48px;
+    out property <length> knob-arc: 3px;
+    out property <length> color-plane: 152px;
+    out property <length> signature-height: 160px;
+    out property <length> signature-ink: 2px;
+    out property <length> list-max-height: 280px;
+    out property <length> tooltip-max-width: 256px;
+}

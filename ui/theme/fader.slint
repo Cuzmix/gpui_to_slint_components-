@@ -1,0 +1,33 @@
+// Runs the 280 ms light/dark cross-fade of theme/mod.rs (`fade_to_target`): every 8 ms frame
+// blends the palette shown toward the new target with ease-in-out-cubic.
+// Place one inside each window's root. Without it, palette changes apply at once.
+
+import { Theme, ThemeTarget } from "theme.slint";
+
+export component ThemeFader {
+    width: 0;
+    height: 0;
+    private property <ThemeTarget> watched: Theme.target;
+    private property <duration> started;
+
+    init => {
+        Theme.fade-from = Theme.palette;
+        Theme.fade-to = Theme.palette;
+        Theme.fade = 1.0;
+        Theme.fader-present = true;
+    }
+
+    changed watched => {
+        Theme.begin-fade();
+        started = animation-tick();
+    }
+
+    Timer {
+        // GPUI's FRAME.
+        interval: 8ms;
+        running: Theme.fade < 1.0;
+        triggered => {
+            Theme.fade = Math.min(1.0, (animation-tick() - started) / Theme.motion-theme);
+        }
+    }
+}

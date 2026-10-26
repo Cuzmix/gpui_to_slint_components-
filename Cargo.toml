@@ -1,0 +1,18 @@
+[package]
+name = "ely-slint"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+description = "Ely components ported from Ely-GPUI-Components to Slint 1.18.1, with an optional Rust support crate."
+build = "build.rs"
+include = ["src/**", "ui/**", "build.rs", "README.md", "LICENSE"]
+
+[dependencies]
+slint = "=1.18.1"
+
+[build-dependencies]
+slint-build = "=1.18.1"
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
