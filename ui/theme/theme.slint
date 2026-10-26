@@ -237,6 +237,11 @@ export global Theme {
         t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
     }
 
+    // gpui's `pulsating_between(min, max)` at `delta` in 0..1: a sine-and-cubic breath.
+    public pure function pulsating-between(min: float, max: float, delta: float) -> float {
+        min + ((Math.pow(Math.sin(delta * 360deg), 3) + Math.sin(delta * 360deg)) / 2 + 1) / 2 * (max - min)
+    }
+
     // ---- Measures (theme/tokens.rs) ----
 
     // A control's height at `size`, moved 4 px by density.

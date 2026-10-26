@@ -1,0 +1,45 @@
+// Port of ely-core/src/primitives/image.rs (`Image`), named Picture so it does not shadow
+// Slint's builtin Image. It fills the box it is given.
+//
+// - No source (`has-source: false`): a sunken pane with the `image` mark (lg, fg-subtle).
+// - Loading (`loading: true`, set by the host while it fetches): a sunken pane pulsing
+//   between 55 % and 100 % opacity every 1600 ms; still under reduced motion.
+// - Failed (a source that decoded to nothing): the `image-off` mark.
+// Slint loads local files synchronously and has no network loader, so the host owns `loading`.
+
+import { Theme, IconSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { Icon } from "icon.slint";
+
+export component Picture inherits Rectangle {
+    in property <image> source;
+    // False draws the placeholder: nothing to load yet.
+    in property <bool> has-source: true;
+    // True while the host is still fetching the picture.
+    in property <bool> loading: false;
+    // How the picture fills its box; cover unless set.
+    in property <ImageFit> fit: ImageFit.cover;
+
+    out property <bool> failed: has-source && !loading && source.width == 0;
+
+    clip: true;
+
+    if root.has-source && !root.loading && !root.failed: Image {
+        width: 100%;
+        height: 100%;
+        source: root.source;
+        image-fit: root.fit;
+    }
+    if !root.has-source || root.loading || root.failed: Rectangle {
+        background: Theme.colors.sunken;
+        border-radius: root.border-radius;
+        opacity: root.loading && !Theme.reduced-motion ? Theme.pulsating-between(0.55, 1.0, Math.mod(animation-tick() / 1600ms, 1.0)) : 1.0;
+        if !root.loading: Icon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            source: root.has-source ? Icons.image-off : Icons.image;
+            size: IconSize.lg;
+            color: Theme.colors.fg-subtle;
+        }
+    }
+}
