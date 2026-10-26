@@ -5,6 +5,8 @@
 //! and this crate computes them. Nothing here holds UI state.
 
 pub mod focus;
+pub mod format;
 pub mod keys;
+pub mod text;
 
 pub use keys::{Keystroke, KeystrokeError, Platform, key_label, keystroke, keystroke_labels, shortcut_text};
