@@ -1,0 +1,18 @@
+// Port of ely-core/src/typography/text.rs (`Overline`).
+// Small upper-case eyebrow above a heading.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Overline inherits VerticalLayout {
+    // Set upper-case when drawn.
+    in property <string> text;
+
+    TypeText {
+        text: root.text.to-uppercase();
+        font-size: Theme.text-size(TextSize.xs);
+        font-weight: 600;
+        color: Theme.colors.fg-subtle;
+        leading: 1.4;
+    }
+}

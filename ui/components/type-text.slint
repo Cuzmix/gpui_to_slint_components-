@@ -1,0 +1,22 @@
+// The base of ely-core's text kinds (typography/text.rs `styled`): a size, a weight, an ink and
+// a leading. GPUI's leading is a multiple of the font size; Slint's `line-height-factor` is a
+// multiple of the font's natural line height, so the factor converts one to the other. The
+// natural height comes from the Theme, not `font-metrics`: Slint reads the metrics through the
+// line height, so binding one to the other is a loop.
+
+import { Theme } from "../theme/theme.slint";
+
+export component TypeText inherits Text {
+    // Line height as a multiple of the font size, as GPUI's `line_height(relative(…))`.
+    in property <float> leading: 1;
+    // The face's natural line height over its size; set with `font-family`.
+    in property <float> line-ratio: Theme.font-line-ratio;
+
+    font-family: Theme.font-family;
+    wrap: word-wrap;
+    // GPUI snaps a line to whole device pixels, rounding half down.
+    private property <length> line: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
+
+    // A thousandth of a pixel under, so f32 rounding never tips Slint's ceil of the block up a pixel.
+    line-height-factor: (root.line - 0.001px) / (root.font-size * root.line-ratio);
+}

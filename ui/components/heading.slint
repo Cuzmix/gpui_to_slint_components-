@@ -1,0 +1,29 @@
+// Port of ely-core/src/typography/text.rs (`Heading`).
+// H1 to H6: one weight, size carries the order.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export enum HeadingLevel {
+    // Display, 32 px.
+    h1,
+    // 24 px.
+    h2,
+    // 20 px.
+    h3,
+    // 16 px.
+    h4,
+    // 14 px.
+    h5,
+    // 13 px.
+    h6,
+}
+
+export component Heading inherits TypeText {
+    in property <HeadingLevel> level: HeadingLevel.h1;
+
+    font-size: Theme.text-size(level == HeadingLevel.h1 ? TextSize.display : level == HeadingLevel.h2 ? TextSize.xxl : level == HeadingLevel.h3 ? TextSize.xl : level == HeadingLevel.h4 ? TextSize.lg : level == HeadingLevel.h5 ? TextSize.md : TextSize.base);
+    font-weight: 600;
+    color: Theme.colors.fg;
+    leading: 1.25;
+}

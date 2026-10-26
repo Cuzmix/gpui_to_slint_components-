@@ -149,6 +149,11 @@ export global Theme {
     in-out property <string> font-family: "Inter";
     // The face code sets in.
     in-out property <string> mono-family: "JetBrains Mono";
+    // Each face's own line height (ascent less descent) as a multiple of its size. Slint scales
+    // this height, where GPUI multiplies the size, so set these with the faces: Inter 4.1 is
+    // (1984 + 494) / 2048, JetBrains Mono (1020 + 300) / 1000.
+    in-out property <float> font-line-ratio: 1.2099609375;
+    in-out property <float> mono-line-ratio: 1.32;
     // Holds repeating motion still and cuts the rest short.
     in-out property <bool> reduced-motion: false;
     // Whose window buttons, title bar and key caps components draw; starts as the system it runs on.

@@ -1,0 +1,12 @@
+// Port of ely-core/src/typography/text.rs (`Subtitle`).
+// The line under a title, large and muted.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Subtitle inherits TypeText {
+    font-size: Theme.text-size(TextSize.lg);
+    font-weight: 400;
+    color: Theme.colors.fg-muted;
+    leading: 1.45;
+}

@@ -25,6 +25,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | HelpTooltip, TooltipTrigger | primitives/tooltip.rs | ✓ | n/a | n/a | ✓ 500 / 400 ms, hide on leave and press | ✓ (TooltipController) | ✓ | n/a | ✓ `tests/tooltip.rs` (rich content too) | G7 | ✓ |
 | VisuallyHidden | tasks/ch01-10.md (GPUI shipped none) | ✓ | n/a | n/a | n/a | n/a | ✓ draws nothing | ✓ text role and label | ✓ `tests/primitives2.rs` | | ✓ |
 | KeyStrokes (gpui `Keystroke::unparse`) | gpui platform/keystroke.rs | ✓ | n/a | ✓ | n/a | n/a | n/a | n/a | ✓ `tests/keystroke.rs` | | ✓ |
+| Title, Subtitle, Paragraph, Label, Caption, Overline, Heading (TypeText) | typography/text.rs | ✓ | n/a | n/a | n/a | n/a | ✓ sizes, weights, inks, pixel-snapped leading | ✓ text role | ✓ `tests/typography.rs` | G20 | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

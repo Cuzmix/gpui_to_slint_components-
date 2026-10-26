@@ -1,0 +1,12 @@
+// Port of ely-core/src/typography/text.rs (`Title`).
+// A view's title: extra large and semibold.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Title inherits TypeText {
+    font-size: Theme.text-size(TextSize.xl);
+    font-weight: 600;
+    color: Theme.colors.fg;
+    leading: 1.3;
+}

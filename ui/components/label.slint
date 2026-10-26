@@ -1,0 +1,12 @@
+// Port of ely-core/src/typography/text.rs (`Label`).
+// A control's name, medium weight.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Label inherits TypeText {
+    font-size: Theme.text-size(TextSize.base);
+    font-weight: 500;
+    color: Theme.colors.fg;
+    leading: 1.4;
+}

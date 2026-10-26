@@ -1,0 +1,12 @@
+// Port of ely-core/src/typography/text.rs (`Caption`).
+// Small muted text under or beside its subject.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component Caption inherits TypeText {
+    font-size: Theme.text-size(TextSize.sm);
+    font-weight: 400;
+    color: Theme.colors.fg-muted;
+    leading: 1.45;
+}
