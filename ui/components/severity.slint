@@ -1,0 +1,33 @@
+// Port of ely-core/src/primitives/severity.rs (`Severity`).
+// How much a message matters, with the color and icon that say so.
+
+import { Theme } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+
+export enum Severity {
+    // News that needs no action.
+    info,
+    // Something worked.
+    success,
+    // Something may go wrong.
+    warning,
+    // Something failed or cannot be undone.
+    danger,
+}
+
+export global Severities {
+    // Its color in the palette on screen.
+    public pure function color(s: Severity) -> color {
+        s == Severity.info ? Theme.colors.info : s == Severity.success ? Theme.colors.success : s == Severity.warning ? Theme.colors.warning : Theme.colors.danger
+    }
+
+    // The quiet fill behind its icon or a banner.
+    public pure function subtle(s: Severity) -> color {
+        s == Severity.info ? Theme.colors.info-subtle : s == Severity.success ? Theme.colors.success-subtle : s == Severity.warning ? Theme.colors.warning-subtle : Theme.colors.danger-subtle
+    }
+
+    // Its icon.
+    public pure function icon(s: Severity) -> image {
+        s == Severity.info ? Icons.info : s == Severity.success ? Icons.circle-check : s == Severity.warning ? Icons.triangle-alert : Icons.circle-alert
+    }
+}
