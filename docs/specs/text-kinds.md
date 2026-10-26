@@ -21,3 +21,5 @@ Sizes scale with `font_scale`. gpui snaps each line's height to whole device pix
 Slint: every kind `inherits TypeText`, which inherits `Text`, so all Text properties (overflow, alignment, color overrides) stay settable, as gpui's `Styled` refinement allows. `TypeText.leading` is gpui's relative line height. Slint's `line-height-factor` multiplies the face's natural line height, so TypeText divides by `Theme.font-line-ratio` (Inter 4.1: 2478/2048) after snapping the line as gpui does. Overline is a one-child layout because it shows `text` upper-cased. The Text's own accessible role (`text`) is kept; gpui gives headings no heading role either.
 
 `tabular` and `literal` (font features) are not portable: gap G20.
+
+Text that sets no leading takes gpui's default, phi (1.618034). `TypeText` defaults to it, so every content-sized text in this port (Divider label, DragGhost, Tooltip, Code, Kbd) uses `TypeText`, and boxes around text come out as tall as gpui's. A fixed-height control (Button) centers its label, so its line height shows nowhere.

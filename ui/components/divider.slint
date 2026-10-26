@@ -2,6 +2,7 @@
 // A hairline rule, across or down, in `colors.border`.
 
 import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
 
 component Line inherits VerticalLayout {
     alignment: center;
@@ -23,10 +24,9 @@ export component Divider inherits HorizontalLayout {
 
     Line { }
 
-    if root.text != "": Text {
+    if root.text != "": TypeText {
         text: root.text;
         font-size: Theme.text-size(TextSize.xs);
-        font-family: Theme.font-family;
         color: Theme.colors.fg-subtle;
         vertical-alignment: center;
         horizontal-stretch: 0;

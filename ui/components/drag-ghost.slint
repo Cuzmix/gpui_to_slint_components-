@@ -10,6 +10,7 @@ import {
 } from "../theme/theme.slint";
 import { Elevated } from "elevated.slint";
 import { Icon } from "icon.slint";
+import { TypeText } from "type-text.slint";
 
 export component DragGhost inherits Elevated {
     in property <string> title;
@@ -38,10 +39,9 @@ export component DragGhost inherits Elevated {
                 color: Theme.colors.fg-muted;
             }
         }
-        Text {
+        TypeText {
             text: root.title;
             font-size: Theme.text-size(TextSize.sm);
-            font-family: Theme.font-family;
             color: Theme.colors.fg;
             vertical-alignment: center;
         }

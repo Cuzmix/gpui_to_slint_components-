@@ -24,6 +24,7 @@ import {
 import { Elevated } from "elevated.slint";
 import { Icon } from "icon.slint";
 import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
 
 // The body every tooltip draws: title, and an optional quiet trailing hint;
 // or, when `rich`, its children (`Tooltip::rich`).
@@ -55,20 +56,17 @@ export component TooltipSurface inherits Elevated {
 
         if !root.rich: HorizontalLayout {
             spacing: 8px;
-            Text {
+            TypeText {
                 text: root.text;
                 color: Theme.colors.tooltip-fg;
                 font-size: Theme.text-size(TextSize.sm);
-                font-family: Theme.font-family;
-                wrap: word-wrap;
                 vertical-alignment: center;
             }
 
-            if root.meta != "": Text {
+            if root.meta != "": TypeText {
                 text: root.meta;
                 color: Theme.opacity(Theme.colors.tooltip-fg, 0.6);
                 font-size: Theme.text-size(TextSize.sm);
-                font-family: Theme.font-family;
                 vertical-alignment: center;
             }
         }

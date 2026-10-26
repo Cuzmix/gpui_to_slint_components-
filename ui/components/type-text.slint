@@ -8,7 +8,8 @@ import { Theme } from "../theme/theme.slint";
 
 export component TypeText inherits Text {
     // Line height as a multiple of the font size, as GPUI's `line_height(relative(…))`.
-    in property <float> leading: 1;
+    // GPUI's default is phi, which every text without its own leading takes.
+    in property <float> leading: 1.618034;
     // The face's natural line height over its size; set with `font-family`.
     in property <float> line-ratio: Theme.font-line-ratio;
 

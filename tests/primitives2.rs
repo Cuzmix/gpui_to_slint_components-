@@ -3,7 +3,7 @@ mod common;
 use common::*;
 
 slint::slint! {
-    import { Disclosure, Picture, Backdrop, Place, Severity, Severities, Theme, TextSize, Icons, FocusRing, DragGhost, VisuallyHidden } from "ui/index.slint";
+    import { Disclosure, Picture, Backdrop, Place, Severity, Severities, Theme, TextSize, Icons, FocusRing, DragGhost, VisuallyHidden, TypeText } from "ui/index.slint";
     export component Harness inherits Window {
         width: 400px;
         height: 300px;
@@ -31,7 +31,7 @@ slint::slint! {
         out property <length> sm-line: ghost-text.preferred-height;
         ring := FocusRing { x: 100px; y: 0; width: 20px; height: 20px; focused: ring-focused; rest-color: Theme.colors.border; }
         ghost := DragGhost { x: 150px; y: 0; title: "main.rs"; icon: Icons.file; }
-        ghost-text := Text { visible: false; text: "main.rs"; font-size: Theme.text-size(TextSize.sm); font-family: Theme.font-family; }
+        ghost-text := TypeText { visible: false; text: "main.rs"; font-size: Theme.text-size(TextSize.sm); }
         hidden := VisuallyHidden { x: 300px; y: 0; text: "3 unread messages"; }
         d := Disclosure { x: 0; y: 0; open: open; }
         pic := Picture { x: 50px; y: 0; width: 40px; height: 40px; has-source: pic-has; loading: pic-loading; source: @image-url("ui/icons/check.svg"); }
@@ -118,7 +118,9 @@ fn drag_ghost_box() {
     let h = harness();
     assert_eq!(h.get_ghost_fill(), h.get_c_overlay());
     assert_eq!(h.get_ghost_border(), h.get_c_border());
-    assert_eq!(h.get_ghost_h(), h.get_sm_line() + 8.0);
+    // gpui's phi leading: a 12 px line is 19.4, snapped to 19; padding adds 8.
+    assert_eq!(h.get_sm_line(), 19.0);
+    assert_eq!(h.get_ghost_h(), 27.0);
 }
 
 fn visually_hidden_reads_but_draws_nothing() {
