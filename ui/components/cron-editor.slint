@@ -1,0 +1,97 @@
+// Port of ely-core/src/forms/date/cron.rs (`CronEditor`): a five-field cron rule (minute, hour,
+// day of month, month, weekday) typed in a mono field, read back in words with its next runs.
+// Presets above the field fill it in. A rule that does not parse says why, in the danger tone.
+//
+// Reading the rule runs in Rust (`ely_slint::cron`): the host wires `wire_crons!` (and
+// `wire_fields!` for the field). Runs count from the system's clock, shown in its zone, unless
+// `now-date` is set.
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { Button } from "button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Input } from "input.slint";
+import { TypeText } from "type-text.slint";
+import { CivilDate, CivilTime } from "dates.slint";
+
+// What a rule reads as: `state` 0 blank, 1 wrong (`words` says why), 2 a rule (`words` in plain
+// words, `runs` its next times joined by " · ", `any` whether one falls in five years).
+export struct CronReading {
+    state: int,
+    words: string,
+    runs: string,
+    any: bool,
+}
+
+export global Crons {
+    // Counts the minutes since wiring, so readings move on with the clock.
+    in-out property <int> minute;
+    // Reads `source`, its next `count` runs after `date` at `time` (the clock when `date` is
+    // unset); `minute` only asks again as the clock moves.
+    pure callback read(source: string, count: int, date: CivilDate, time: CivilTime, minute: int) -> CronReading;
+}
+
+export component CronEditor {
+    in-out property <string> rule;
+    // The moment next runs count from; unset (year 0), the system's clock.
+    in property <CivilDate> now-date;
+    in property <CivilTime> now-time;
+    // How many next runs to list; at least one.
+    in property <int> runs: 3;
+    // The name assistive technology reads for the field.
+    in property <string> label: @tr("Cron rule");
+
+    out property <bool> has-focus: field.has-focus;
+    // The rule's reading.
+    out property <CronReading> reading: Crons.read(root.rule, max(root.runs, 1), root.now-date, root.now-time, Crons.minute);
+
+    // The rule after an edit or a preset.
+    callback rule-changed(rule: string);
+
+    forward-focus: field;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        FlexboxLayout {
+            spacing: 8px;
+
+            for preset in [
+                { label: @tr("Hourly"), rule: "0 * * * *" },
+                { label: @tr("Daily at 9:00"), rule: "0 9 * * *" },
+                { label: @tr("Weekdays at 9:00"), rule: "0 9 * * 1-5" },
+                { label: @tr("Mondays at 9:00"), rule: "0 9 * * 1" },
+                { label: @tr("Monthly"), rule: "0 0 1 * *" },
+            ]: Button {
+                text: preset.label;
+                variant: ButtonVariant.outline;
+                size: ControlSize.sm;
+                clicked => {
+                    root.rule = preset.rule;
+                    root.rule-changed(preset.rule);
+                }
+            }
+        }
+
+        field := Input {
+            text <=> root.rule;
+            label: root.label;
+            font-family: Theme.mono-family;
+            invalid: root.reading.state == 1;
+            edited(text) => {
+                root.rule-changed(text);
+            }
+        }
+
+        TypeText {
+            text: root.reading.state == 0 ? @tr("Five fields: minute, hour, day of month, month, weekday.") : root.reading.words;
+            font-size: Theme.text-size(TextSize.sm);
+            color: root.reading.state == 0 ? Theme.colors.fg-subtle : root.reading.state == 1 ? Theme.colors.danger : Theme.colors.fg;
+        }
+
+        if root.reading.state == 2: TypeText {
+            text: root.reading.any ? @tr("Next: {}", root.reading.runs) : @tr("No run in the next five years.");
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.fg-muted;
+        }
+    }
+}

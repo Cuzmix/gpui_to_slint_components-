@@ -182,6 +182,8 @@ export component Input {
     // An icon before the text, sm.
     in property <image> prefix-icon;
     in property <color> prefix-color: Theme.colors.fg-subtle;
+    // The face the text is set in.
+    in property <string> font-family: Theme.font-family;
 
     out property <bool> has-focus: field.has-focus;
     out property <color> current-border: frame.current-border;
@@ -229,6 +231,7 @@ export component Input {
             enabled: root.enabled;
             size: root.size;
             least: root.least;
+            font-family: root.font-family;
             edited(text) => {
                 root.edited(text);
             }
