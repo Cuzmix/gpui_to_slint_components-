@@ -1,0 +1,46 @@
+// Port of ely-core/src/forms/date/zone.rs (`TimezoneSelect`, `show_offset`): a searchable list of
+// the system's time zones by IANA name, each noting its offset now ("UTC+09:00", a true minus
+// west of Greenwich).
+//
+// The zones come from Rust: the host wires `wire_zones!` (with `wire_options!`, `wire_fields!`
+// and an `OptionLayer`, as Combobox needs). Like Combobox (G48), `zone` is `in-out`.
+
+import { ControlSize } from "../theme/theme.slint";
+import { Combobox } from "combobox.slint";
+import { Choice } from "options.slint";
+
+// The system's zones and their offsets now, filled by `wire_zones!`.
+export global TimeZones {
+    in-out property <[Choice]> choices;
+}
+
+export component TimezoneSelect {
+    // Names its list; unique among the fields that show lists.
+    in property <string> owner: "timezone";
+    // A zone by its IANA name, such as `Asia/Tokyo`; empty for none.
+    in-out property <string> zone;
+
+    out property <bool> open: combo.open;
+    out property <bool> has-focus: combo.has-focus;
+    // The words in the field.
+    out property <string> text: combo.text;
+
+    // The zone's name, once one is chosen.
+    callback zone-changed(zone: string);
+
+    forward-focus: combo;
+    horizontal-stretch: 1;
+    min-width: combo.min-width;
+    preferred-width: combo.preferred-width;
+    height: combo.height;
+
+    combo := Combobox {
+        width: root.width;
+        owner: root.owner;
+        choices: TimeZones.choices;
+        selected <=> root.zone;
+        selection-changed(zone) => {
+            root.zone-changed(zone);
+        }
+    }
+}

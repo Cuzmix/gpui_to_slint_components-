@@ -54,6 +54,34 @@ pub fn iso_week(date: Date) -> (i32, i32) {
     (i32::from(week.year()), i32::from(week.week()))
 }
 
+/// An offset as "UTC+09:00", with a true minus sign west of Greenwich.
+pub fn show_offset(offset: jiff::tz::Offset) -> String {
+    let seconds = offset.seconds();
+    let sign = if seconds < 0 { '\u{2212}' } else { '+' };
+    let minutes = seconds.unsigned_abs() / 60;
+    format!("UTC{sign}{:02}:{:02}", minutes / 60, minutes % 60)
+}
+
+/// Every zone the system knows, by name, with its offset at `now`, sorted by name.
+pub fn zones(now: jiff::Timestamp) -> Vec<(String, String)> {
+    static NAMES: std::sync::LazyLock<Vec<(String, jiff::tz::TimeZone)>> = std::sync::LazyLock::new(|| {
+        let mut zones: Vec<_> = jiff::tz::db()
+            .available()
+            .filter_map(|name| match jiff::tz::TimeZone::get(name.as_str()) {
+                Ok(zone) => Some((name.as_str().to_string(), zone)),
+                Err(error) => {
+                    log::error!("timezone select: skipped {}: {error}", name.as_str());
+                    None
+                }
+            })
+            .collect();
+        zones.sort_by(|a, b| a.0.cmp(&b.0));
+        log::info!("timezone select: {} zones", zones.len());
+        zones
+    });
+    NAMES.iter().map(|(name, zone)| (name.clone(), show_offset(zone.to_offset(now)))).collect()
+}
+
 thread_local! {
     static CLOCKS: std::cell::RefCell<Vec<slint::Timer>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -108,6 +136,41 @@ macro_rules! wire_dates {
     }};
 }
 
+/// Fills the `TimeZones` global with the system's zones and their offsets now, refreshing them
+/// each minute when an offset changes. The host's root `.slint` file exports `TimeZones` and
+/// `Choice`.
+///
+/// ```ignore
+/// ely_slint::wire_zones!(app);
+/// ```
+#[macro_export]
+macro_rules! wire_zones {
+    ($app:expr) => {{
+        use ::slint::ComponentHandle;
+        fn rows() -> Vec<(String, String)> {
+            $crate::dates::zones($crate::format::now())
+        }
+        fn model(rows: &[(String, String)]) -> ::slint::ModelRc<Choice> {
+            let choices: Vec<Choice> = rows
+                .iter()
+                .map(|(name, offset)| Choice { value: name.into(), label: name.into(), note: offset.into(), ..Default::default() })
+                .collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(choices))
+        }
+        let shown = ::std::rc::Rc::new(::std::cell::RefCell::new(rows()));
+        $app.global::<TimeZones>().set_choices(model(&shown.borrow()));
+        let weak = $app.as_weak();
+        $crate::dates::keep_ticking(move || {
+            let Some(app) = weak.upgrade() else { return };
+            let now = rows();
+            if *shown.borrow() != now {
+                app.global::<TimeZones>().set_choices(model(&now));
+                *shown.borrow_mut() = now;
+            }
+        });
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use jiff::civil::date as day;
@@ -137,6 +200,14 @@ mod tests {
         assert_eq!(monday_of(2027, 1), Some(day(2027, 1, 4)));
         assert_eq!(monday_of(2026, 60), None);
         assert_eq!(iso_week(day(2027, 1, 3)), (2026, 53));
+    }
+
+    #[test]
+    fn offsets_read_as_utc_plus_or_minus() {
+        use jiff::tz::Offset;
+        assert_eq!(show_offset(Offset::from_seconds(9 * 3600).unwrap()), "UTC+09:00");
+        assert_eq!(show_offset(Offset::from_seconds(-(5 * 3600 + 1800)).unwrap()), "UTC\u{2212}05:30");
+        assert_eq!(show_offset(Offset::UTC), "UTC+00:00");
     }
 
     #[test]
