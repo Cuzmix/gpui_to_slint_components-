@@ -4,8 +4,7 @@
 //
 // Mouse: a left press and release inside fires `clicked`. A press never takes focus
 // (GPUI prevents default on mouse down); Tab still reaches the button.
-// Keyboard (gpui div.rs): Enter or Space pressed without modifiers arms a click; the next
-// release of Enter or Space, with no other key in between and focus unchanged, fires it.
+// Keyboard: gpui's click keys (`ClickKeys`).
 
 import { Theme, Radius } from "../theme/theme.slint";
 import {
@@ -15,6 +14,7 @@ import {
     GroupSlot,
 } from "button-style.slint";
 import { TooltipController } from "tooltip.slint";
+import { ClickKeys } from "click-keys.slint";
 
 export component ButtonFrame {
     in property <ButtonVariant> variant: ButtonVariant.secondary;
@@ -54,7 +54,6 @@ export component ButtonFrame {
     opacity: enabled ? 1.0 : 0.45;
 
     private property <length> radius: Theme.radius(Radius.md);
-    private property <bool> pending-key: false;
     private property <bool> cut-left: group-slot == GroupSlot.middle || group-slot == GroupSlot.last;
 
     public function focus-button() {
@@ -108,34 +107,12 @@ export component ButtonFrame {
         }
     }
 
-    focus := FocusScope {
+    focus := ClickKeys {
         enabled: root.enabled;
-        focus-on-click: false;
-        key-pressed(event) => {
-            if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
-                return reject;
+        activated => {
+            if root.interactive {
+                root.clicked();
             }
-            root.pending-key = (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta;
-            reject
-        }
-        key-released(event) => {
-            if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
-                return reject;
-            }
-            if (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta {
-                if root.pending-key {
-                    root.pending-key = false;
-                    if root.interactive {
-                        root.clicked();
-                    }
-                }
-            } else {
-                root.pending-key = false;
-            }
-            reject
-        }
-        focus-changed-event => {
-            root.pending-key = false;
         }
     }
 }

@@ -1,0 +1,37 @@
+// gpui's keyboard click (div.rs), shared by every pressable that takes Tab focus.
+// Enter or Space pressed without modifiers arms a click; the next release of Enter or Space,
+// with no other key in between and focus unchanged, fires `activated`. Other keys pass on.
+// A mouse press never moves focus here: gpui prevents default on mouse down.
+
+export component ClickKeys inherits FocusScope {
+    // An Enter or Space press and release while focused.
+    callback activated();
+
+    private property <bool> pending: false;
+
+    focus-on-click: false;
+    key-pressed(event) => {
+        if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
+            return reject;
+        }
+        root.pending = (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta;
+        reject
+    }
+    key-released(event) => {
+        if (event.text == Key.Shift || event.text == Key.Control || event.text == Key.Alt || event.text == Key.Meta || event.text == Key.AltGr || event.text == Key.ShiftR || event.text == Key.ControlR) {
+            return reject;
+        }
+        if (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta {
+            if root.pending {
+                root.pending = false;
+                root.activated();
+            }
+        } else {
+            root.pending = false;
+        }
+        reject
+    }
+    focus-changed-event => {
+        root.pending = false;
+    }
+}
