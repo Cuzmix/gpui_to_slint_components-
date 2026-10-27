@@ -1,0 +1,182 @@
+// Page 6's choices, after ely-gallery/src/pages/forms/choices.rs: checkboxes with a mixed
+// parent, radio groups, choice cards and switches. Each holds its own choice.
+
+import {
+    Checkbox,
+    CheckboxGroup,
+    CheckState,
+} from "../../components/checkbox.slint";
+import { RadioGroup } from "../../components/radio.slint";
+import { RadioCard, CheckboxCard } from "../../components/choice-card.slint";
+import { Switch } from "../../components/switch.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Specimen, CodeHint } from "../kit.slint";
+
+export component FormsChoices inherits VerticalLayout {
+    private property <[string]> channels: ["email"];
+    // The channels that can be chosen (Text message is disabled).
+    private property <[string]> open: ["email", "push"];
+
+    pure function parent-state(on: [string]) -> CheckState {
+        on.length == 0 ? CheckState.off : on.length == root.open.length ? CheckState.on : CheckState.mixed
+    }
+
+    Section {
+        title: "Checkbox / CheckboxGroup";
+        note: "On, off, or mixed when a parent's children disagree. The check pops in.";
+        HorizontalLayout {
+            alignment: start;
+            VerticalLayout {
+                width: 280px;
+                spacing: 8px;
+                HorizontalLayout {
+                    alignment: start;
+                    all := Checkbox {
+                        label: "All notifications";
+                        state: CheckState.mixed;
+                        toggled(on) => {
+                            root.channels = on ? root.open : [];
+                            self.state = root.parent-state(root.channels);
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    CheckboxGroup {
+                        choices: [
+                            { value: "email", label: "Email" },
+                            { value: "push", label: "Push" },
+                            { value: "sms", label: "Text message", disabled: true },
+                        ];
+                        selected: root.channels;
+                        selection-changed(next) => {
+                            root.channels = next;
+                            all.state = root.parent-state(next);
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "Checkbox::new(id, CheckState::Mixed)";
+        }
+    }
+
+    Section {
+        title: "Radio / RadioGroup";
+        note: "One Tab stop per group; the arrow keys move the choice.";
+        VerticalLayout {
+            spacing: 24px;
+            alignment: start;
+            HorizontalLayout {
+                alignment: start;
+                Specimen {
+                    caption: "plan";
+                    RadioGroup {
+                        choices: [
+                            { value: "free", label: "Free" },
+                            { value: "pro", label: "Pro" },
+                            { value: "team", label: "Team" },
+                            { value: "enterprise", label: "Enterprise", disabled: true },
+                        ];
+                        selected: "pro";
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                Specimen {
+                    caption: "density, in a row";
+                    RadioGroup {
+                        horizontal: true;
+                        choices: [
+                            { value: "compact", label: "Compact" },
+                            { value: "standard", label: "Standard" },
+                            { value: "comfortable", label: "Comfortable" },
+                        ];
+                        selected: "standard";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CheckboxCard / RadioCard";
+        note: "Larger targets that explain a choice. The chosen border turns to ink.";
+        HorizontalLayout {
+            alignment: start;
+            HorizontalLayout {
+                width: 640px;
+                spacing: 12px;
+                personal := RadioCard {
+                    horizontal-stretch: 1;
+                    title: "Personal";
+                    description: "Just you. Notes stay on this Mac.";
+                    icon: Icons.user;
+                    chosen: true;
+                    // A card sets its own `chosen` (G48), so a pick clears the other.
+                    selected => {
+                        team.chosen = false;
+                    }
+                }
+
+                team := RadioCard {
+                    horizontal-stretch: 1;
+                    title: "Team";
+                    description: "Shared with everyone you invite.";
+                    icon: Icons.users;
+                    selected => {
+                        personal.chosen = false;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            CheckboxCard {
+                width: 640px;
+                title: "Back up nightly";
+                description: "Copies change sets to the cloud at 2 AM.";
+                icon: Icons.cloud;
+                checked: true;
+            }
+        }
+    }
+
+    Section {
+        title: "Switch / Toggle";
+        note: "Takes effect at once. The thumb slides with a little overshoot.";
+        VerticalLayout {
+            spacing: 12px;
+            alignment: start;
+            HorizontalLayout {
+                alignment: start;
+                Switch {
+                    label: "Wi-Fi";
+                    on: true;
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                Switch {
+                    label: "Sync over cellular";
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                Switch {
+                    label: "Managed by your admin";
+                    on: true;
+                    enabled: false;
+                }
+            }
+        }
+    }
+}

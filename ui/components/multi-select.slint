@@ -136,6 +136,8 @@ export component MultiSelect {
         padding-bottom: 2px;
         spacing: 4px;
         flex-wrap: wrap;
+        // Only the chevron's box grows (stretch 1), pushing it to the line's end as `ml_auto`.
+        alignment: stretch;
         cross-axis-alignment: center;
 
         for chip in root.chips: Tag {
@@ -147,6 +149,7 @@ export component MultiSelect {
         }
 
         if root.chips.length == 0: HorizontalLayout {
+            horizontal-stretch: 0;
             padding-left: 8px;
 
             TypeText {

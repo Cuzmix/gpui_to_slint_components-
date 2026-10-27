@@ -1,12 +1,14 @@
 // Port of ely-core/src/forms/structure.rs (`InlineForm`): fields and actions in one row, 12 px
 // apart, their bottoms aligned; the row wraps when narrow.
 //
-// Children spell out their sizes (min, preferred and max), as FlexboxLayout reads them.
+// Children spell out their sizes (min, preferred and max), as FlexboxLayout reads them. A
+// child with `horizontal-stretch` above 0 takes the room left in its line, as gpui's `flex_1`.
 
 export component InlineForm inherits FlexboxLayout {
     flex-direction: FlexboxLayoutDirection.row;
     flex-wrap: FlexboxLayoutWrap.wrap;
     cross-axis-alignment: CrossAxisAlignment.end;
+    alignment: LayoutAlignment.stretch;
     spacing: 12px;
 
     @children

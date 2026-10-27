@@ -1,0 +1,139 @@
+// Page 6's other fields, after ely-gallery/src/pages/forms/other.rs: the signature pad, code
+// and JSON, fonts, icons and emoji, and the regional selects. Each holds its own value.
+
+import { Theme } from "../../theme/theme.slint";
+import { SignaturePad } from "../../components/signature-pad.slint";
+import { CodeInput, JsonInput } from "../../components/code-input.slint";
+import { FontPicker } from "../../components/font-picker.slint";
+import { IconPicker } from "../../components/icon-picker.slint";
+import { EmojiPicker } from "../../components/emoji-picker.slint";
+import { LanguageSelect } from "../../components/language-select.slint";
+import { CountrySelect } from "../../components/country-select.slint";
+import { CurrencySelect } from "../../components/currency-select.slint";
+import { NumberInput } from "../../components/number-input.slint";
+import { Section, Specimens, Specimen } from "../kit.slint";
+
+export component FormsOther inherits VerticalLayout {
+    Section {
+        title: "SignaturePad";
+        note: "Sign with the pointer. A stroke lands when the pen lifts; Clear starts over.";
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: pad.strokes.length == 1 ? "1 stroke" : pad.strokes.length + " strokes";
+                pad := SignaturePad {
+                    width: 420px;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CodeInput / JsonInput";
+        note: "One line of code, colored the way most languages read. JSON is checked as you type.";
+        Specimens {
+            Specimen {
+                caption: "code";
+                CodeInput {
+                    width: 420px;
+                    placeholder: "cargo run -p ely-gallery";
+                }
+            }
+
+            Specimen {
+                caption: "json";
+                JsonInput {
+                    width: 420px;
+                    rows-min: 4;
+                    rows-max: 8;
+                    placeholder: "{ \"name\": \"Ely\" }";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "FontPicker";
+        note: "Every family the system knows, and a line set in the chosen one.";
+        HorizontalLayout {
+            alignment: start;
+            FontPicker {
+                width: 420px;
+                owner: "font-picker";
+                placeholder: "Search fonts";
+                family: Theme.font-family;
+            }
+        }
+    }
+
+    Section {
+        title: "IconPicker / EmojiPicker";
+        note: "Type to narrow. Down moves into the grid, arrows walk it, Enter picks.";
+        Specimens {
+            Specimen {
+                caption: icons.selected;
+                icons := IconPicker {
+                    owner: "icon-picker";
+                    selected: "sparkles";
+                }
+            }
+
+            Specimen {
+                caption: emoji.selected;
+                emoji := EmojiPicker {
+                    owner: "emoji-picker";
+                    selected: "✨";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "LanguageSelect / CountrySelect / CurrencySelect";
+        note: "Languages under their own names, countries with flags, currencies by ISO 4217. Type a name or a code.";
+        Specimens {
+            Specimen {
+                caption: language.selected;
+                language := LanguageSelect {
+                    width: 260px;
+                    owner: "language-select";
+                    placeholder: "Language";
+                    selected: "zh";
+                }
+            }
+
+            Specimen {
+                caption: country.selected;
+                country := CountrySelect {
+                    width: 260px;
+                    owner: "country-select";
+                    placeholder: "Country";
+                    selected: "CN";
+                }
+            }
+
+            Specimen {
+                caption: currency.selected;
+                currency := CurrencySelect {
+                    width: 260px;
+                    owner: "currency-select";
+                    placeholder: "Currency";
+                    selected: "CNY";
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: "an amount in " + currency.selected;
+                NumberInput {
+                    width: 260px;
+                    value: 1280;
+                    label: "Amount";
+                    currency: currency.selected;
+                }
+            }
+        }
+    }
+}

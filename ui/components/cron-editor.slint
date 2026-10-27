@@ -39,6 +39,8 @@ export component CronEditor {
     in property <int> runs: 3;
     // The name assistive technology reads for the field.
     in property <string> label: @tr("Cron rule");
+    // Shown while the rule is empty (gpui sets it on the field's TextInput).
+    in property <string> placeholder;
 
     out property <bool> has-focus: field.has-focus;
     // The rule's reading.
@@ -75,6 +77,7 @@ export component CronEditor {
         field := Input {
             text <=> root.rule;
             label: root.label;
+            placeholder: root.placeholder;
             font-family: Theme.mono-family;
             invalid: root.reading.state == 1;
             edited(text) => {

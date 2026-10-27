@@ -1,0 +1,195 @@
+// Page 6's form structure, after ely-gallery/src/pages/forms/structure.rs: a profile form with
+// sections, a links FieldArray, an email check, a dirty mark and Save on Cmd-Enter; then an
+// InlineForm.
+
+import { ButtonVariant } from "../../components/button-style.slint";
+import { Button } from "../../components/button.slint";
+import { ActionBar } from "../../components/action-bar.slint";
+import { Input } from "../../components/input.slint";
+import { TextFields } from "../../components/text-field.slint";
+import {
+    FieldArray,
+    FieldArrayRow,
+    FieldRows,
+} from "../../components/field-array.slint";
+import { Form } from "../../components/form.slint";
+import { FormSection } from "../../components/form-section.slint";
+import { FormField } from "../../components/form-field.slint";
+import { InlineForm } from "../../components/inline-form.slint";
+import { DirtyIndicator } from "../../components/dirty-indicator.slint";
+import { Section, Specimen } from "../kit.slint";
+
+// What the demo asks of the gallery's Rust (wire.rs).
+export global FormDemo {
+    // Whether the text is empty once trimmed.
+    pure callback blank(text: string) -> bool;
+    // Whether two lists hold the same texts in order.
+    pure callback same(a: [string], b: [string]) -> bool;
+    // The save was refused (the source logs it).
+    callback kept-unsaved();
+}
+
+export component FormsStructure inherits VerticalLayout {
+    private property <string> saved-name;
+    private property <string> saved-email;
+    private property <string> saved-bio;
+    private property <[string]> saved-links;
+    private property <[string]> links;
+    private property <int> sent;
+    private property <bool> dirty: name.text != root.saved-name || email.text != root.saved-email || bio.text != root.saved-bio || !FormDemo.same(root.links, root.saved-links);
+    private property <bool> ready: !FormDemo.blank(name.text) && TextFields.is-email(email.text);
+    private property <string> problem: email.text != "" && !TextFields.is-email(email.text) ? "Enter an address like name@example.com" : "";
+
+    function save() {
+        if !root.ready {
+            FormDemo.kept-unsaved();
+            return;
+        }
+        root.saved-name = name.text;
+        root.saved-email = email.text;
+        root.saved-bio = bio.text;
+        root.saved-links = root.links;
+        root.sent += 1;
+    }
+
+    function discard() {
+        name.text = root.saved-name;
+        email.text = root.saved-email;
+        bio.text = root.saved-bio;
+        root.links = root.saved-links;
+    }
+
+    Section {
+        title: "Form / FormSection / FormField / FieldArray / DirtyIndicator";
+        note: "Sections with room between them. Errors take the description's place; Cmd-Enter saves from any field.";
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: root.sent == 0 ? "not saved yet" : root.sent == 1 ? "saved once" : "saved " + root.sent + " times";
+                Form {
+                    width: 480px;
+                    owner: "profile-form";
+                    submitted => {
+                        root.save();
+                    }
+                    FormSection {
+                        title: "Profile";
+                        description: "How others see you.";
+                        name-field := FormField {
+                            label: "Name";
+                            required: true;
+                            name := Input {
+                                placeholder: "Ada Lovelace";
+                                label: name-field.label;
+                                description: name-field.note;
+                            }
+                        }
+
+                        email-field := FormField {
+                            label: "Email";
+                            required: true;
+                            help: "Only for sign-in and receipts.";
+                            description: "We never share it.";
+                            error: root.problem;
+                            email := Input {
+                                placeholder: "ada@example.com";
+                                label: email-field.label;
+                                description: email-field.note;
+                                invalid: root.problem != "";
+                            }
+                        }
+
+                        bio-field := FormField {
+                            label: "Bio";
+                            description: "Plain text, a few lines.";
+                            bio := Input {
+                                rows-min: 3;
+                                rows-max: 5;
+                                placeholder: "A line about you";
+                                label: bio-field.label;
+                                description: bio-field.note;
+                            }
+                        }
+                    }
+
+                    FormSection {
+                        title: "Links";
+                        description: "Sites to show on your profile.";
+                        FieldArray {
+                            add-text: "Add link";
+                            add => {
+                                root.links = FieldRows.add-item(root.links);
+                            }
+                            for link[i] in root.links: FieldArrayRow {
+                                index: i;
+                                remove(ix) => {
+                                    root.links = FieldRows.remove-item(root.links, ix);
+                                }
+                                Input {
+                                    text: link;
+                                    placeholder: "https://";
+                                    edited(text) => {
+                                        root.links[i] = text;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ActionBar {
+                        DirtyIndicator {
+                            dirty: root.dirty;
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        Button {
+                            text: "Discard";
+                            variant: ButtonVariant.ghost;
+                            enabled: root.dirty;
+                            clicked => {
+                                root.discard();
+                            }
+                        }
+
+                        Button {
+                            text: "Save";
+                            variant: ButtonVariant.primary;
+                            enabled: root.dirty && root.ready;
+                            clicked => {
+                                root.save();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "InlineForm";
+        note: "Fields and actions in one row, their bottoms aligned.";
+        HorizontalLayout {
+            alignment: start;
+            InlineForm {
+                width: 480px;
+                newsletter := FormField {
+                    label: "Newsletter";
+                    horizontal-stretch: 1;
+                    min-width: 200px;
+                    Input {
+                        placeholder: "you@example.com";
+                        label: newsletter.label;
+                    }
+                }
+
+                Button {
+                    text: "Subscribe";
+                    variant: ButtonVariant.primary;
+                }
+            }
+        }
+    }
+}

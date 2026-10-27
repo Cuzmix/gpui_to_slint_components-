@@ -1,0 +1,144 @@
+// Page 6's richer fields, after ely-gallery/src/pages/forms/rich.rs: mentions, tags, row lists,
+// a path, a pattern, a formula and a shortcut.
+
+import { MentionInput } from "../../components/mention-input.slint";
+import { TagInput } from "../../components/tag-input.slint";
+import { KeyValueInput, ListInput } from "../../components/field-array.slint";
+import { PathInput } from "../../components/path-input.slint";
+import { RegexInput } from "../../components/regex-input.slint";
+import { ExpressionInput } from "../../components/expression-input.slint";
+import { HotkeyInput } from "../../components/hotkey-input.slint";
+import { Caption } from "../../components/caption.slint";
+import { Section, CodeHint } from "../kit.slint";
+
+export component FormsRich inherits VerticalLayout {
+    // The shortcut as gpui spells it ("cmd-k"), kept as the source's keyed state does.
+    in-out property <string> hotkey: "cmd-k";
+    private property <[string]> tags: ["rust", "gpui"];
+
+    // A row list reported a change (the source logs it).
+    callback logged(what: string);
+
+    Section {
+        title: "MentionInput / HashtagInput";
+        note: "@ and # open suggestions at the caret. Arrows choose, Enter picks.";
+        HorizontalLayout {
+            alignment: start;
+            MentionInput {
+                width: 420px;
+                owner: "mentions";
+                rows-min: 2;
+                rows-max: 5;
+                placeholder: "Write a note. @ for people, # for tags.";
+                triggers: [
+                    { mark: "@", handles: ["ada", "alan", "grace", "linus"] },
+                    { mark: "#", handles: ["release", "research", "design", "docs"] },
+                ];
+            }
+        }
+    }
+
+    Section {
+        title: "TagInput / TokenInput";
+        note: "Enter or a comma adds a chip; Backspace on an empty field drops the last.";
+        HorizontalLayout {
+            alignment: start;
+            TagInput {
+                width: 420px;
+                owner: "topic-tags";
+                tags: root.tags;
+                tags-changed(next) => {
+                    root.tags = next;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "KeyValueInput / ListInput";
+        note: "Rows you add and remove. Each row reports as you type.";
+        HorizontalLayout {
+            alignment: start;
+            spacing: 32px;
+            KeyValueInput {
+                width: 380px;
+                pairs: [{ key: "RUST_LOG", value: "info" }, { key: "PORT", value: "8080" }];
+                pairs-changed(pairs) => {
+                    root.logged(pairs.length + " pairs");
+                }
+            }
+
+            ListInput {
+                width: 240px;
+                items: ["ely.dev"];
+                placeholder: "Host";
+                items-changed(items) => {
+                    root.logged(items.length + " hosts");
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "PathInput";
+        note: "Type a path, or Browse with the system's dialog.";
+        HorizontalLayout {
+            alignment: start;
+            PathInput {
+                width: 420px;
+                owner: "path-browse";
+                directories: true;
+                placeholder: "~/Projects";
+            }
+        }
+    }
+
+    Section {
+        title: "RegexInput";
+        note: "Colored by part as you type; a broken pattern says why.";
+        HorizontalLayout {
+            alignment: start;
+            RegexInput {
+                width: 420px;
+                placeholder: "^[a-z]+$";
+            }
+        }
+    }
+
+    Section {
+        title: "ExpressionInput";
+        note: "A formula, colored and evaluated as you type.";
+        HorizontalLayout {
+            alignment: start;
+            ExpressionInput {
+                width: 420px;
+                placeholder: "price * qty";
+                variables: [{ name: "price", value: 12.5 }, { name: "qty", value: 3 }];
+            }
+        }
+
+        CodeHint {
+            text: "price = 12.5, qty = 3; abs sqrt round floor ceil min max";
+        }
+    }
+
+    Section {
+        title: "HotkeyInput / ShortcutRecorder";
+        note: "Focus it and press a shortcut; it keeps that one and lets go.";
+        HorizontalLayout {
+            alignment: start;
+            HotkeyInput {
+                width: 260px;
+                value: root.hotkey;
+                label: "Command palette shortcut";
+                value-changed(next) => {
+                    root.hotkey = next;
+                }
+            }
+        }
+
+        Caption {
+            text: "Records any key with its modifiers; Tab still moves focus.";
+        }
+    }
+}

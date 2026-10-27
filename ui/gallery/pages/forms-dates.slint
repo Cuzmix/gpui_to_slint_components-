@@ -1,0 +1,191 @@
+// Page 6's dates and times, after ely-gallery/src/pages/forms/dates.rs. Today is fixed at
+// 2026-09-25 so captures stay the same from day to day; each picker holds its own value.
+
+import { CivilDate, CivilTime } from "../../components/dates.slint";
+import { Calendar } from "../../components/calendar.slint";
+import { DatePicker } from "../../components/date-picker.slint";
+import { DateRangePicker } from "../../components/date-range-picker.slint";
+import { DateTimePicker } from "../../components/date-time-picker.slint";
+import { TimePicker } from "../../components/time-picker.slint";
+import { MonthPicker } from "../../components/month-picker.slint";
+import { QuarterPicker } from "../../components/quarter-picker.slint";
+import { YearPicker } from "../../components/year-picker.slint";
+import { WeekPicker } from "../../components/week-picker.slint";
+import {
+    RelativeDatePicker,
+    RelativeRange,
+} from "../../components/relative-date-picker.slint";
+import { TimezoneSelect } from "../../components/timezone-select.slint";
+import { DurationPicker } from "../../components/duration-picker.slint";
+import { CronEditor } from "../../components/cron-editor.slint";
+import { Section, Specimens, Specimen, CodeHint } from "../kit.slint";
+
+export component FormsDates inherits VerticalLayout {
+    private property <CivilDate> today: { year: 2026, month: 9, day: 25 };
+    private property <CivilDate> day: { year: 2026, month: 9, day: 18 };
+
+    // jiff's `Date` display: 2026-09-18.
+    pure function iso(date: CivilDate) -> string {
+        date.year + "-" + (date.month < 10 ? "0" : "") + date.month + "-" + (date.day < 10 ? "0" : "") + date.day
+    }
+
+    Section {
+        title: "Calendar";
+        note: "Arrows move a cursor, Page keys turn the month, Enter picks. Today wears a ring.";
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: "picked " + root.iso(root.day);
+                Calendar {
+                    selected: root.day;
+                    today: root.today;
+                    picked(date) => {
+                        root.day = date;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "DatePicker / DateRangePicker / DateTimePicker / TimePicker";
+        note: "Fields that open a calendar or time columns. Two clicks set a span.";
+        Specimens {
+            Specimen {
+                caption: "date";
+                DatePicker {
+                    width: 260px;
+                    value: { year: 2026, month: 10, day: 2 };
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "range";
+                DateRangePicker {
+                    width: 260px;
+                    first: { year: 2026, month: 9, day: 14 };
+                    last: { year: 2026, month: 9, day: 18 };
+                    today: root.today;
+                }
+            }
+        }
+
+        Specimens {
+            Specimen {
+                caption: "date and time";
+                DateTimePicker {
+                    width: 260px;
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "time, 15-minute steps";
+                TimePicker {
+                    width: 260px;
+                    time: { hour: 9, minute: 30 };
+                    chosen: true;
+                    step: 15;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "MonthPicker / YearPicker / QuarterPicker / WeekPicker";
+        note: "Pages of periods; arrows move, Page keys turn the page. Weeks follow ISO 8601.";
+        Specimens {
+            Specimen {
+                caption: "month";
+                MonthPicker {
+                    width: 200px;
+                    year: 2026;
+                    month: 9;
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "quarter";
+                QuarterPicker {
+                    width: 200px;
+                    year: 2026;
+                    quarter: 3;
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "year";
+                YearPicker {
+                    width: 200px;
+                    year: 2026;
+                    chosen: true;
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "week";
+                WeekPicker {
+                    width: 200px;
+                    year: 2026;
+                    week: 39;
+                    today: root.today;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "RelativeDatePicker / TimezoneSelect / DurationPicker";
+        note: "Spans named from today, every zone the system knows, and hours and minutes.";
+        Specimens {
+            Specimen {
+                caption: "relative";
+                RelativeDatePicker {
+                    width: 260px;
+                    owner: "relative-range";
+                    range: RelativeRange.last-7-days;
+                    today: root.today;
+                }
+            }
+
+            Specimen {
+                caption: "time zone";
+                TimezoneSelect {
+                    width: 260px;
+                    owner: "zone-name";
+                    placeholder: "Search zones";
+                    zone: "Europe/Lisbon";
+                }
+            }
+
+            Specimen {
+                caption: "duration " + Math.floor(span.value / 60) + " min";
+                span := DurationPicker {
+                    value: 90 * 60;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CronEditor";
+        note: "Five fields, read back in words with the next runs. Presets fill it in.";
+        HorizontalLayout {
+            alignment: start;
+            CronEditor {
+                width: 520px;
+                placeholder: "*/15 9-17 * * 1-5";
+                now-date: root.today;
+                now-time: { hour: 12, minute: 0 };
+            }
+        }
+
+        CodeHint {
+            text: "CronRule::parse(\"0 9 * * 1-5\")?.next(now, 3)";
+        }
+    }
+}

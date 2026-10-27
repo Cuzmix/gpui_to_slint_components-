@@ -8,6 +8,8 @@ import { PrimitivesPage } from "gallery/pages/primitives.slint";
 import { TypographyPage } from "gallery/pages/typography.slint";
 import { LayoutPage } from "gallery/pages/layout.slint";
 import { ShellPage } from "gallery/pages/shell.slint";
+import { FormsPage } from "gallery/pages/forms.slint";
+import { OptionLayer } from "components/options.slint";
 import { WindowSwitcher } from "components/window-switcher.slint";
 import { WindowTab } from "components/tab-bar.slint";
 import { Sheet, Drawer } from "components/sheet.slint";
@@ -19,6 +21,47 @@ import { Backdrop } from "components/backdrop.slint";
 import { ActionSheet } from "components/action-sheet.slint";
 import { Elevated } from "components/elevated.slint";
 import { Elevation, Radius } from "theme/theme.slint";
+// The Forms page's Rust globals (wire.rs `wire_forms_page`).
+export { Cascades, CascadeNode } from "components/cascade-select.slint";
+export { Catalogs } from "components/catalogs.slint";
+export { Choices, Choice } from "components/options.slint";
+export {
+    Colors,
+    ParsedColor,
+    ColorSample,
+    Hsva,
+} from "components/colors.slint";
+export { Crons, CronReading } from "components/cron-editor.slint";
+export { Dates, CivilDate, CivilTime, IsoWeek } from "components/dates.slint";
+export { FieldRows, KeyValue } from "components/field-array.slint";
+export { Files, FileDrag } from "components/files.slint";
+export { FormDemo } from "gallery/pages/forms-structure.slint";
+export { Forms } from "components/forms.slint";
+export {
+    Formulas,
+    FormulaResult,
+    FormulaVariable,
+} from "components/expression-input.slint";
+export { Glyphs, GlyphLayout, GlyphRow } from "components/glyph-grid.slint";
+export {
+    Gradients,
+    GradientEdit,
+    GradientStop,
+} from "components/gradient-editor.slint";
+export {
+    Mentions,
+    MentionAt,
+    MentionTrigger,
+} from "components/mention-input.slint";
+export { Numbers, ParsedNumber } from "components/number-input.slint";
+export { Paths, PathRequest } from "components/path-input.slint";
+export { Signatures, PenPoint } from "components/signature-pad.slint";
+export { TextFields, TextFit } from "components/text-field.slint";
+export { TimeZones } from "components/timezone-select.slint";
+export {
+    RelativeRanges,
+    DateSpan,
+} from "components/relative-date-picker.slint";
 export { FocusSteps } from "components/focus-trap.slint";
 export { Toggles } from "components/button-group.slint";
 export { Sharing } from "components/share-button.slint";
@@ -111,6 +154,12 @@ export component Gallery inherits Window {
             slug: "buttons",
             title: "Buttons & Actions",
             summary: "Seven variants, three sizes, one focus ring, and the verbs around them."
+        },
+        {
+            number: 6,
+            slug: "forms",
+            title: "Forms",
+            summary: "Text, choices, dates, colors, files: every way to say what you mean."
         },
     ];
     in-out property <int> current: 0;
@@ -272,6 +321,11 @@ export component Gallery inherits Window {
                         root.logged(what);
                     }
                 }
+                if root.pages[root.current].slug == "forms": FormsPage {
+                    logged(what) => {
+                        root.logged(what);
+                    }
+                }
             }
         }
     }
@@ -373,4 +427,7 @@ export component Gallery inherits Window {
             root.switcher-open = false;
         }
     }
+
+    // Every option list on the page floats here, over the window (G54).
+    OptionLayer { }
 }

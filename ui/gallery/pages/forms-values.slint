@@ -1,0 +1,138 @@
+// Page 6's values, after ely-gallery/src/pages/forms/values.rs: chips, rating, sliders, knobs
+// and a stepper. Captions follow the values, as the source's do.
+
+import { ChoiceChips } from "../../components/choice-chips.slint";
+import { Rating } from "../../components/rating.slint";
+import { Slider } from "../../components/slider.slint";
+import { RangeSlider } from "../../components/range-slider.slint";
+import { Knob } from "../../components/knob.slint";
+import { Stepper } from "../../components/stepper.slint";
+import { Section, Specimens, Specimen } from "../kit.slint";
+
+export component FormsValues inherits VerticalLayout {
+    Section {
+        title: "ChoiceChips / FilterChips";
+        note: "Pills for a few options. Filter chips toggle and show a check.";
+        VerticalLayout {
+            spacing: 24px;
+            alignment: start;
+            Specimen {
+                caption: "choice";
+                ChoiceChips {
+                    choices: [
+                        { value: "new", label: "Newest" },
+                        { value: "top", label: "Popular" },
+                        { value: "old", label: "Oldest" },
+                    ];
+                    selected: ["new"];
+                }
+            }
+
+            Specimen {
+                caption: "filter";
+                ChoiceChips {
+                    multiple: true;
+                    choices: [
+                        { value: "design", label: "Design" },
+                        { value: "eng", label: "Engineering" },
+                        { value: "research", label: "Research" },
+                        { value: "ops", label: "Operations", disabled: true },
+                    ];
+                    selected: ["design"];
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Rating";
+        note: "Hover previews, a click sets it, and clicking the same star clears it.";
+        Specimens {
+            Specimen {
+                caption: stars.value + " of 5";
+                stars := Rating {
+                    value: 3;
+                    label: "Rating";
+                }
+            }
+
+            Specimen {
+                caption: "read only";
+                Rating {
+                    value: 4;
+                    enabled: false;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Slider / RangeSlider / VerticalSlider";
+        note: "Drag a thumb, click the track, or use the arrows; Page keys jump ten steps.";
+        Specimens {
+            Specimen {
+                caption: "volume " + Math.round(volume.value);
+                volume := Slider {
+                    width: 320px;
+                    value: 40;
+                    label: "Volume";
+                }
+            }
+
+            Specimen {
+                caption: "price " + Math.round(price.low) + " to " + Math.round(price.high);
+                price := RangeSlider {
+                    width: 320px;
+                    low: 20;
+                    high: 80;
+                    step: 5;
+                    label: "Price";
+                }
+            }
+
+            Specimen {
+                caption: "level " + Math.round(level.value);
+                level := Slider {
+                    height: 140px;
+                    value: 60;
+                    step: 5;
+                    vertical: true;
+                    label: "Level";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Knob / Dial / Stepper";
+        note: "Drag a knob up or down, or use the arrows. The stepper counts without typing.";
+        Specimens {
+            Specimen {
+                caption: "gain " + Math.round(gain.value);
+                gain := Knob {
+                    value: 65;
+                    label: "Gain";
+                }
+            }
+
+            Specimen {
+                caption: "pan " + Math.round(pan.value);
+                pan := Knob {
+                    value: 0;
+                    minimum: -50;
+                    maximum: 50;
+                    label: "Pan";
+                }
+            }
+
+            Specimen {
+                caption: "guests";
+                Stepper {
+                    value: 2;
+                    minimum: 1;
+                    maximum: 10;
+                }
+            }
+        }
+    }
+}

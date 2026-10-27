@@ -1,0 +1,170 @@
+// Page 6's pickers, after ely-gallery/src/pages/forms/pickers.rs: Select, ListBox, Combobox,
+// MultiSelect, CascadeSelect and TransferList over the same eight cities. Each holds its own
+// choice; the lists float in the gallery's OptionLayer.
+
+import { Select } from "../../components/select.slint";
+import { ListBox } from "../../components/list-box.slint";
+import { Combobox } from "../../components/combobox.slint";
+import { MultiSelect } from "../../components/multi-select.slint";
+import { CascadeSelect } from "../../components/cascade-select.slint";
+import { TransferList } from "../../components/transfer-list.slint";
+import { Choice } from "../../components/options.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Specimens, Specimen, Blocked } from "../kit.slint";
+
+export component FormsPickers inherits VerticalLayout {
+    private property <[Choice]> cities: [
+        { value: "ams", label: "Amsterdam" },
+        { value: "ber", label: "Berlin" },
+        { value: "cph", label: "Copenhagen" },
+        { value: "lis", label: "Lisbon" },
+        { value: "lon", label: "London" },
+        { value: "osl", label: "Oslo" },
+        { value: "par", label: "Paris" },
+        { value: "vie", label: "Vienna" },
+    ];
+
+    Section {
+        title: "Select / NativeSelect";
+        note: "A button that opens its list. Arrows move, Enter picks, Escape closes.";
+        Specimens {
+            Specimen {
+                caption: "view";
+                Select {
+                    width: 240px;
+                    owner: "select-view";
+                    label: "View";
+                    choices: [
+                        { value: "list", label: "List", icon: Icons.list },
+                        { value: "board", label: "Board", icon: Icons.kanban },
+                        { value: "calendar", label: "Calendar", icon: Icons.calendar },
+                        { value: "gallery", label: "Gallery", icon: Icons.layout-grid, disabled: true },
+                    ];
+                    selected: "list";
+                }
+            }
+
+            Specimen {
+                caption: "disabled";
+                Select {
+                    width: 200px;
+                    owner: "select-off";
+                    choices: [{ value: "utc", label: "UTC" }];
+                    selected: "utc";
+                    enabled: false;
+                }
+            }
+        }
+
+        Blocked {
+            text: "NativeSelect: gpui has no native popup menu, so Select draws its own.";
+        }
+    }
+
+    Section {
+        title: "ListBox";
+        note: "A list chosen from in place. Focus it and use the arrows, Space or Enter.";
+        HorizontalLayout {
+            alignment: start;
+            ListBox {
+                width: 240px;
+                choices: root.cities;
+                selected: ["lis"];
+            }
+        }
+    }
+
+    Section {
+        title: "Combobox / Autocomplete";
+        note: "Type to filter. A combobox keeps a listed value; an autocomplete keeps any text.";
+        Specimens {
+            Specimen {
+                caption: "combobox";
+                Combobox {
+                    width: 260px;
+                    owner: "combobox-city";
+                    placeholder: "Search cities";
+                    choices: root.cities;
+                }
+            }
+
+            Specimen {
+                caption: "autocomplete";
+                Combobox {
+                    width: 260px;
+                    owner: "combobox-tag";
+                    placeholder: "Any label";
+                    free: true;
+                    choices: [
+                        { value: "design", label: "design" },
+                        { value: "docs", label: "docs" },
+                        { value: "infra", label: "infra" },
+                        { value: "motion", label: "motion" },
+                        { value: "release", label: "release" },
+                    ];
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "MultiSelect";
+        note: "Several values as chips. The list stays open while you pick; Backspace drops the last.";
+        HorizontalLayout {
+            alignment: start;
+            MultiSelect {
+                width: 360px;
+                owner: "multi-cities";
+                choices: root.cities;
+                selected: ["ber", "osl"];
+                placeholder: "Pick cities";
+            }
+        }
+    }
+
+    Section {
+        title: "CascadeSelect / Cascader";
+        note: "Each column opens the next. Right and Left walk the levels; a leaf picks the path.";
+        HorizontalLayout {
+            alignment: start;
+            CascadeSelect {
+                width: 320px;
+                owner: "cascade-office";
+                // The source's tree, flattened (G58): each node names its parent's index.
+                nodes: [
+                    { value: "am", label: "Americas", parent: -1 },
+                    { value: "us", label: "United States", parent: 0 },
+                    { value: "nyc", label: "New York", parent: 1 },
+                    { value: "sfo", label: "San Francisco", parent: 1 },
+                    { value: "br", label: "Brazil", parent: 0 },
+                    { value: "sao", label: "São Paulo", parent: 4 },
+                    { value: "eu", label: "Europe", parent: -1 },
+                    { value: "pt", label: "Portugal", parent: 6 },
+                    { value: "lis", label: "Lisbon", parent: 7 },
+                    { value: "opo", label: "Porto", parent: 7 },
+                    { value: "de", label: "Germany", parent: 6 },
+                    { value: "ber", label: "Berlin", parent: 10 },
+                    { value: "as", label: "Asia", parent: -1 },
+                    { value: "jp", label: "Japan", parent: 12 },
+                    { value: "tyo", label: "Tokyo", parent: 13 },
+                ];
+                selected: ["eu", "pt", "lis"];
+            }
+        }
+    }
+
+    Section {
+        title: "TransferList";
+        note: "Mark rows on one side, then move them across.";
+        HorizontalLayout {
+            alignment: start;
+            TransferList {
+                width: 560px;
+                choices: root.cities;
+                chosen: ["par"];
+                available-title: "Cities";
+                chosen-title: "On the tour";
+            }
+        }
+    }
+}

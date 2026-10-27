@@ -89,6 +89,7 @@ macro_rules! wire_files {
             Err(reason) => reason.into(),
         });
         files.on_name(|path| $crate::files::file_name(::std::path::Path::new(path.as_str())).into());
+        files.on_names(|given| given.iter().map(|path| $crate::files::file_name(::std::path::Path::new(path.as_str()))).collect::<Vec<_>>().join(", ").into());
         files.on_refused(|what, reason| $crate::log::info!("{what}: refused {reason}"));
         files.on_took(|what, count| $crate::log::info!("{what}: took {count} files"));
     }};

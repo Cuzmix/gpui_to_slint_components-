@@ -41,6 +41,7 @@ pub fn wire(gallery: &Gallery) -> Wired {
     ely_slint::wire_links!(gallery);
     ely_slint::wire_layout!(gallery);
     ely_slint::wire_toggles!(gallery);
+    wire_forms_page(gallery);
     #[cfg(feature = "desktop")]
     ely_slint::wire_sharing!(gallery);
     let clock = ely_slint::wire_clock!(gallery);
@@ -328,4 +329,37 @@ fn open_window(which: &str, gallery: &Gallery) -> anyhow::Result<Box<dyn Any>> {
         }
         other => anyhow::bail!("no window called {other}"),
     })
+}
+
+/// The Forms page's globals (ely-gallery pages/forms). The gallery links no file dialog, so
+/// Browse is answered as cancelled and logged; a host passes its own dialog here (G56).
+fn wire_forms_page(gallery: &Gallery) {
+    ely_slint::wire_fields!(gallery);
+    ely_slint::wire_options!(gallery);
+    ely_slint::wire_numbers!(gallery);
+    ely_slint::wire_formulas!(gallery);
+    ely_slint::wire_mentions!(gallery);
+    ely_slint::wire_rows!(gallery);
+    ely_slint::wire_paths!(gallery, |request: PathRequest, reply: ely_slint::paths::Answer| {
+        log::info!("gallery: no file dialog linked; {} answered as cancelled", request.owner);
+        reply.send(None);
+    });
+    ely_slint::wire_cascades!(gallery);
+    ely_slint::wire_dates!(gallery);
+    ely_slint::wire_zones!(gallery);
+    ely_slint::wire_crons!(gallery);
+    ely_slint::wire_colors!(gallery);
+    ely_slint::wire_gradients!(gallery);
+    ely_slint::wire_files!(gallery);
+    ely_slint::wire_signatures!(gallery);
+    ely_slint::wire_catalogs!(gallery);
+    ely_slint::wire_glyphs!(gallery);
+    ely_slint::wire_forms!(gallery);
+    let demo = gallery.global::<FormDemo>();
+    demo.on_blank(|text| text.trim().is_empty());
+    demo.on_same(|a, b| {
+        use slint::Model;
+        a.row_count() == b.row_count() && a.iter().zip(b.iter()).all(|(a, b)| a == b)
+    });
+    demo.on_kept_unsaved(|| log::info!("gallery form: kept unsaved until name and email are filled"));
 }

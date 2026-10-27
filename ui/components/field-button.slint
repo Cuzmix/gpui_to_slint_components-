@@ -66,8 +66,9 @@ export component FieldButton {
         padding-left: Theme.control-padding(root.size) + 1px;
         padding-right: self.padding-left;
         spacing: 8px;
-        alignment: start;
 
+        // Stretched, as gpui's row: the text (`flex_1`) takes the room, pushing what follows it
+        // (a chevron, a clear button) to the end. `alignment: start` would pack them all left.
         @children
     }
 }

@@ -1,0 +1,55 @@
+// Page 6, Forms, after ely-gallery/src/pages/forms/mod.rs: every story in the source's order.
+// The lists float in the gallery's OptionLayer.
+
+import {
+    FormsText,
+    FormsNumbers,
+    FormsFormats,
+    FormsGroup,
+} from "forms-text.slint";
+import { FormsRich } from "forms-rich.slint";
+import { FormsChoices } from "forms-choices.slint";
+import { FormsPickers } from "forms-pickers.slint";
+import { FormsValues } from "forms-values.slint";
+import { FormsDates } from "forms-dates.slint";
+import { FormsColors } from "forms-colors.slint";
+import { FormsFiles } from "forms-files.slint";
+import { FormsOther } from "forms-other.slint";
+import { FormsStructure } from "forms-structure.slint";
+
+export component FormsPage inherits VerticalLayout {
+    // A row list reported a change (the source logs it).
+    callback logged(what: string);
+
+    alignment: start;
+
+    FormsText { }
+
+    FormsNumbers { }
+
+    FormsFormats { }
+
+    FormsGroup { }
+
+    FormsRich {
+        logged(what) => {
+            root.logged(what);
+        }
+    }
+
+    FormsChoices { }
+
+    FormsPickers { }
+
+    FormsValues { }
+
+    FormsDates { }
+
+    FormsColors { }
+
+    FormsFiles { }
+
+    FormsOther { }
+
+    FormsStructure { }
+}

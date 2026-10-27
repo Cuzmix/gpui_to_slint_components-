@@ -129,10 +129,15 @@ export component ColorPalette {
     // As wide as `columns` swatches at most; the swatches wrap.
     private property <length> widest: Math.max(root.columns, 1) * (root.cell + root.gap) - root.gap;
 
+    // Swatches a row holds at this width, and the rows they take: counted rather than read from
+    // the flow, so a palette can sit in another FlexboxLayout without a binding loop.
+    private property <int> across: Math.max(1, Math.min(root.columns, floor((Math.min(root.width, root.widest) + root.gap) / (root.cell + root.gap))));
+    private property <int> rows: ceil(root.colors.length / root.across);
+
     min-width: root.cell;
     preferred-width: root.widest;
     max-width: root.widest;
-    height: flow.preferred-height;
+    height: root.rows == 0 ? 0 : root.rows * (root.cell + root.gap) - root.gap;
 
     flow := FlexboxLayout {
         x: 0;

@@ -19,6 +19,8 @@ export component TimezoneSelect {
     in property <string> owner: "timezone";
     // A zone by its IANA name, such as `Asia/Tokyo`; empty for none.
     in-out property <string> zone;
+    // Shown while the field is empty (gpui sets it on the field's TextInput).
+    in property <string> placeholder;
 
     out property <bool> open: combo.open;
     out property <bool> has-focus: combo.has-focus;
@@ -38,6 +40,7 @@ export component TimezoneSelect {
         width: root.width;
         owner: root.owner;
         choices: TimeZones.choices;
+        placeholder: root.placeholder;
         selected <=> root.zone;
         selection-changed(zone) => {
             root.zone-changed(zone);

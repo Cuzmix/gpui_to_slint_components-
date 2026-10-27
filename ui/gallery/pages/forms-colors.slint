@@ -1,0 +1,126 @@
+// Page 6's colors, after ely-gallery/src/pages/forms/colors.rs: the picker, swatches with the
+// palette and eye dropper, and the gradient editor. Each holds its own value.
+
+import { Theme, ControlSize } from "../../theme/theme.slint";
+import { ColorMath } from "../../components/colors.slint";
+import { ColorPicker } from "../../components/color-picker.slint";
+import {
+    ColorSwatch,
+    ColorPalette,
+    NamedColor,
+} from "../../components/color-swatch.slint";
+import { EyeDropper } from "../../components/eye-dropper.slint";
+import { GradientEditor } from "../../components/gradient-editor.slint";
+import { Section, Specimens, Specimen, CodeHint } from "../kit.slint";
+
+export component FormsColors inherits VerticalLayout {
+    private property <[string]> names: ["Blue", "Teal", "Ochre", "Rose", "Violet", "Green", "Clay", "Cyan"];
+    private property <[NamedColor]> named: [
+        { name: root.names[0], color: Theme.colors.chart[0] },
+        { name: root.names[1], color: Theme.colors.chart[1] },
+        { name: root.names[2], color: Theme.colors.chart[2] },
+        { name: root.names[3], color: Theme.colors.chart[3] },
+        { name: root.names[4], color: Theme.colors.chart[4] },
+        { name: root.names[5], color: Theme.colors.chart[5] },
+        { name: root.names[6], color: Theme.colors.chart[6] },
+        { name: root.names[7], color: Theme.colors.chart[7] },
+    ];
+    private property <color> dropped;
+    private property <bool> has-dropped;
+
+    Section {
+        title: "ColorPicker";
+        note: "Saturation and value on the plane, hue and alpha on the rails. Type it as hex, RGB or HSV; drag a letter to scrub.";
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: ColorMath.hex(picker.value) + " at " + Math.round(picker.value.alpha / 255 * 100) + "%";
+                picker := ColorPicker {
+                    width: 260px;
+                    owner: "color-value";
+                    value: #3772bb;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ColorSwatch / ColorPalette / EyeDropper";
+        note: "Named patches; see-through colors sit on a checkerboard. The dropper reads the screen.";
+        Specimens {
+            Specimen {
+                caption: "palette";
+                ColorPalette {
+                    // Its full width, so its rows do not hang on the wrapping row around it.
+                    width: self.preferred-width;
+                    colors: root.named;
+                    selected: Theme.colors.chart[0];
+                    chosen: true;
+                }
+            }
+
+            Specimen {
+                caption: "swatches";
+                HorizontalLayout {
+                    spacing: 8px;
+                    ColorSwatch {
+                        color: #181613;
+                        size: ControlSize.md;
+                    }
+
+                    ColorSwatch {
+                        color: #3772bb66;
+                        size: ControlSize.md;
+                    }
+
+                    ColorSwatch {
+                        color: #267b4c;
+                        size: ControlSize.md;
+                        selected: true;
+                    }
+                }
+            }
+
+            Specimen {
+                caption: root.has-dropped ? ColorMath.hex(root.dropped) : "eye dropper";
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    VerticalLayout {
+                        alignment: center;
+                        EyeDropper {
+                            owner: "eye-dropper";
+                            picked(next) => {
+                                root.dropped = next;
+                                root.has-dropped = true;
+                            }
+                        }
+                    }
+
+                    if root.has-dropped: ColorSwatch {
+                        color: root.dropped;
+                        size: ControlSize.md;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "GradientEditor";
+        note: "Click the bar to add a stop, drag stops to move them, Delete removes the chosen one.";
+        HorizontalLayout {
+            alignment: start;
+            GradientEditor {
+                width: 360px;
+                owner: "gradient-stops";
+                label: "Gradient";
+                stops: [{ at: 0, color: #181613 }, { at: 1, color: #e9e7e5 }];
+            }
+        }
+
+        CodeHint {
+            text: "GradientStop { at: 0.5, color }";
+        }
+    }
+}

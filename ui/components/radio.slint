@@ -86,6 +86,9 @@ component RadioRow {
     preferred-width: row.preferred-width;
     min-height: row.min-height;
     preferred-height: row.preferred-height;
+    // Spelled out so the group's FlexboxLayout sees them.
+    max-width: self.preferred-width;
+    max-height: self.preferred-height;
     accessible-role: radio-button;
     accessible-checkable: true;
     accessible-checked: root.on;
@@ -119,6 +122,9 @@ component RadioRow {
             font-size: Theme.text-size(TextSize.base);
             color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
             vertical-alignment: center;
+            // One line: a wrapping label makes the row's height follow its width, which loops
+            // inside the group's FlexboxLayout.
+            wrap: no-wrap;
         }
     }
 
@@ -231,6 +237,8 @@ export component RadioGroup {
 
     column := FlexboxLayout {
         flex-direction: root.horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+        // gpui's group is a plain flex row or column: it never wraps.
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         spacing: root.horizontal ? 16px : 8px;
 
         for choice[ix] in root.choices: RadioRow {

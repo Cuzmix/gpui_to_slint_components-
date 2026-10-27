@@ -43,6 +43,10 @@ export component MentionInput {
     in property <[MentionTrigger]> triggers;
     in property <string> placeholder;
     in property <string> label;
+    // The lines it shows: at least `rows-min`, growing to `rows-max`; one line unless set, as
+    // TextInput's `multi_line`.
+    in property <int> rows-min: 0;
+    in property <int> rows-max: root.rows-min;
     in property <ControlSize> size: ControlSize.md;
     in property <bool> enabled: true;
 
@@ -86,6 +90,7 @@ export component MentionInput {
         size: root.size;
         enabled: root.enabled;
         focused: field.has-focus;
+        multi-line: field.multi-line;
         pressed => {
             field.focus();
         }
@@ -94,6 +99,8 @@ export component MentionInput {
             text <=> root.text;
             placeholder: root.placeholder;
             label: root.label;
+            rows-min: root.rows-min;
+            rows-max: root.rows-max;
             size: root.size;
             enabled: root.enabled;
             highlighting: true;

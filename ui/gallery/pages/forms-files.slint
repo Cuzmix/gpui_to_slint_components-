@@ -1,0 +1,51 @@
+// Page 6's files, after ely-gallery/src/pages/forms/files.rs: FileInput for one file and for
+// several, and a DropZone that names what it took. Drops are routed by the host (G64).
+
+import { FileInput } from "../../components/file-input.slint";
+import { DropZone } from "../../components/drop-zone.slint";
+import { Files } from "../../components/files.slint";
+import { Section, Specimens, Specimen } from "../kit.slint";
+
+export component FormsFiles inherits VerticalLayout {
+    private property <[string]> taken;
+
+    Section {
+        title: "FileInput / DropZone";
+        note: "Click a field or Browse for the system's dialog, or drop files from Finder. A folder, or two files on a one-file target, turns it red.";
+        Specimens {
+            Specimen {
+                caption: "one file";
+                FileInput {
+                    width: 260px;
+                    owner: "file-one";
+                }
+            }
+
+            Specimen {
+                caption: "several";
+                FileInput {
+                    width: 260px;
+                    owner: "file-many";
+                    multiple: true;
+                    paths: ["Cargo.toml", "README.md", "AGENTS.md"];
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            Specimen {
+                caption: root.taken.length == 0 ? "nothing dropped yet" : "took " + Files.names(root.taken);
+                DropZone {
+                    width: 420px;
+                    owner: "drop-zone";
+                    multiple: true;
+                    hint: "Any kind of file";
+                    dropped(paths) => {
+                        root.taken = paths;
+                    }
+                }
+            }
+        }
+    }
+}

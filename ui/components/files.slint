@@ -28,6 +28,8 @@ export global Files {
     pure callback picture-refusal(paths: [string]) -> string;
     // The file's name, or the whole path for a root.
     pure callback name(path: string) -> string;
+    // The files' names, joined by ", ".
+    pure callback names(paths: [string]) -> string;
     // Logs a refusal and a take, as ely does.
     callback refused(what: string, reason: string);
     callback took(what: string, count: int);

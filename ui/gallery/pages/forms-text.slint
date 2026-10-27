@@ -1,0 +1,338 @@
+// Page 6's text and number fields, after ely-gallery/src/pages/forms/text.rs, numbers.rs and
+// formats.rs. Each field holds its own text, as the source's keyed state does.
+
+import { ControlSize } from "../../theme/theme.slint";
+import { Input, PasswordInput } from "../../components/input.slint";
+import { SearchInput } from "../../components/search-input.slint";
+import { InputGroup, InputAddon } from "../../components/input-group.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import {
+    NumberInput,
+    ScrubInput,
+    UnitInput,
+} from "../../components/number-input.slint";
+import { EmailInput, UrlInput } from "../../components/checked-input.slint";
+import { PhoneInput, MaskedInput } from "../../components/masked-input.slint";
+import { PinInput } from "../../components/pin-input.slint";
+import { InlineEdit } from "../../components/inline-edit.slint";
+import { Caption } from "../../components/caption.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Specimens, Specimen, CodeHint } from "../kit.slint";
+
+// text.rs `input`, `text_area`, `password`, `search`.
+export component FormsText inherits VerticalLayout {
+    private property <string> picked: "nothing yet";
+
+    Section {
+        title: "Input / TextField / ClearableInput";
+        note: "One line. Undo, word jumps, IME and the clipboard come built in.";
+        HorizontalLayout {
+            alignment: start;
+            Input {
+                width: 320px;
+                placeholder: "Full name";
+            }
+        }
+
+        Specimens {
+            Specimen {
+                caption: "small";
+                Input {
+                    width: 200px;
+                    placeholder: "Small";
+                    size: ControlSize.sm;
+                }
+            }
+
+            Specimen {
+                caption: "large";
+                Input {
+                    width: 240px;
+                    placeholder: "Large";
+                    size: ControlSize.lg;
+                }
+            }
+
+            Specimen {
+                caption: "clearable";
+                Input {
+                    width: 240px;
+                    placeholder: "Clearable";
+                    clearable: true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "TextArea / AutoResizeInput";
+        note: "Several lines. It grows to its content, then scrolls.";
+        HorizontalLayout {
+            alignment: start;
+            Input {
+                width: 420px;
+                rows-min: 3;
+                rows-max: 6;
+                placeholder: "Notes grow from three lines to six, then scroll.";
+            }
+        }
+
+        CodeHint {
+            text: "TextInput::new(window, cx).multi_line(3, 6)";
+        }
+    }
+
+    Section {
+        title: "PasswordInput";
+        note: "Bullets by default; the eye shows the text. Masked text never reaches the clipboard.";
+        HorizontalLayout {
+            alignment: start;
+            PasswordInput {
+                width: 320px;
+                placeholder: "Password";
+            }
+        }
+    }
+
+    Section {
+        title: "SearchInput";
+        note: "A magnifier, a clear button, and recent searches while it is empty.";
+        HorizontalLayout {
+            alignment: start;
+            SearchInput {
+                width: 320px;
+                owner: "docs-search";
+                placeholder: "Search docs";
+                history: ["dock layout", "sticky header", "spring easing"];
+                picked(query) => {
+                    root.picked = query;
+                }
+            }
+        }
+
+        Caption {
+            text: "Last recent search: " + root.picked;
+        }
+    }
+}
+
+// numbers.rs `number_input`, `scrub`, `money`.
+export component FormsNumbers inherits VerticalLayout {
+    private property <string> unit: "px";
+
+    Section {
+        title: "NumberInput";
+        note: "Arrow keys or the stepper move it; drag the grip sideways to scrub.";
+        HorizontalLayout {
+            alignment: start;
+            NumberInput {
+                width: 220px;
+                value: 4;
+                label: "Seats";
+                minimum: 1;
+                maximum: 99;
+            }
+        }
+    }
+
+    Section {
+        title: "ScrubInput";
+        note: "Drag the label sideways, as in a design tool. The field still types.";
+        HorizontalLayout {
+            alignment: start;
+            VerticalLayout {
+                width: 260px;
+                spacing: 8px;
+                ScrubInput {
+                    label: "X";
+                    value: 120;
+                    minimum: -2000;
+                    maximum: 2000;
+                }
+
+                ScrubInput {
+                    label: "Opacity";
+                    value: 0.8;
+                    minimum: 0;
+                    maximum: 1;
+                    step: 0.01;
+                    precision: 2;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CurrencyInput / PercentInput / UnitInput";
+        note: "The same number field with a symbol, a percent, or a unit you click through.";
+        Specimens {
+            Specimen {
+                caption: "currency";
+                NumberInput {
+                    width: 200px;
+                    value: 1249.5;
+                    label: "Price";
+                    currency: "USD";
+                    minimum: 0;
+                    maximum: 1000000;
+                }
+            }
+
+            Specimen {
+                caption: "percent";
+                NumberInput {
+                    width: 160px;
+                    value: 8;
+                    label: "Tax";
+                    percent: true;
+                    minimum: 0;
+                    maximum: 100;
+                }
+            }
+
+            Specimen {
+                caption: "unit";
+                UnitInput {
+                    width: 180px;
+                    value: 16;
+                    label: "Gap";
+                    units: ["px", "%", "em"];
+                    unit: root.unit;
+                    minimum: 0;
+                    maximum: 400;
+                    unit-changed(next) => {
+                        root.unit = next;
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "NumberInput::new(id, value).currency(\"USD\") and .percent()";
+        }
+    }
+}
+
+// formats.rs `email_url`, `phone_masked`, `pin`, `inline_edit`.
+export component FormsFormats inherits VerticalLayout {
+    private property <string> country: "US";
+    private property <string> entered: "waiting";
+    private property <string> title: "Quarterly planning";
+
+    Section {
+        title: "EmailInput / UrlInput";
+        note: "Checked once you leave the field; a quiet note says what fits.";
+        Specimens {
+            Specimen {
+                caption: "email";
+                EmailInput {
+                    width: 280px;
+                    placeholder: "name@example.com";
+                }
+            }
+
+            Specimen {
+                caption: "url";
+                UrlInput {
+                    width: 280px;
+                    placeholder: "https://";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "PhoneInput / MaskedInput";
+        note: "Typing fits the pattern; literals appear on their own.";
+        Specimens {
+            Specimen {
+                caption: "phone";
+                PhoneInput {
+                    width: 300px;
+                    owner: "phone";
+                    country: root.country;
+                    country-changed(code) => {
+                        root.country = code;
+                    }
+                }
+            }
+
+            Specimen {
+                caption: "masked: aa-9999";
+                MaskedInput {
+                    width: 200px;
+                    mask: "aa-9999";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "PinInput / OTPInput";
+        note: "Six boxes, one field underneath: type, paste, or backspace through them.";
+        HorizontalLayout {
+            alignment: start;
+            PinInput {
+                length: 6;
+                label: "One-time code";
+                completed(code) => {
+                    root.entered = "entered " + code;
+                }
+            }
+        }
+
+        Caption {
+            text: "Code: " + root.entered;
+        }
+    }
+
+    Section {
+        title: "InlineEdit / EditableText";
+        note: "Click the text to edit. Enter or leaving keeps it; Escape puts it back.";
+        HorizontalLayout {
+            alignment: start;
+            InlineEdit {
+                width: 280px;
+                value: root.title;
+                label: "Title";
+                committed(text) => {
+                    root.title = text;
+                }
+            }
+        }
+    }
+}
+
+// text.rs `group`.
+export component FormsGroup inherits VerticalLayout {
+    Section {
+        title: "InputGroup / InputAddon";
+        note: "Addons join the field's frame: a scheme before, a unit or a control after.";
+        Specimens {
+            Specimen {
+                caption: "text addons";
+                InputGroup {
+                    width: 320px;
+                    placeholder: "ely.dev";
+                    before: ["https://"];
+                    after: [".com"];
+                }
+            }
+
+            Specimen {
+                caption: "control addon";
+                InputGroup {
+                    width: 200px;
+                    placeholder: "0";
+                    InputAddon {
+                        IconButton {
+                            icon: Icons.copy;
+                            size: ControlSize.sm;
+                            tooltip: "Copy";
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
