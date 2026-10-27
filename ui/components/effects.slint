@@ -10,21 +10,19 @@ import { TextFormat } from "text-format.slint";
 
 // Colored text on one line box of the ambient leading, glyphs centered in it as gpui sets them.
 // Slint's StyledText takes no line height, so wrapped lines keep the face's own spacing (G28).
-component TintedText inherits Rectangle {
+component TintedText inherits VerticalLayout {
     in property <styled-text> styled;
+    in property <length> font-size;
 
-    private property <length> line: ceil(1.618034 * Theme.text-size(TextSize.base) / 1phx - 0.5) * 1phx;
+    private property <length> line: ceil(1.618034 * root.font-size / 1phx - 0.5) * 1phx;
 
-    min-width: 0;
-    preferred-width: body.preferred-width;
-    height: max(root.line, body.preferred-height);
+    min-height: root.line;
+    alignment: center;
 
-    body := StyledText {
-        width: root.width;
-        height: root.height;
+    StyledText {
         text: root.styled;
         default-font-family: Theme.font-family;
-        default-font-size: Theme.text-size(TextSize.base);
+        default-font-size: root.font-size;
         default-color: Theme.colors.fg;
         vertical-alignment: center;
         accessible-role: none;
@@ -34,6 +32,8 @@ component TintedText inherits Rectangle {
 // Reveals its text one grapheme at a time at `speed` a second, then a blinking caret stays.
 export component Typewriter inherits HorizontalLayout {
     in property <string> text;
+    // The text size around it; the caret keeps the base size.
+    in property <length> font-size: Theme.text-size(TextSize.base);
     // Graphemes a second.
     in property <float> speed: 32;
     // What shows now.
@@ -68,6 +68,7 @@ export component Typewriter inherits HorizontalLayout {
 
     TypeText {
         text: root.shown-text;
+        font-size: root.font-size;
         vertical-alignment: center;
         accessible-role: none;
     }
@@ -92,29 +93,27 @@ export component Typewriter inherits HorizontalLayout {
 }
 
 // A tonal ramp across the glyphs, ink to muted unless given its ends.
-export component GradientText {
+export component GradientText inherits VerticalLayout {
     in property <string> text;
+    // The text size around it.
+    in property <length> font-size: Theme.text-size(TextSize.base);
     in property <color> from: Theme.colors.fg;
     in property <color> to: Theme.colors.fg-subtle;
 
     private property <bool> wired: TextFormat.grapheme-count("x") == 1;
 
-    min-width: 0;
-    preferred-width: root.wired ? tinted.preferred-width : plain.preferred-width;
-    height: root.wired ? tinted.height : plain.preferred-height;
+    vertical-stretch: 0;
     accessible-role: AccessibleRole.text;
     accessible-label: root.text;
 
-    tinted := TintedText {
-        visible: root.wired;
-        width: root.width;
+    if root.wired: TintedText {
+        font-size: root.font-size;
         styled: TextFormat.gradient(root.text, root.from, root.to);
     }
 
-    plain := TypeText {
-        visible: !root.wired;
-        width: root.width;
+    if !root.wired: TypeText {
         text: root.text;
+        font-size: root.font-size;
         color: root.from;
         accessible-role: none;
     }
@@ -122,27 +121,25 @@ export component GradientText {
 
 // A band of light that sweeps the text every 1.8 s while it waits; still and dim under
 // reduced motion.
-export component ShimmerText {
+export component ShimmerText inherits VerticalLayout {
     in property <string> text;
+    // The text size around it.
+    in property <length> font-size: Theme.text-size(TextSize.base);
 
     private property <bool> moving: !Theme.reduced-motion && TextFormat.grapheme-count("x") == 1;
 
-    min-width: 0;
-    preferred-width: root.moving ? tinted.preferred-width : plain.preferred-width;
-    height: root.moving ? tinted.height : plain.preferred-height;
+    vertical-stretch: 0;
     accessible-role: AccessibleRole.text;
     accessible-label: root.text;
 
-    tinted := TintedText {
-        visible: root.moving;
-        width: root.width;
-        styled: root.moving ? TextFormat.shimmer(root.text, Theme.colors.fg-subtle, Theme.colors.fg, Math.mod(animation-tick() / 1ms, 1800) / 1800) : TextFormat.gradient("", Theme.colors.fg, Theme.colors.fg);
+    if root.moving: TintedText {
+        font-size: root.font-size;
+        styled: TextFormat.shimmer(root.text, Theme.colors.fg-subtle, Theme.colors.fg, Math.mod(animation-tick() / 1ms, 1800) / 1800);
     }
 
-    plain := TypeText {
-        visible: !root.moving;
-        width: root.width;
+    if !root.moving: TypeText {
         text: root.text;
+        font-size: root.font-size;
         color: Theme.colors.fg-subtle;
         accessible-role: none;
     }

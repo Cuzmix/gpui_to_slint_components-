@@ -7,7 +7,7 @@
 import { Theme, TextSize } from "../theme/theme.slint";
 import { TypeText } from "type-text.slint";
 
-export component Blockquote inherits Rectangle {
+export component Blockquote inherits HorizontalLayout {
     // A passage in the quote's style; leave empty to give children instead.
     in property <string> text;
     // The style children should take, as gpui's quote hands it down.
@@ -15,22 +15,22 @@ export component Blockquote inherits Rectangle {
     out property <length> text-size: Theme.text-size(TextSize.md);
 
     // A block: full width, as tall as its passage.
-    height: content.preferred-height;
+    vertical-stretch: 0;
 
-    content := VerticalLayout {
-        // The 2 px rule, then 16 px before the passage.
-        padding-left: 2px + 16px;
+    // The 2 px rule.
+    Rectangle {
+        width: 2px;
+        background: Theme.colors.border-strong;
+    }
+
+    // 16 px before the passage.
+    VerticalLayout {
+        padding-left: 16px;
         if root.text != "": TypeText {
             text: root.text;
             color: root.ink;
             font-size: root.text-size;
         }
         @children
-    }
-
-    Rectangle {
-        x: 0;
-        width: 2px;
-        background: Theme.colors.border-strong;
     }
 }

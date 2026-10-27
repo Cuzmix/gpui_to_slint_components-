@@ -16,8 +16,8 @@ slint::slint! {
         out property <string> shown: tw.shown-text;
         out property <bool> typing: tw.typing;
         out property <length> tw-h: tw.preferred-height;
-        out property <length> grad-h: grad.height;
-        out property <length> shimmer-h: shimmer.height;
+        out property <length> grad-h: grad.preferred-height;
+        out property <length> shimmer-h: shimmer.preferred-height;
         out property <length> num-h: num.height;
         out property <string> num-text: num.settled-text;
         out property <bool> num-moving: num.moving;

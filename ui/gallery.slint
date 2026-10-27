@@ -5,6 +5,7 @@ import { ThemeFader } from "theme/fader.slint";
 import { Button, ButtonVariant } from "components/button.slint";
 import { ButtonsPage } from "gallery/pages/buttons.slint";
 import { PrimitivesPage } from "gallery/pages/primitives.slint";
+import { TypographyPage } from "gallery/pages/typography.slint";
 import { Backdrop } from "components/backdrop.slint";
 import { Elevated } from "components/elevated.slint";
 import { Elevation, Radius } from "theme/theme.slint";
@@ -40,6 +41,12 @@ export component Gallery inherits Window {
             summary: "The smallest parts. Most are gpui itself; Ely adds the rest."
         },
         {
+            number: 2,
+            slug: "typography",
+            title: "Typography",
+            summary: "Inter for words, tabular figures for numbers, one ink for everything."
+        },
+        {
             number: 5,
             slug: "buttons",
             title: "Buttons & Actions",
@@ -52,6 +59,8 @@ export component Gallery inherits Window {
     in property <string> find-shortcut: "Ctrl+Shift+F";
     // Opens in dark mode; for captures.
     in property <bool> start-dark: false;
+    // The current page's full height, so a capture can show it all.
+    out property <length> capture-height: page-body.preferred-height;
     callback clicked(string);
 
     changed start-dark => {
@@ -94,7 +103,7 @@ export component Gallery inherits Window {
         }
 
         Flickable {
-            VerticalLayout {
+            page-body := VerticalLayout {
                 padding: 32px;
                 padding-top: 24px;
                 alignment: start;
@@ -114,6 +123,7 @@ export component Gallery inherits Window {
                 if root.pages[root.current].slug == "primitives": PrimitivesPage {
                     backdrop-open <=> root.backdrop-open;
                 }
+                if root.pages[root.current].slug == "typography": TypographyPage { }
                 if root.pages[root.current].slug == "buttons": ButtonsPage {
                     save-shortcut: root.save-shortcut;
                     find-shortcut: root.find-shortcut;

@@ -22,7 +22,7 @@ slint::slint! {
         out property <int> anchor: sel.anchor;
         out property <int> cursor: sel.cursor;
         out property <bool> sel-focused: sel.has-focus;
-        out property <length> sel-h: sel.height;
+        out property <length> sel-h: sel.preferred-height;
         copy := CopyButton { x: 0; y: 0; text: "sk-live-4f2a"; did-copy => { root.copies += 1; } }
         CopyableText { x: 0; y: 40px; text: "api key"; mono: true; }
         e := Emoji { x: 0; y: 80px; glyph: root.glyph; shortcode: root.shortcode; }

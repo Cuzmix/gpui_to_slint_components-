@@ -8,7 +8,7 @@
 
 import { Theme, TextSize } from "../theme/theme.slint";
 
-export component SelectableText {
+export component SelectableText inherits VerticalLayout {
     in property <string> text;
     // The text style around it, as gpui hands it down.
     in property <length> font-size: Theme.text-size(TextSize.base);
@@ -21,14 +21,11 @@ export component SelectableText {
 
     private property <length> line: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
 
-    min-width: 0;
-    preferred-width: input.preferred-width;
-    height: input.preferred-height;
+    vertical-stretch: 0;
     accessible-role: AccessibleRole.text;
     accessible-label: root.text;
 
     input := TextInput {
-        width: root.width;
         text: root.text;
         read-only: true;
         wrap: word-wrap;

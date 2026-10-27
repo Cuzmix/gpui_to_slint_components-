@@ -32,3 +32,5 @@ Source: `ely-core/src/typography/inline.rs`, `typography/keys.rs`.
 - Parsing keys and finding matches go through the `TextFormat` global's pure callbacks, wired by `ely_slint::wire_text_format!(app)`. Unwired: Kbd and KbdCombo show their source on one cap, Highlight shows the text unmarked.
 - `Highlight.runs` takes precomputed runs (from `ely_slint::text::highlight_runs`) for given ranges.
 - Accessibility: each cap is a text node reading its label; Highlight is one text node reading the whole text; Code and Blockquote passages are text nodes.
+
+- Sizes as a layout: place it in a layout, or it fills its parent (G29).

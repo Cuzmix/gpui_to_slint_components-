@@ -1085,6 +1085,7 @@ dependencies = [
  "iso_currency",
  "jiff",
  "log",
+ "png",
  "regex",
  "slint",
  "slint-build",

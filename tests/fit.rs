@@ -34,7 +34,14 @@ slint::slint! {
         in-out property <int> clamp-lines: 2;
         in-out property <string> prose: "Ely draws every component in light and dark, with a high-contrast variant of each palette and a color-blind-safe chart palette.";
         out property <length> clamp-h: clamp.height;
-        clamp := LineClamp { x: 0; y: 160px; width: 200px; lines: root.clamp-lines; text: root.prose; }
+
+        VerticalLayout {
+            x: 0;
+            y: 160px;
+            width: 200px;
+            alignment: start;
+            clamp := LineClamp { lines: root.clamp-lines; text: root.prose; }
+        }
         HorizontalLayout {
             x: 0;
             y: 120px;

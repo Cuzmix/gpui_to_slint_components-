@@ -21,4 +21,11 @@ unicode-segmentation = "1"
 slint-build = "=1.18.1"
 
 [dev-dependencies]
+png = "0.18"
 i-slint-backend-testing = "=1.18.1"
+
+# Keep the debug tree small: line tables are enough for backtraces, and incremental caches
+# of the generated Slint code run to gigabytes.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false

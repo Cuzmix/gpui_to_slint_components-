@@ -1,12 +1,37 @@
-// Port of gpui's `.line_clamp(n)` as Ely's story shows it (ely-gallery typography `line_clamp`).
-// Wrapped text kept to its first `lines` lines, then a hard cut: no ellipsis.
+// gpui's `.line_clamp(n)`: wraps the text and shows at most `lines` whole lines, cutting the
+// rest with no ellipsis. Slint ignores a maximum height on word-wrapped text, so the clamp sits
+// on a clipping frame around it, and the frame takes the text's own height up to the clamp.
+// Place it in a layout, which applies the maximum.
 
+import { Theme, TextSize } from "../theme/theme.slint";
 import { TypeText } from "type-text.slint";
 
-export component LineClamp inherits TypeText {
-    // How many lines show.
+export component LineClamp {
+    in property <string> text;
     in property <int> lines: 2;
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <int> font-weight: 400;
+    in property <color> color: Theme.colors.fg;
+    in property <float> leading: 1.618034;
+    out property <length> line-height: body.line-height;
 
-    overflow: clip;
-    height: min(self.preferred-height, max(0, self.lines) * self.line-height);
+    preferred-height: body.preferred-height;
+    max-height: max(0, root.lines) * body.line-height;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    Rectangle {
+        clip: true;
+        body := TypeText {
+            x: 0;
+            y: 0;
+            width: root.width;
+            text: root.text;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            color: root.color;
+            leading: root.leading;
+            accessible-role: none;
+        }
+    }
 }

@@ -1,6 +1,7 @@
 // Gallery scaffolding, after ely-gallery/src/ui.rs: section, row, specimen, code.
 
-import { Theme, TextSize } from "../theme/theme.slint";
+import { Theme, TextSize, Radius } from "../theme/theme.slint";
+import { TypeText } from "../components/type-text.slint";
 
 // Titled block of demos.
 export component Section inherits VerticalLayout {
@@ -10,20 +11,16 @@ export component Section inherits VerticalLayout {
     padding-top: 40px;
     VerticalLayout {
         spacing: 4px;
-        Text {
+        TypeText {
             text: root.title;
             font-size: Theme.text-size(TextSize.md);
             font-weight: 600;
-            font-family: Theme.font-family;
-            color: Theme.colors.fg;
         }
 
-        Text {
+        TypeText {
             text: root.note;
             font-size: Theme.text-size(TextSize.sm);
-            font-family: Theme.font-family;
             color: Theme.colors.fg-muted;
-            wrap: word-wrap;
         }
     }
 
@@ -44,23 +41,44 @@ export component Specimens inherits FlexboxLayout {
     cross-axis-line-alignment: start;
 }
 
+// Body text in the gallery's ambient style.
+export component Words inherits TypeText { }
+
+// A bordered box 240 px wide, for fitting demos (ely-gallery typography `narrow`).
+export component Narrow inherits Rectangle {
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    border-radius: Theme.radius(Radius.md);
+    width: 240px;
+    height: body.preferred-height;
+
+    body := HorizontalLayout {
+        padding-left: 1px + 12px;
+        padding-right: 1px + 12px;
+        padding-top: 1px + 8px;
+        padding-bottom: 1px + 8px;
+        spacing: 8px;
+        @children
+    }
+}
+
 // Demo with a caption beneath.
 export component Specimen inherits VerticalLayout {
     in property <string> caption;
     spacing: 8px;
     alignment: end;
     @children
-    Text {
+    TypeText {
         text: root.caption;
         font-size: Theme.text-size(TextSize.xs);
-        font-family: Theme.font-family;
         color: Theme.colors.fg-subtle;
     }
 }
 
 // Monospace hint naming the call.
-export component CodeHint inherits Text {
+export component CodeHint inherits TypeText {
     font-family: Theme.mono-family;
+    line-ratio: Theme.mono-line-ratio;
     font-size: Theme.text-size(TextSize.xs);
     color: Theme.colors.fg-muted;
 }

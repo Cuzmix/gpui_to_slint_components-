@@ -25,3 +25,6 @@ Sources: `ely-core/src/buttons/copy.rs`, `typography/copy.rs`, `typography/selec
 - SelectableText is a read-only TextInput with the caret hidden and moving keys swallowed: G27.
 - Emoji shortcodes go through `TextFormat.emoji`; an unknown or unwired shortcode shows nothing (`known` is false).
 - Accessibility: Slint has no paragraph role, so SelectableText is a text node.
+
+- Sizes as a layout: place it in a layout, or it fills its parent (G29).
+- The software renderer draws emoji as monochrome fallback glyphs (G30).

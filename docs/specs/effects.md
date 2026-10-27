@@ -24,3 +24,5 @@ Sources: `ely-core/src/typography/effects.rs`, `typography/rolling.rs`.
 - Per-grapheme colors are a Slint `StyledText` built from markdown `<font color>` runs. StyledText takes no line height: G28.
 - Timing reads `animation-tick()`, so Slint redraws only while something moves.
 - Accessibility: one text node each; AnimatedNumber reads the value it lands on.
+
+- Sizes as a layout: place it in a layout, or it fills its parent (G29).

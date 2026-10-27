@@ -25,3 +25,4 @@ Source: `ely-core/src/typography/fit.rs`; LineClamp is gpui's `.line_clamp(n)` a
 - `shown` reports what the line draws; `cut` whether it is cut.
 - Accessibility: the line is one text node reading the whole text.
 - Measured widths round up to whole pixels (G23).
+- LineClamp is a frame whose `max-height` is `lines` lines and whose `preferred-height` is the text's; the text inside is clipped. Place it in a layout, which applies the maximum (G29). It takes `text`, `lines`, `font-size`, `font-weight`, `color` and `leading`.

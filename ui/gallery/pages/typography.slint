@@ -1,0 +1,748 @@
+// Page 2, Typography, after ely-gallery/src/pages/typography/{mod,text,values,motion}.rs,
+// story for story.
+
+import { Theme, TextSize } from "../../theme/theme.slint";
+import { Title } from "../../components/title.slint";
+import { Subtitle } from "../../components/subtitle.slint";
+import { Paragraph } from "../../components/paragraph.slint";
+import { Label } from "../../components/label.slint";
+import { Caption } from "../../components/caption.slint";
+import { Overline } from "../../components/overline.slint";
+import { Heading, HeadingLevel } from "../../components/heading.slint";
+import { Code } from "../../components/code.slint";
+import { Kbd, KbdCombo } from "../../components/kbd.slint";
+import { Blockquote } from "../../components/blockquote.slint";
+import { Highlight } from "../../components/highlight.slint";
+import {
+    Ellipsis,
+    MiddleEllipsis,
+    EllipsisTooltip,
+} from "../../components/ellipsis.slint";
+import { LineClamp } from "../../components/line-clamp.slint";
+import { Link, ExternalLink } from "../../components/link.slint";
+import {
+    Clock,
+    DurationStyle,
+    NumberText,
+    CurrencyText,
+    PercentText,
+    FileSizeText,
+    DurationText,
+    PluralText,
+    RelativeTime,
+    DateTimeText,
+} from "../../components/value-text.slint";
+import { CopyableText } from "../../components/copyable-text.slint";
+import { SelectableText } from "../../components/selectable-text.slint";
+import { Emoji } from "../../components/emoji.slint";
+import { AnimatedNumber } from "../../components/animated-number.slint";
+import {
+    Typewriter,
+    GradientText,
+    ShimmerText,
+} from "../../components/effects.slint";
+import { Button, ButtonVariant } from "../../components/button.slint";
+import {
+    Section,
+    Row,
+    Specimens,
+    Specimen,
+    CodeHint,
+    Words,
+    Narrow,
+} from "../kit.slint";
+
+export component TypographyPage inherits VerticalLayout {
+    // The story's reading text.
+    private property <string> prose: "Good interfaces are quiet. They leave room around each idea, use one voice for text, and save color for the moments that need it. The rest is spacing.";
+    // 24 Sep 2026, 09:41 UTC, so shots repeat.
+    private property <int> moment: 1790242860;
+    private property <[float]> values: [1284, 1917, 12406, 9998, 10031];
+    private property <int> tick: 0;
+    private property <[string]> lines: [
+        "Writing, one grapheme at a time.",
+        "中文与 emoji ✨ 也按字形逐个出现。"
+    ];
+    private property <int> take: 0;
+
+    alignment: start;
+
+    Section {
+        title: "Heading (H1–H6)";
+        note: "Six steps, one weight. Size carries the order.";
+        VerticalLayout {
+            spacing: 8px;
+            Heading {
+                level: HeadingLevel.h1;
+                text: "Quiet interfaces";
+            }
+
+            Heading {
+                level: HeadingLevel.h2;
+                text: "Quiet interfaces";
+            }
+
+            Heading {
+                level: HeadingLevel.h3;
+                text: "Quiet interfaces";
+            }
+
+            Heading {
+                level: HeadingLevel.h4;
+                text: "Quiet interfaces";
+            }
+
+            Heading {
+                level: HeadingLevel.h5;
+                text: "Quiet interfaces";
+            }
+
+            Heading {
+                level: HeadingLevel.h6;
+                text: "Quiet interfaces";
+            }
+        }
+    }
+
+    Section {
+        title: "Title / Subtitle";
+        note: "A pair for page and panel headers.";
+        VerticalLayout {
+            spacing: 4px;
+            Title {
+                text: "Quarterly review";
+            }
+
+            Subtitle {
+                text: "Numbers, notes and the next three moves.";
+            }
+        }
+    }
+
+    Section {
+        title: "Paragraph";
+        note: "Reading text at 14 with loose leading.";
+        HorizontalLayout {
+            alignment: start;
+            Paragraph {
+                max-width: 560px;
+                text: root.prose;
+            }
+        }
+    }
+
+    Section {
+        title: "Label";
+        note: "Names a control or a value.";
+        Row {
+            Label {
+                text: "Display name";
+            }
+
+            Label {
+                text: "Workspace";
+            }
+        }
+    }
+
+    Section {
+        title: "Caption";
+        note: "The quiet line beneath.";
+        Caption {
+            text: "Updated a moment ago · visible to your team";
+        }
+    }
+
+    Section {
+        title: "Overline";
+        note: "An eyebrow in small capitals.";
+        VerticalLayout {
+            spacing: 4px;
+            Overline {
+                text: "Release notes";
+            }
+
+            Title {
+                text: "Version 0.1";
+            }
+        }
+    }
+
+    Section {
+        title: "Code";
+        note: "Monospace on a quiet fill.";
+        Row {
+            Words {
+                text: "Run";
+            }
+
+            Code {
+                text: "cargo run -p ely-gallery";
+            }
+
+            Words {
+                text: "to open this window.";
+            }
+        }
+    }
+
+    Section {
+        title: "Kbd";
+        note: "gpui key syntax. secondary means ⌘ on macOS and Ctrl elsewhere.";
+        Specimens {
+            Specimen {
+                caption: "secondary-s";
+                Kbd {
+                    source: "secondary-s";
+                }
+            }
+
+            Specimen {
+                caption: "shift-tab";
+                Kbd {
+                    source: "shift-tab";
+                }
+            }
+
+            Specimen {
+                caption: "escape";
+                Kbd {
+                    source: "escape";
+                }
+            }
+
+            Specimen {
+                caption: "enter";
+                Kbd {
+                    source: "enter";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "KbdCombo";
+        note: "Sequences read left to right.";
+        Specimens {
+            Specimen {
+                caption: "secondary-shift-p";
+                KbdCombo {
+                    source: "secondary-shift-p";
+                }
+            }
+
+            Specimen {
+                caption: "secondary-k secondary-s";
+                KbdCombo {
+                    source: "secondary-k secondary-s";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Blockquote";
+        note: "A rule and a softer ink.";
+        HorizontalLayout {
+            alignment: start;
+            Blockquote {
+                max-width: 520px;
+                text: "Simplicity is not the absence of clutter. It is the right thing, in the right place.";
+            }
+        }
+    }
+
+    Section {
+        title: "Highlight / Mark";
+        note: "Every match of a query, case-insensitive.";
+        Highlight {
+            text: "Quiet interfaces age well. Loud ones AGE fast.";
+            query: "age";
+        }
+
+        CodeHint {
+            text: "Highlight { query: \"age\"; }";
+        }
+    }
+
+    Section {
+        title: "Truncate / Ellipsis";
+        note: "One line, an ellipsis at the end, in the text style around it, cut by the shaped line at the width its box gets.";
+        HorizontalLayout {
+            alignment: start;
+            Narrow {
+                Words {
+                    text: "Note";
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+
+                Ellipsis {
+                    text: root.prose;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "LineClamp";
+        note: "gpui's .line_clamp(n): n lines, then a hard cut.";
+        HorizontalLayout {
+            alignment: start;
+            Narrow {
+                width: 360px;
+                LineClamp {
+                    lines: 2;
+                    text: root.prose;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "MiddleEllipsis";
+        note: "Cuts the middle so both ends stay legible.";
+        HorizontalLayout {
+            alignment: start;
+            Narrow {
+                width: 280px;
+                MiddleEllipsis {
+                    text: "~/Documents/GitHub/Ely-GPUI-Components/src/typography/fit.rs";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "EllipsisTooltip";
+        note: "Hover shows the whole line, only when it was cut.";
+        HorizontalLayout {
+            alignment: start;
+            Narrow {
+                EllipsisTooltip {
+                    text: "Design review · Tuesday, with the full product team and guests";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Link";
+        note: "Blue marks where a click goes. Underline on hover.";
+        Row {
+            Words {
+                text: "Read the";
+            }
+
+            Link {
+                text: "style guide";
+                clicked => {
+                    debug("gallery: link");
+                }
+            }
+
+            Words {
+                text: "before you start.";
+            }
+        }
+    }
+
+    Section {
+        title: "ExternalLink";
+        note: "Leaves the app. The arrow says so.";
+        HorizontalLayout {
+            alignment: start;
+            ExternalLink {
+                text: "gpui.rs";
+                url: "https://www.gpui.rs";
+            }
+        }
+    }
+
+    Section {
+        title: "RelativeTime";
+        note: "Refreshes every thirty seconds while on screen.";
+        Specimens {
+            Specimen {
+                caption: "10 s";
+                RelativeTime {
+                    at: Clock.now - 10;
+                }
+            }
+
+            Specimen {
+                caption: "3 min";
+                RelativeTime {
+                    at: Clock.now - 180;
+                }
+            }
+
+            Specimen {
+                caption: "2 h";
+                RelativeTime {
+                    at: Clock.now - 7200;
+                }
+            }
+
+            Specimen {
+                caption: "3 d";
+                RelativeTime {
+                    at: Clock.now - 259200;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "DateTimeText";
+        note: "strftime patterns in the system zone.";
+        Specimens {
+            Specimen {
+                caption: "default";
+                DateTimeText {
+                    at: root.moment;
+                }
+            }
+
+            Specimen {
+                caption: "%Y-%m-%d";
+                DateTimeText {
+                    at: root.moment;
+                    pattern: "%Y-%m-%d";
+                }
+            }
+
+            Specimen {
+                caption: "%A %H:%M";
+                DateTimeText {
+                    at: root.moment;
+                    pattern: "%A %H:%M";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "NumberText";
+        note: "Grouped, fixed precision, tabular figures.";
+        Specimens {
+            Specimen {
+                caption: "2 decimals";
+                NumberText {
+                    value: 1234567.891;
+                    decimals: 2;
+                }
+            }
+
+            Specimen {
+                caption: "integer";
+                NumberText {
+                    value: 42000;
+                }
+            }
+
+            Specimen {
+                caption: "negative";
+                NumberText {
+                    value: -1234.5;
+                    decimals: 1;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CurrencyText";
+        note: "ISO 4217 codes. Yen and won have no minor units.";
+        Specimens {
+            Specimen {
+                caption: "USD";
+                CurrencyText {
+                    amount: 1234.5;
+                    code: "USD";
+                }
+            }
+
+            Specimen {
+                caption: "EUR";
+                CurrencyText {
+                    amount: -42;
+                    code: "EUR";
+                }
+            }
+
+            Specimen {
+                caption: "JPY";
+                CurrencyText {
+                    amount: 1500.4;
+                    code: "JPY";
+                }
+            }
+
+            Specimen {
+                caption: "CHF";
+                CurrencyText {
+                    amount: 9.99;
+                    code: "CHF";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "PercentText";
+        note: "Signed values carry direction in word and color.";
+        Specimens {
+            Specimen {
+                caption: "plain";
+                PercentText {
+                    ratio: 0.1234;
+                    decimals: 2;
+                }
+            }
+
+            Specimen {
+                caption: "gain";
+                PercentText {
+                    ratio: 0.052;
+                    signed: true;
+                }
+            }
+
+            Specimen {
+                caption: "loss";
+                PercentText {
+                    ratio: -0.031;
+                    signed: true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "FileSizeText";
+        note: "Decimal units by default, binary on request.";
+        Specimens {
+            Specimen {
+                caption: "1536 B";
+                FileSizeText {
+                    bytes: 1536;
+                }
+            }
+
+            Specimen {
+                caption: "3.2 GB";
+                FileSizeText {
+                    bytes: 3200000000;
+                }
+            }
+
+            Specimen {
+                caption: "binary";
+                FileSizeText {
+                    bytes: 3221225472;
+                    binary: true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "DurationText";
+        note: "A clock for media, a compact span for logs.";
+        Specimens {
+            Specimen {
+                caption: "clock";
+                DurationText {
+                    seconds: 5025;
+                    style: DurationStyle.clock;
+                }
+            }
+
+            Specimen {
+                caption: "clock";
+                DurationText {
+                    seconds: 1425;
+                    style: DurationStyle.clock;
+                }
+            }
+
+            Specimen {
+                caption: "compact";
+                DurationText {
+                    seconds: 245;
+                    style: DurationStyle.compact;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "PluralText";
+        note: "The noun follows the count.";
+        Specimens {
+            Specimen {
+                caption: "1";
+                PluralText {
+                    count: 1;
+                    one: "file";
+                    other: "files";
+                }
+            }
+
+            Specimen {
+                caption: "12345";
+                PluralText {
+                    count: 12345;
+                    one: "file";
+                    other: "files";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CopyableText";
+        note: "One click copies. A check confirms, then leaves.";
+        CopyableText {
+            text: "ely_live_4f9a2c81d7";
+            mono: true;
+        }
+    }
+
+    Section {
+        title: "SelectableText";
+        note: "Drag to select. ⌘C copies, ⌘A takes it all.";
+        HorizontalLayout {
+            alignment: start;
+            SelectableText {
+                max-width: 520px;
+                text: "Selection works on read-only text too: logs, messages, receipts.";
+            }
+        }
+    }
+
+    Section {
+        title: "Emoji";
+        note: "Shortcodes resolve to the system color font.";
+        Specimens {
+            Specimen {
+                caption: "sparkles";
+                Emoji {
+                    shortcode: "sparkles";
+                }
+            }
+
+            Specimen {
+                caption: "herb";
+                Emoji {
+                    shortcode: "herb";
+                }
+            }
+
+            Specimen {
+                caption: "coffee";
+                Emoji {
+                    shortcode: "coffee";
+                }
+            }
+
+            Specimen {
+                caption: "xl";
+                Emoji {
+                    shortcode: "sparkles";
+                    size: TextSize.xxl;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "AnimatedNumber";
+        note: "Digits roll by place; or the value counts up.";
+        Specimens {
+            spacing: 48px;
+            Specimen {
+                caption: "roll";
+                AnimatedNumber {
+                    value: root.values[root.tick];
+                }
+            }
+
+            Specimen {
+                caption: "count up";
+                AnimatedNumber {
+                    value: root.values[root.tick] * 3.7;
+                    decimals: 1;
+                    count-up: true;
+                }
+            }
+        }
+
+        // Steps through the values on a clock of its own.
+        Timer {
+            interval: 1600ms;
+            triggered => {
+                root.tick = Math.mod(root.tick + 1, root.values.length);
+            }
+        }
+    }
+
+    Section {
+        title: "Typewriter";
+        note: "Reveals by grapheme, so emoji and CJK stay whole.";
+        // A plain row: Slint 1.18 loops measuring wrapped text in a nested layout inside a FlexboxLayout.
+        HorizontalLayout {
+            spacing: 24px;
+            alignment: start;
+            HorizontalLayout {
+                min-width: 320px;
+                Typewriter {
+                    text: root.lines[Math.mod(root.take, root.lines.length)];
+                }
+            }
+
+            Button {
+                text: "Next line";
+                variant: ButtonVariant.ghost;
+                clicked => {
+                    root.take += 1;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "GradientText";
+        note: "A tonal ramp, glyph by glyph. No neon.";
+        Specimens {
+            spacing: 40px;
+            Specimen {
+                caption: "ink to muted";
+                GradientText {
+                    text: "Quiet type";
+                    font-size: Theme.text-size(TextSize.display);
+                }
+            }
+
+            Specimen {
+                caption: "ink to focus";
+                GradientText {
+                    text: "Quiet type";
+                    font-size: Theme.text-size(TextSize.display);
+                    from: Theme.colors.fg;
+                    to: Theme.colors.focus;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ShimmerText";
+        note: "A slow band of light while something loads.";
+        ShimmerText {
+            text: "Thinking through the request…";
+            font-size: Theme.text-size(TextSize.lg);
+        }
+    }
+}

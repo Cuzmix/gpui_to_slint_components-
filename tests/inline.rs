@@ -17,7 +17,7 @@ slint::slint! {
         out property <length> code-h: code.height;
         out property <length> code-text-w: code-probe.preferred-width;
         out property <bool> code-fill: code.background == Theme.colors.sunken && code.border-color == Theme.colors.border;
-        out property <length> quote-h: quote.height;
+        out property <length> quote-h: quote.preferred-height;
         out property <length> kbd-h: kbd.preferred-height;
         out property <length> kbd-box-w: kbd.width;
         out property <length> kbd-w: kbd.preferred-width;
@@ -26,7 +26,13 @@ slint::slint! {
         out property <int> hl-runs: hl.runs.length;
         code := Code { x: 0; y: 0; text: "cargo build"; }
         code-probe := TypeText { visible: false; text: "cargo build"; font-family: Theme.mono-family; line-ratio: Theme.mono-line-ratio; font-size: Theme.text-size(TextSize.sm); }
-        quote := Blockquote { x: 0; y: 40px; width: 300px; text: "Simplicity is prerequisite for reliability."; }
+        VerticalLayout {
+            x: 0;
+            y: 40px;
+            width: 300px;
+            alignment: start;
+            quote := Blockquote { text: "Simplicity is prerequisite for reliability."; }
+        }
         HorizontalLayout {
             x: 0;
             y: 120px;
