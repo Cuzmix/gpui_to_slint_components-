@@ -1,0 +1,166 @@
+// Port of ely-core/src/buttons/quick.rs (`QuickActions`, `QuickAction`): a list of actions. The
+// pointer or the arrows choose; Enter or a click runs.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+
+// One action: its icon and label, an optional line under the label, and its shortcut, already
+// spelled for the platform ("⌘N"; `ely_slint::shortcut_text` spells gpui key syntax).
+export struct QuickAction {
+    icon: image,
+    label: string,
+    note: string,
+    shortcut: string,
+}
+
+component QuickRow {
+    in property <QuickAction> action;
+    in property <bool> selected;
+
+    callback hovered();
+    callback activated();
+
+    // No menu item role in Slint 1.18 (gap G51).
+    accessible-role: list-item;
+    accessible-label: root.action.label;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => {
+        root.activated();
+    }
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        background: root.selected ? Theme.colors.hover : transparent;
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 12px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: Theme.control-height(ControlSize.md);
+            height: self.width;
+            border-radius: Theme.radius(Radius.md);
+            background: Theme.colors.sunken;
+            border-width: 1px;
+            border-color: Theme.colors.border;
+
+            Icon {
+                source: root.action.icon;
+                size: IconSize.sm;
+                color: Theme.colors.fg-muted;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+
+            Text {
+                text: root.action.label;
+                color: Theme.colors.fg;
+                font-size: Theme.text-size(TextSize.base);
+                font-weight: 500;
+                font-family: Theme.font-family;
+            }
+
+            if root.action.note != "": Text {
+                text: root.action.note;
+                color: Theme.colors.fg-subtle;
+                font-size: Theme.text-size(TextSize.xs);
+                font-family: Theme.font-family;
+            }
+        }
+
+        if root.action.shortcut != "": Text {
+            text: root.action.shortcut;
+            color: Theme.colors.fg-subtle;
+            font-size: Theme.text-size(TextSize.xs);
+            font-family: Theme.font-family;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        changed has-hover => {
+            if self.has-hover {
+                root.hovered();
+            }
+        }
+        clicked => {
+            root.activated();
+        }
+    }
+}
+
+export component QuickActions {
+    in property <[QuickAction]> actions;
+
+    // The chosen row, by the pointer or the arrows.
+    out property <int> selected: Math.min(root.chosen, Math.max(0, root.actions.length - 1));
+    out property <bool> has-focus: keys.has-focus;
+
+    // The action at `index` was run: Enter, or a click.
+    callback activated(index: int);
+
+    private property <int> chosen;
+
+    forward-focus: keys;
+    // No menu role in Slint 1.18 (gap G51).
+    accessible-role: list;
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            let count = root.actions.length;
+            if count == 0 {
+                return reject;
+            }
+            if event.text == Key.DownArrow {
+                root.chosen = Math.mod(root.selected + 1, count);
+            } else if event.text == Key.UpArrow {
+                root.chosen = Math.mod(root.selected + count - 1, count);
+            } else if event.text == Key.Return {
+                root.activated(root.selected);
+            } else {
+                return reject;
+            }
+            accept
+        }
+
+        Rectangle {
+            border-radius: Theme.radius(Radius.lg);
+            border-width: 1px;
+            border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border;
+            background: Theme.colors.surface;
+        }
+
+        VerticalLayout {
+            // 4 px inside the hairline.
+            padding: 5px;
+            spacing: 2px;
+
+            for action[ix] in root.actions: QuickRow {
+                action: action;
+                selected: ix == root.selected;
+                hovered => {
+                    root.chosen = ix;
+                }
+                activated => {
+                    root.activated(ix);
+                }
+            }
+        }
+    }
+}
