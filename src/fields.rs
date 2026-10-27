@@ -202,6 +202,29 @@ macro_rules! wire_fields {
     }};
 }
 
+/// Wires the `FieldRows` global of a component that uses KeyValueInput or ListInput.
+#[macro_export]
+macro_rules! wire_rows {
+    ($app:expr) => {{
+        use ::slint::Model;
+        fn edited<T: Clone + 'static>(rows: ::slint::ModelRc<T>, edit: impl FnOnce(&mut Vec<T>)) -> ::slint::ModelRc<T> {
+            let mut rows: Vec<T> = rows.iter().collect();
+            edit(&mut rows);
+            ::slint::ModelRc::new(::slint::VecModel::from(rows))
+        }
+        fn without<T>(rows: &mut Vec<T>, index: i32) {
+            if index >= 0 && (index as usize) < rows.len() {
+                rows.remove(index as usize);
+            }
+        }
+        let rows = $app.global::<FieldRows>();
+        rows.on_add_pair(|pairs| edited(pairs, |rows| rows.push(KeyValue::default())));
+        rows.on_remove_pair(|pairs, index| edited(pairs, |rows| without(rows, index)));
+        rows.on_add_item(|items| edited(items, |rows| rows.push(::slint::SharedString::default())));
+        rows.on_remove_item(|items, index| edited(items, |rows| without(rows, index)));
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

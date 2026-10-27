@@ -1,0 +1,195 @@
+// Port of ely-core/src/forms/pairs.rs: `FieldArray`, `KeyValueInput`, `ListInput`. Rows of
+// fields, each removable, and a button that adds one.
+//
+// FieldArray holds rows the owner builds, each in a `FieldArrayRow`; the owner adds and removes
+// them. KeyValueInput and ListInput keep their rows in an in-out list and report it after each
+// change; adding and removing rows runs in Rust (`FieldRows`, `wire_rows!`), since `.slint`
+// cannot grow a list.
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+import { Input } from "input.slint";
+
+// One key and its value.
+export struct KeyValue {
+    key: string,
+    value: string,
+}
+
+// What row lists need from Rust (`ely_slint::fields`).
+export global FieldRows {
+    // The pairs with an empty one added, or without the one at `index`.
+    pure callback add-pair(pairs: [KeyValue]) -> [KeyValue];
+    pure callback remove-pair(pairs: [KeyValue], index: int) -> [KeyValue];
+    // The items with an empty one added, or without the one at `index`.
+    pure callback add-item(items: [string]) -> [string];
+    pure callback remove-item(items: [string], index: int) -> [string];
+}
+
+// A row the owner built, with a button that asks to remove it.
+export component FieldArrayRow inherits HorizontalLayout {
+    // Its place among the rows, reported on remove.
+    in property <int> index;
+    in property <string> remove-text: @tr("Remove");
+
+    callback remove(index: int);
+
+    spacing: 8px;
+    cross-axis-alignment: center;
+
+    // The owner's fields, 8 px apart, filling the row.
+    HorizontalLayout {
+        horizontal-stretch: 1;
+        min-width: 0;
+        spacing: 8px;
+        @children
+    }
+
+    IconButton {
+        icon: Icons.minus;
+        icon-name: "minus";
+        size: ControlSize.sm;
+        tooltip: root.remove-text;
+        clicked => {
+            root.remove(root.index);
+        }
+    }
+}
+
+// Rows the owner builds (each a FieldArrayRow), then a button that adds one.
+export component FieldArray inherits VerticalLayout {
+    // The add button's text.
+    in property <string> add-text: @tr("Add");
+
+    // The add button was pressed.
+    callback add();
+
+    spacing: 8px;
+    alignment: start;
+
+    @children
+
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            text: root.add-text;
+            size: ControlSize.sm;
+            variant: ButtonVariant.ghost;
+            icon: Icons.plus;
+            clicked => {
+                root.add();
+            }
+        }
+    }
+}
+
+// Rows of key and value fields; add and remove rows.
+export component KeyValueInput {
+    in-out property <[KeyValue]> pairs;
+
+    // Every pair, after each change.
+    callback pairs-changed(pairs: [KeyValue]);
+
+    // The row whose key field takes focus when it is built: the one just added.
+    private property <int> focus-row: -1;
+
+    preferred-width: rows.preferred-width;
+    min-width: rows.min-width;
+    height: rows.preferred-height;
+
+    rows := FieldArray {
+        width: root.width;
+        add-text: @tr("Add pair");
+        add => {
+            root.focus-row = root.pairs.length;
+            root.pairs = FieldRows.add-pair(root.pairs);
+            root.pairs-changed(root.pairs);
+        }
+
+        for pair[ix] in root.pairs: FieldArrayRow {
+            index: ix;
+            remove(at) => {
+                root.focus-row = -1;
+                root.pairs = FieldRows.remove-pair(root.pairs, at);
+                root.pairs-changed(root.pairs);
+            }
+
+            key := Input {
+                text: pair.key;
+                placeholder: @tr("Key");
+                size: ControlSize.sm;
+                init => {
+                    if ix == root.focus-row {
+                        self.focus();
+                    }
+                }
+                edited(text) => {
+                    root.pairs[ix] = { key: text, value: value.text };
+                    root.pairs-changed(root.pairs);
+                }
+            }
+
+            value := Input {
+                text: pair.value;
+                placeholder: @tr("Value");
+                size: ControlSize.sm;
+                edited(text) => {
+                    root.pairs[ix] = { key: key.text, value: text };
+                    root.pairs-changed(root.pairs);
+                }
+            }
+        }
+    }
+}
+
+// A list of one-line text entries; add and remove entries.
+export component ListInput {
+    in-out property <[string]> items;
+    // What an empty field shows.
+    in property <string> placeholder: @tr("Item");
+
+    // Every item, after each change.
+    callback items-changed(items: [string]);
+
+    private property <int> focus-row: -1;
+
+    preferred-width: rows.preferred-width;
+    min-width: rows.min-width;
+    height: rows.preferred-height;
+
+    rows := FieldArray {
+        width: root.width;
+        add-text: @tr("Add item");
+        add => {
+            root.focus-row = root.items.length;
+            root.items = FieldRows.add-item(root.items);
+            root.items-changed(root.items);
+        }
+
+        for item[ix] in root.items: FieldArrayRow {
+            index: ix;
+            remove(at) => {
+                root.focus-row = -1;
+                root.items = FieldRows.remove-item(root.items, at);
+                root.items-changed(root.items);
+            }
+
+            Input {
+                text: item;
+                placeholder: root.placeholder;
+                size: ControlSize.sm;
+                init => {
+                    if ix == root.focus-row {
+                        self.focus();
+                    }
+                }
+                edited(text) => {
+                    root.items[ix] = text;
+                    root.items-changed(root.items);
+                }
+            }
+        }
+    }
+}
