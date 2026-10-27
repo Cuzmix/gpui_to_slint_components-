@@ -1,0 +1,111 @@
+// Port of ely-core/src/forms/date/time.rs (`DateTimePicker`): a day and a time, a calendar beside
+// hour and minute columns. A day press keeps the time; a time press keeps the day (today while
+// none is chosen). Neither closes it; Escape or a press outside does.
+//
+// The moment is `date` and `time`; none while `date`'s year is 0. Needs `wire_dates!`. Like
+// Select (G48) both are `in-out`: a change sets them, then reports them.
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+import { Calendar } from "calendar.slint";
+import { TimeColumns } from "time-columns.slint";
+import {
+    CivilDate,
+    CivilTime,
+    Dates,
+    DateMath,
+    DateWords,
+    TimeMath,
+} from "dates.slint";
+
+export component DateTimePicker {
+    in-out property <CivilDate> date;
+    in-out property <CivilTime> time;
+    // Minutes between choices; divides the hour.
+    in property <int> step: 5;
+    in property <string> placeholder: @tr("Pick a date and time");
+    // The day ringed as today, and the day a time press takes while none is chosen.
+    in property <CivilDate> today: Dates.today;
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+
+    callback moment-changed(date: CivilDate, time: CivilTime);
+
+    private property <bool> chosen: DateMath.is-set(root.date);
+    private property <CivilTime> current: root.chosen ? root.time : { hour: 0, minute: 0 };
+
+    function commit(day: CivilDate, at: CivilTime) {
+        root.date = day;
+        root.time = at;
+        root.moment-changed(day, at);
+    }
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.calendar-days;
+        shown: root.chosen ? DateWords.day(root.date) + " " + TimeMath.text(root.time) : "";
+        placeholder: root.placeholder;
+        size: root.size;
+        open: popup.is-open;
+        toggled(open) => {
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            calendar.focus();
+        }
+
+        HorizontalLayout {
+            calendar := Calendar {
+                selected: root.date;
+                today: root.today;
+                picked(day) => {
+                    root.commit(day, root.current);
+                }
+                escape => {
+                    root.close();
+                    accept
+                }
+            }
+
+            Rectangle {
+                width: 1px;
+                background: Theme.colors.border;
+            }
+
+            VerticalLayout {
+                alignment: start;
+
+                TimeColumns {
+                    time: root.current;
+                    step: root.step;
+                    picked(at) => {
+                        root.commit(root.chosen ? root.date : root.today, at);
+                    }
+                }
+            }
+        }
+    }
+}

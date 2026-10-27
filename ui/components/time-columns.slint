@@ -1,0 +1,120 @@
+// Port of ely-core/src/forms/date/time.rs (`time_columns`): hours and minutes as two scrolling
+// columns, minutes every `step`. A press sets that part. Whenever the time changes, each column
+// scrolls so its chosen row sits two rows down.
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { CivilTime, TimeMath } from "dates.slint";
+
+component TimeCell {
+    in property <string> label;
+    in property <bool> on;
+
+    callback picked();
+
+    height: Theme.control-height(ControlSize.sm);
+    min-width: face.preferred-width + 24px;
+    accessible-role: list-item;
+    accessible-label: root.label;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.on;
+    accessible-action-default => {
+        root.picked();
+    }
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        background: root.on ? Theme.colors.accent : touch.has-hover ? Theme.colors.hover : transparent;
+    }
+
+    face := Text {
+        text: root.label;
+        font-family: Theme.font-family;
+        font-size: Theme.text-size(TextSize.sm);
+        color: root.on ? Theme.colors.on-accent : Theme.colors.fg;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.picked();
+        }
+    }
+}
+
+export component TimeColumns {
+    in property <CivilTime> time;
+    // Minutes between choices; divides the hour.
+    in property <int> step: 5;
+
+    // A press set that part.
+    callback picked(time: CivilTime);
+
+    private property <length> line: Theme.control-height(ControlSize.sm);
+    private property <int> minute-rows: floor(60 / max(root.step, 1));
+
+    function reveal() {
+        hours.content-y = -root.line * max(root.time.hour - 2, 0);
+        minutes.content-y = -root.line * max(floor(root.time.minute / max(root.step, 1)) - 2, 0);
+    }
+
+    init => {
+        root.reveal();
+    }
+    changed time => {
+        root.reveal();
+    }
+
+    width: hour-cells.preferred-width + minute-cells.preferred-width + 17px;
+    height: min(Theme.list-max-height, hour-cells.preferred-height + 8px);
+
+    hours := Flickable {
+        x: 0;
+        width: hour-cells.preferred-width + 8px;
+        height: root.height;
+        content-height: hour-cells.preferred-height + 8px;
+        accessible-role: list;
+
+        hour-cells := VerticalLayout {
+            x: 4px;
+            y: 4px;
+
+            for hour in 24: TimeCell {
+                label: TimeMath.digits(hour);
+                on: hour == root.time.hour;
+                picked => {
+                    root.picked({ hour: hour, minute: root.time.minute });
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        x: hours.width;
+        width: 1px;
+        background: Theme.colors.border;
+    }
+
+    minutes := Flickable {
+        x: hours.width + 1px;
+        width: minute-cells.preferred-width + 8px;
+        height: root.height;
+        content-height: minute-cells.preferred-height + 8px;
+        accessible-role: list;
+
+        minute-cells := VerticalLayout {
+            x: 4px;
+            y: 4px;
+
+            for ix in root.minute-rows: TimeCell {
+                label: TimeMath.digits(ix * root.step);
+                on: ix * root.step == root.time.minute;
+                picked => {
+                    root.picked({ hour: root.time.hour, minute: ix * root.step });
+                }
+            }
+        }
+    }
+}

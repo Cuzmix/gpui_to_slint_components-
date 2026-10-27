@@ -11,6 +11,31 @@ export struct CivilDate {
     day: int,
 }
 
+// A time of day to the minute: hour 0–23, minute 0–59.
+export struct CivilTime {
+    hour: int,
+    minute: int,
+}
+
+// Times of day, in Slint.
+export global TimeMath {
+    // `time` moved by `minutes`, wrapping around midnight.
+    public pure function nudged(time: CivilTime, minutes: int) -> CivilTime {
+        let total = mod(mod(time.hour * 60 + time.minute + minutes, 1440) + 1440, 1440);
+        { hour: floor(total / 60), minute: mod(total, 60) }
+    }
+
+    // Two digits: "07".
+    public pure function digits(n: int) -> string {
+        (n < 10 ? "0" : "") + n
+    }
+
+    // "09:30".
+    public pure function text(time: CivilTime) -> string {
+        TimeMath.digits(time.hour) + ":" + TimeMath.digits(time.minute)
+    }
+}
+
 // An ISO week: its ISO year and its number, 1–53.
 export struct IsoWeek {
     year: int,

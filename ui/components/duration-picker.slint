@@ -1,0 +1,81 @@
+// Port of ely-core/src/forms/date/time.rs (`DurationPicker`, `parts`): hours, minutes and
+// optionally seconds, each a number field that is typed or stepped. Hours run to 9999, minutes
+// and seconds to 59.
+//
+// `value` is whole seconds. Like NumberInput (G48) it is `in-out`: each change sets it, then
+// reports it.
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { NumberInput } from "number-input.slint";
+
+export component DurationPicker {
+    in-out property <int> value;
+    // Adds a seconds field.
+    in property <bool> seconds;
+
+    callback duration-changed(value: int);
+
+    // The parts each field holds, split from `value` whenever it changes. They start as bindings,
+    // not set in `init`: a field shown before the host wires `Numbers` would read empty.
+    private property <float> hours: floor(root.value / 3600);
+    private property <float> minutes: mod(floor(root.value / 60), 60);
+    private property <float> secs: mod(root.value, 60);
+    private property <length> field-width: Theme.control-height(ControlSize.md) * 4;
+
+    function split() {
+        root.hours = floor(root.value / 3600);
+        root.minutes = mod(floor(root.value / 60), 60);
+        root.secs = mod(root.value, 60);
+    }
+
+    changed value => {
+        root.split();
+    }
+
+    function commit() {
+        root.value = root.hours * 3600 + root.minutes * 60 + root.secs;
+        root.duration-changed(root.value);
+    }
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        cross-axis-alignment: center;
+
+        NumberInput {
+            width: root.field-width;
+            value <=> root.hours;
+            minimum: 0;
+            maximum: 9999;
+            label: @tr("Hours");
+            suffix: "h";
+            value-changed => {
+                root.commit();
+            }
+        }
+
+        NumberInput {
+            width: root.field-width;
+            value <=> root.minutes;
+            minimum: 0;
+            maximum: 59;
+            label: @tr("Minutes");
+            suffix: "m";
+            value-changed => {
+                root.commit();
+            }
+        }
+
+        if root.seconds: NumberInput {
+            width: root.field-width;
+            value <=> root.secs;
+            minimum: 0;
+            maximum: 59;
+            label: @tr("Seconds");
+            suffix: "s";
+            value-changed => {
+                root.commit();
+            }
+        }
+    }
+}

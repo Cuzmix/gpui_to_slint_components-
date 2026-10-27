@@ -1,0 +1,111 @@
+// Port of ely-core/src/forms/date/time.rs (`TimePicker`, `time_keys`, `nudged`): a field that
+// opens hour and minute columns. A press on a row sets that part; Up and Down move the time by
+// the step, wrapping around midnight; Enter or Escape close.
+//
+// `chosen` says whether `time` holds a value; the columns open on midnight when it does not.
+// Like Select (G48) both are `in-out`: a change sets them, then reports the time.
+
+import { ControlSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+import { TimeColumns } from "time-columns.slint";
+import { CivilTime, TimeMath } from "dates.slint";
+
+export component TimePicker {
+    in-out property <CivilTime> time;
+    in-out property <bool> chosen;
+    // Minutes between choices; divides the hour.
+    in property <int> step: 5;
+    in property <string> placeholder: @tr("Pick a time");
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+
+    callback time-changed(time: CivilTime);
+
+    // The time the columns show.
+    private property <CivilTime> current: root.chosen ? root.time : { hour: 0, minute: 0 };
+
+    function commit(next: CivilTime) {
+        root.time = next;
+        root.chosen = true;
+        root.time-changed(next);
+    }
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    changed enabled => {
+        if !root.enabled && popup.is-open {
+            root.close();
+        }
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.clock;
+        shown: root.chosen ? TimeMath.text(root.time) : "";
+        placeholder: root.placeholder;
+        size: root.size;
+        enabled: root.enabled;
+        open: popup.is-open;
+        toggled(open) => {
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            keys.focus();
+        }
+
+        keys := FocusScope {
+            width: columns.width;
+            height: columns.height;
+            accessible-role: spinbox;
+            accessible-label: @tr("Time");
+            accessible-value: TimeMath.text(root.current);
+            accessible-action-increment => {
+                root.commit(TimeMath.nudged(root.current, root.step));
+            }
+            accessible-action-decrement => {
+                root.commit(TimeMath.nudged(root.current, -root.step));
+            }
+            key-pressed(event) => {
+                if event.text == Key.UpArrow || event.text == Key.DownArrow {
+                    root.commit(TimeMath.nudged(root.current, event.text == Key.UpArrow ? -root.step : root.step));
+                    return accept;
+                }
+                if event.text == Key.Escape || event.text == Key.Return {
+                    root.close();
+                    return accept;
+                }
+                reject
+            }
+
+            columns := TimeColumns {
+                time: root.current;
+                step: root.step;
+                picked(time) => {
+                    root.commit(time);
+                }
+            }
+        }
+    }
+}
