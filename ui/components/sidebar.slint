@@ -1,0 +1,53 @@
+// Port of ely-core/src/layout/sidebar.rs (`Sidebar`).
+// A side column that folds to a 56 px icon rail from 240 px wide. Each change eases the width
+// over `motion-base` with ease-in-out-cubic from the far width, even mid-way, as gpui does;
+// the first paint is still. Children draw their own compact form while `collapsed`.
+
+import { Theme } from "../theme/theme.slint";
+
+export component Sidebar inherits Rectangle {
+    in property <bool> collapsed: false;
+    // The change has run its course.
+    out property <bool> settled: true;
+
+    private property <duration> began;
+    private property <float> t: root.settled ? 1 : clamp((animation-tick() - root.began) / Theme.motion-base, 0, 1);
+    private property <length> from: Theme.sidebar-width(!root.collapsed);
+    private property <length> to: Theme.sidebar-width(root.collapsed);
+
+    width: root.settled ? root.to : root.from + (root.to - root.from) * Theme.ease-in-out-cubic(root.t);
+    horizontal-stretch: 0;
+    vertical-stretch: 1;
+    clip: true;
+    background: Theme.colors.bg;
+
+    changed collapsed => {
+        root.began = animation-tick();
+        root.settled = false;
+        done.running = true;
+        done.restart();
+    }
+
+    done := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.settled = true;
+        }
+    }
+
+    VerticalLayout {
+        padding-right: 1px;
+        @children
+    }
+
+    // The hairline on the right.
+    Rectangle {
+        x: parent.width - 1px;
+        y: 0;
+        width: 1px;
+        height: parent.height;
+        background: Theme.colors.border;
+    }
+}

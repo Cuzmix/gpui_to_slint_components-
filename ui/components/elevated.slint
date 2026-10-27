@@ -15,7 +15,10 @@ export component Elevated inherits Rectangle {
         y: 0;
         width: parent.width;
         height: parent.height;
-        border-radius: root.border-radius;
+        border-top-left-radius: root.border-top-left-radius;
+        border-top-right-radius: root.border-top-right-radius;
+        border-bottom-left-radius: root.border-bottom-left-radius;
+        border-bottom-right-radius: root.border-bottom-right-radius;
         background: root.background;
         drop-shadow-offset-y: Theme.shadow-far(elevation).offset-y;
         drop-shadow-blur: Theme.shadow-far(elevation).blur;

@@ -58,6 +58,12 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Accordion, AccordionItem | layout/collapse.rs | ✓ | ✓ | ✓ Enter/Space, Tab stop | ✓ | ✓ (Collapsible, Disclosure) | ✓ | ✓ button, expanded | ✓ `tests/collapse.rs` | G21 G32 | ✓ |
 | SplitPane, SplitCell (ResizablePanel) | layout/split.rs | ✓ | ✓ resized | n/a | ✓ drag from first move, floor | n/a | ✓ | ✓ (no node) | ✓ `tests/split.rs`, `src/layout.rs` | | ✓ |
 | ResizeHandle (resize_handle, resize_edge) | layout/split.rs | ✓ | ✓ | n/a | ✓ hover lights, resize cursor | n/a | ✓ | ✓ (no node) | ✓ `tests/split.rs` | | ✓ |
+| Sidebar | layout/sidebar.rs | ✓ | n/a | n/a | n/a | ✓ 200 ms ease-in-out, restarts | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
+| Sheet | layout/sheet.rs | ✓ | ✓ close | ✓ (IconButton) | ✓ scrim and close button | ✓ 200 ms slide in | ✓ | ✓ close button | ✓ `tests/shells.rs` | G10 G12 | ✓ |
+| Drawer | layout/sheet.rs | ✓ | ✓ close | n/a | ✓ pull past 30 %, scrim | ✓ rise, spring back | ✓ | n/a | ✓ `tests/shells.rs` | G12 | ✓ |
+| Page, PageHeader, PageContent | layout/page.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/shells.rs` | | ✓ |
+| AppShell, AppShellBar, AppShellMain, AppShellContent | layout/page.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
+| MasterDetail | layout/page.rs | ✓ | ✓ (SplitPane) | n/a | ✓ (SplitPane) | n/a | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

@@ -1,0 +1,118 @@
+// Port of ely-core/src/layout/page.rs: `Page`, `AppShell`, `MasterDetail`.
+// Slint has one child slot, so a page's header and body, and a shell's bars, main row and
+// content, are part components the owner places in order:
+//     Page {
+//         PageHeader { title: "Projects"; subtitle: "…"; Button { … } }   // the children are its actions
+//         PageContent { … }
+//     }
+//     AppShell {
+//         AppShellBar { TitleBar { } }
+//         AppShellMain {
+//             Sidebar { … }
+//             AppShellContent { … }
+//         }
+//         AppShellBar { StatusBar { } }
+//     }
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { SplitPane } from "split.slint";
+
+// A page: 40 px in at the sides, 32 px top and bottom, its parts 32 px apart (`Page`).
+export component Page inherits VerticalLayout {
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-top: 32px;
+    padding-bottom: 32px;
+    spacing: 32px;
+    alignment: start;
+}
+
+// A page's header (`Page::new(title)`, `.subtitle`, `.action`): the title (xxl, semibold) over
+// an optional note (md, muted), and its children as actions at the end, 8 px apart; a hairline
+// under it, 24 px below the text.
+export component PageHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+
+    row := HorizontalLayout {
+        spacing: 24px;
+        padding-bottom: 24px + 1px;
+        VerticalLayout {
+            spacing: 4px;
+            alignment: end;
+            TypeText {
+                text: root.title;
+                font-size: Theme.text-size(TextSize.xxl);
+                font-weight: 600;
+            }
+
+            if root.subtitle != "": TypeText {
+                text: root.subtitle;
+                font-size: Theme.text-size(TextSize.md);
+                color: Theme.colors.fg-muted;
+            }
+        }
+
+        VerticalLayout {
+            alignment: end;
+            horizontal-stretch: 0;
+            HorizontalLayout {
+                spacing: 8px;
+                @children
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
+
+// A page's body: its children 24 px apart (`Page`'s children).
+export component PageContent inherits VerticalLayout {
+    spacing: 24px;
+}
+
+// The window frame (`AppShell`): bars across the top and bottom, the main row between. It fills
+// its parent on the page background.
+export component AppShell inherits Rectangle {
+    background: Theme.colors.bg;
+
+    VerticalLayout {
+        @children
+    }
+}
+
+// A bar across the top or bottom of an AppShell, at its content's height.
+export component AppShellBar inherits VerticalLayout {
+    vertical-stretch: 0;
+}
+
+// The AppShell's middle row: an optional sidebar, then the content; it takes the rest of the
+// height and may shrink to nothing.
+export component AppShellMain inherits HorizontalLayout {
+    vertical-stretch: 1;
+    min-height: 0;
+}
+
+// The content column of the main row: it takes the rest of the width and may shrink to nothing.
+export component AppShellContent inherits VerticalLayout {
+    horizontal-stretch: 1;
+    min-width: 0;
+}
+
+// A list beside the chosen item (`MasterDetail`): a SplitPane at 36 % and 64 %, neither pane
+// narrower than `min`. Wire it as a SplitPane: two SplitCells and a ResizeHandle at index 0.
+export component MasterDetail inherits SplitPane {
+    orientation: Orientation.horizontal;
+    count: 2;
+    sizes: [0.36, 0.64];
+}

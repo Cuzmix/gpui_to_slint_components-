@@ -1,0 +1,205 @@
+// Port of ely-core/src/layout/sheet.rs: `Sheet`, `Drawer`.
+// Both sit on a Backdrop, so place them as the last child of the window (or of the box they
+// cover); the owner shows one with `if` and hides it from `close`.
+
+import { Theme, Elevation, Radius, TextSize } from "../theme/theme.slint";
+import { Backdrop, Place } from "backdrop.slint";
+import { Elevated } from "elevated.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+
+// A panel that slides in from an edge over a scrim (`Sheet`): 380 px across, the title and a
+// close button, then the children, 20 px apart. It slides in over `motion-base` with
+// ease-out-cubic as the scrim fades in. `side` must be an edge; `center` is read as `right`.
+export component Sheet inherits Backdrop {
+    in property <Place> side: Place.right;
+    in property <string> title;
+    // The close button was pressed, or the scrim.
+    callback close();
+
+    private property <Place> edge: root.side == Place.center ? Place.right : root.side;
+    private property <bool> upright: root.edge == Place.left || root.edge == Place.right;
+    private property <float> entered: 0;
+    private property <length> hidden: Theme.sheet-size * (1 - root.entered);
+
+    place: root.edge;
+    dismiss => {
+        root.close();
+    }
+
+    init => {
+        root.entered = 1;
+    }
+    animate entered {
+        duration: Theme.motion-base;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+
+    Rectangle {
+        // 380 px across the edge; the Backdrop stretches it along.
+        min-width: root.upright ? Theme.sheet-size : 0;
+        preferred-width: root.upright ? Theme.sheet-size : 0;
+        min-height: root.upright ? 0 : Theme.sheet-size;
+        preferred-height: root.upright ? 0 : Theme.sheet-size;
+
+        Elevated {
+            x: root.edge == Place.left ? -root.hidden : root.edge == Place.right ? root.hidden : 0;
+            y: root.edge == Place.top ? -root.hidden : root.edge == Place.bottom ? root.hidden : 0;
+            width: parent.width;
+            height: parent.height;
+            elevation: Elevation.modal;
+            background: Theme.colors.overlay;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 20px;
+                alignment: start;
+                HorizontalLayout {
+                    spacing: 12px;
+                    TypeText {
+                        text: root.title;
+                        font-size: Theme.text-size(TextSize.lg);
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 0;
+                        IconButton {
+                            icon: Icons.x;
+                            icon-name: "x";
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+                }
+
+                @children
+            }
+        }
+    }
+}
+
+// A bottom panel with a grab handle (`Drawer`); pull the handle down past 30 % of the panel's
+// height to dismiss it, or press the scrim. It rises 380 px over `motion-base` with
+// ease-out-cubic; a pull that falls short springs back over the same time. At most 85 % of the
+// covered height.
+export component Drawer inherits Backdrop {
+    // Dismissed by a pull or the scrim.
+    callback close();
+    // How far the panel is pulled down now.
+    out property <length> pulled: root.pulling ? root.offset : root.settling ? root.released * (1 - Theme.ease-out-cubic(root.snap-t)) : 0;
+
+    private property <float> entered: 0;
+    private property <bool> pulling: false;
+    private property <length> offset;
+    private property <length> anchor;
+    private property <bool> anchored: false;
+    private property <length> released;
+    private property <bool> settling: false;
+    private property <duration> snap-began;
+    private property <float> snap-t: root.settling ? clamp((animation-tick() - root.snap-began) / Theme.motion-base, 0, 1) : 1;
+
+    place: Place.bottom;
+    dismiss => {
+        root.close();
+    }
+
+    init => {
+        root.entered = 1;
+    }
+    animate entered {
+        duration: Theme.motion-base;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+
+    // Ends a pull: dismisses past the threshold, otherwise springs back.
+    function finish() {
+        if !root.pulling {
+            return;
+        }
+        let dismiss = root.offset > panel.height * 0.3;
+        debug("drawer: pulled", root.offset / 1px, "of", panel.height * 0.3 / 1px);
+        root.pulling = false;
+        root.released = root.offset;
+        root.offset = 0;
+        if root.released > 0 {
+            root.snap-began = animation-tick();
+            root.settling = true;
+            settle.running = true;
+            settle.restart();
+        }
+        if dismiss {
+            root.close();
+        }
+    }
+
+    settle := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.settling = false;
+        }
+    }
+
+    Rectangle {
+        preferred-height: min(body.preferred-height, root.height * 0.85);
+
+        panel := Elevated {
+            y: root.pulled + Theme.sheet-size * (1 - root.entered);
+            width: parent.width;
+            height: parent.height;
+            elevation: Elevation.modal;
+            background: Theme.colors.overlay;
+            border-top-left-radius: Theme.radius(Radius.xl);
+            border-top-right-radius: Theme.radius(Radius.xl);
+            clip: true;
+
+            body := VerticalLayout {
+                padding-left: 24px;
+                padding-right: 24px;
+                padding-bottom: 32px;
+                spacing: 16px;
+                alignment: start;
+
+                grab := TouchArea {
+                    mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+                    height: 12px + Theme.grip-height + 8px;
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                            root.anchored = false;
+                        } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                            root.finish();
+                        }
+                    }
+                    moved => {
+                        if self.pressed {
+                            let y = self.absolute-position.y + self.mouse-y;
+                            if !root.anchored {
+                                root.anchor = y;
+                                root.anchored = true;
+                            }
+                            root.pulling = true;
+                            root.offset = max(0, y - root.anchor);
+                        }
+                    }
+
+                    Rectangle {
+                        x: (parent.width - self.width) / 2;
+                        y: 12px;
+                        width: Theme.grip-width;
+                        height: Theme.grip-height;
+                        border-radius: self.height / 2;
+                        background: Theme.colors.border-strong;
+                    }
+                }
+
+                @children
+            }
+        }
+    }
+}
