@@ -83,8 +83,16 @@ export component SplitCell inherits Rectangle {
     preferred-width: 0;
     preferred-height: 0;
 
-    // Children fill the cell; a layout here would cap the cell at the layout's maximum.
-    @children
+    // Children fill the cell, in a box sized to it so their sizes stay out of the cell's: a
+    // layout's maximum would cap the cell, and text that wraps would loop through the split's
+    // flexbox (height for width).
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        @children
+    }
 }
 
 // Panes side by side (horizontal) or stacked (vertical), split by draggable handles

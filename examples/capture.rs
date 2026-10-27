@@ -10,6 +10,9 @@ use slint::{ComponentHandle, Model, PhysicalSize};
 
 slint::include_modules!();
 
+#[path = "../src/bin/gallery/wire.rs"]
+mod wire;
+
 struct Headless(Rc<MinimalSoftwareWindow>);
 
 impl Platform for Headless {
@@ -28,9 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     slint::platform::set_platform(Box::new(Headless(window.clone())))?;
 
     let gallery = Gallery::new()?;
-    ely_slint::wire_text_format!(gallery);
-    ely_slint::wire_links!(gallery);
-    let _clock = ely_slint::wire_clock!(gallery);
+    let _wired = wire::wire(&gallery);
     gallery.set_start_dark(dark);
     let index = gallery.get_pages().iter().position(|page| page.slug == slug).ok_or("no such page")?;
     gallery.set_current(index as i32);

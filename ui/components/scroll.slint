@@ -164,11 +164,13 @@ export component ScrollShadow {
     Rectangle {
         clip: true;
 
+        // gpui shades from a zero-height edge; Slint draws no shadow for an empty box, so each edge
+        // is 1 px just outside the clip, and only its shadow shows.
         if root.top-shaded: Elevated {
             x: 0;
-            y: 0;
+            y: -1px;
             width: parent.width;
-            height: 0;
+            height: 1px;
             elevation: Elevation.floating;
         }
 
@@ -176,7 +178,7 @@ export component ScrollShadow {
             x: 0;
             y: parent.height;
             width: parent.width;
-            height: 0;
+            height: 1px;
             elevation: Elevation.floating;
         }
     }

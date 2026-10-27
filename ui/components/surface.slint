@@ -60,6 +60,8 @@ export component CardHeader inherits VerticalLayout {
     HorizontalLayout {
         spacing: 16px;
         Heading {
+            // The text takes the room the actions leave; text never stretches on its own.
+            horizontal-stretch: 1;
             title: root.title;
             description: root.description;
             size: TextSize.md;
@@ -132,6 +134,8 @@ export component PanelHeader inherits Rectangle {
         padding-right: 4px;
         padding-bottom: 1px;
         TypeText {
+            // The text takes the room the actions leave; text never stretches on its own.
+            horizontal-stretch: 1;
             text: root.title;
             font-size: Theme.text-size(TextSize.sm);
             font-weight: 600;
@@ -171,6 +175,8 @@ export component SectionHeader inherits HorizontalLayout {
 
     spacing: 16px;
     Heading {
+        // The text takes the room the actions leave; text never stretches on its own.
+        horizontal-stretch: 1;
         title: root.title;
         description: root.description;
         size: TextSize.lg;

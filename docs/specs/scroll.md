@@ -28,7 +28,7 @@ Source: `ely-core/src/layout/scroll.rs`, `scroll/source.rs`, `scroll_aids.rs`; s
 - The scroll handle is a Flickable. Each aid takes Flickable's own terms: `content-length` (`content-height`/`-width`) and `offset` (`content-y`/`-x`: 0 at the start, negative once scrolled), so an owner binds them straight, two-way where the aid moves the scroll. Aids fill their parent; put them beside the Flickable.
 - Scrollbar's `auto` and ScrollArea's bars share one presence rule (an idle Timer of 900 ms and an animated linear fade). `on-bar` reports the pointer on the track.
 - ScrollArea is a TouchArea (hover) around a Flickable whose body is a VerticalLayout (top aligned), as gpui's block children stack. Mouse-drag panning is off, since gpui scrolls by wheel only. It fills its parent by default (`preferred-width/height: 100%`), and exposes `content-x/y` for the owner (gpui `track_scroll`) and `presence`.
-- ScrollShadow draws each edge as a zero-height Elevated; `top-shaded` and `bottom-shaded` report them.
+- ScrollShadow draws each edge as a 1 px Elevated just outside the clip (Slint draws no shadow for an empty box); `top-shaded` and `bottom-shaded` report them.
 - ScrollToTop runs gpui's 8 ms loop with a Timer and `animation-tick()`.
 - StickyHeader is the header itself, placed first in its section; it is told the box's top (`absolute-position.y` of the Flickable) and the section's height, keeps its place in the layout, and draws its content moved down by `pinned`, above later siblings (`z: 1`) on `bg`. Slint cannot render one child twice, so the in-flow copy is the element's own box.
 - Gaps: G31 (wheel smoothing and edge hand-off).

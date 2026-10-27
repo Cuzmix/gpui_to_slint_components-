@@ -59,6 +59,8 @@ export component Sheet inherits Backdrop {
                 HorizontalLayout {
                     spacing: 12px;
                     TypeText {
+                        // The text takes the room the actions leave; text never stretches on its own.
+                        horizontal-stretch: 1;
                         text: root.title;
                         font-size: Theme.text-size(TextSize.lg);
                         font-weight: 600;

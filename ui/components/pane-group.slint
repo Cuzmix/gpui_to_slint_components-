@@ -62,6 +62,8 @@ component PaneChrome inherits Rectangle {
             padding-right: 4px;
             padding-bottom: 1px;
             TypeText {
+                // The text takes the room the actions leave; text never stretches on its own.
+                horizontal-stretch: 1;
                 text: @tr("Pane {}", root.cell.id);
                 font-size: Theme.text-size(TextSize.sm);
                 color: root.cell.focused ? Theme.colors.fg : Theme.colors.fg-subtle;

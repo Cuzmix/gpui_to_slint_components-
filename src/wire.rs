@@ -275,7 +275,8 @@ pub fn sync<T: Clone + PartialEq + 'static>(model: &VecModel<T>, rows: Vec<T>) {
 /// [`WorkspaceHost`](crate::workspace::WorkspaceHost), which it returns. The host's root
 /// `.slint` file exports `Docks`, `PaneGroups`, `DockSide`, `DockTab`, `DockEdge`, `DockFloatSpot`,
 /// `PaneSpan`, `PaneCell`, `PaneDivider`, `Icons` and `IconEntry`. A panel's icon is its name in
-/// `Icons.all`.
+/// `Icons.all`. The macro names those Slint types bare, so keep `ely_slint::dock::DockSide` out
+/// of scope unqualified where it expands.
 ///
 /// ```ignore
 /// let host = ely_slint::wire_workspace!(app);

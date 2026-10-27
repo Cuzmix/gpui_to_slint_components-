@@ -1,0 +1,223 @@
+// Page 3, Layout: the systems stories, after ely-gallery/src/pages/layout/systems.rs, story for
+// story. The dock and the pane group read the gallery's models (`demo-dock`, `demo-panes`), which
+// the host sets up; saving and restoring the workspace is the host's too. The floating panel
+// opens over the whole window, so the gallery draws it; this page only flips `floating-open`.
+
+import { Theme, TextSize, Radius } from "../../theme/theme.slint";
+import { Dock, DockFloat } from "../../components/dock.slint";
+import { DockSide } from "../../components/workspace-model.slint";
+import { PaneGroup } from "../../components/pane-group.slint";
+import { Viewport } from "../../components/viewport.slint";
+import { Button, ButtonVariant } from "../../components/button.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Caption } from "../../components/caption.slint";
+import { Paragraph } from "../../components/paragraph.slint";
+import { TypeText } from "../../components/type-text.slint";
+import { Section, Row, CodeHint, DemoFrame } from "../kit.slint";
+
+// A dock panel's body (systems.rs `demo_dock` content): 12 px in, small muted text.
+component PanelBody inherits Rectangle {
+    in property <string> panel;
+    clip: true;
+    VerticalLayout {
+        padding: 12px;
+        alignment: start;
+        if root.panel != "": TypeText {
+            text: @tr("{} panel", root.panel);
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.fg-muted;
+        }
+    }
+}
+
+// A viewport card (systems.rs `blob`): placed and scaled by the transform, 0.6 as tall as wide.
+component Blob inherits Rectangle {
+    in property <string> label;
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border-strong;
+    background: Theme.colors.surface;
+    TypeText {
+        text: root.label;
+        color: Theme.colors.fg-muted;
+    }
+}
+
+export component LayoutSystems inherits VerticalLayout {
+    in-out property <bool> floating-open;
+    // The saved layout's first 12 lines, empty until saved; the last restore's outcome.
+    in property <string> workspace-json;
+    in property <string> workspace-note;
+    callback workspace-save();
+    callback workspace-restore();
+
+    Section {
+        title: "Dock / DockPanel";
+        note: "Panels dock on any edge, tab together, and float.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 760px;
+                height: 380px;
+                dock := Dock {
+                    name: "demo-dock";
+                    for side in [DockSide.left, DockSide.right, DockSide.top, DockSide.bottom]: PanelBody {
+                        x: dock.body-x(side);
+                        y: dock.body-y(side);
+                        width: dock.body-width(side);
+                        height: dock.body-height(side);
+                        panel: dock.shown(side);
+                    }
+                    Rectangle {
+                        x: dock.center-x;
+                        y: dock.center-y;
+                        width: dock.center-width;
+                        height: dock.center-height;
+                        TypeText {
+                            text: "Center. Drag a tab onto a zone.";
+                            color: Theme.colors.fg-subtle;
+                        }
+                    }
+
+                    for float in dock.floating: DockFloat {
+                        dock: dock.name;
+                        panel: float;
+                        PanelBody {
+                            panel: float.id;
+                            min-height: 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "DockZone / DropIndicator";
+        note: "While a tab drags, the drop zones appear and the one below lights.";
+        Caption {
+            text: "Drag a tab across the dock above to see them.";
+        }
+    }
+
+    Section {
+        title: "FloatingPanel";
+        note: "Drag the title bar. It stays inside the window.";
+        Row {
+            Button {
+                text: root.floating-open ? "Hide panel" : "Show panel";
+                clicked => {
+                    root.floating-open = !root.floating-open;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Pane / PaneGroup";
+        note: "Split right or down from any pane; close all but one.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 760px;
+                height: 300px;
+                group := PaneGroup {
+                    name: "demo-panes";
+                    for cell in group.cells: Rectangle {
+                        x: group.body-x(cell);
+                        y: group.body-y(cell);
+                        width: group.body-width(cell);
+                        height: group.body-height(cell);
+                        clip: true;
+                        VerticalLayout {
+                            padding: 12px;
+                            alignment: start;
+                            TypeText {
+                                text: @tr("buffer {}", cell.id);
+                                color: Theme.colors.fg-subtle;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Workspace";
+        note: "Layout to versioned JSON and back, all or nothing.";
+        Row {
+            Button {
+                text: "Save layout";
+                icon: Icons.save;
+                clicked => {
+                    root.workspace-save();
+                }
+            }
+
+            Button {
+                text: "Restore";
+                variant: ButtonVariant.ghost;
+                icon: Icons.rotate-ccw;
+                enabled: root.workspace-json != "";
+                clicked => {
+                    root.workspace-restore();
+                }
+            }
+
+            Caption {
+                text: root.workspace-note;
+            }
+        }
+
+        if root.workspace-json != "": CodeHint {
+            text: root.workspace-json;
+        }
+    }
+
+    Section {
+        title: "Viewport";
+        note: "Drag to pan. Hold ⌘ or Ctrl and scroll to zoom at the pointer.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 640px;
+                height: 260px;
+                background: Theme.colors.sunken;
+                view := Viewport {
+                    Blob {
+                        label: "Idea";
+                        x: view.apply-x(60px);
+                        y: view.apply-y(50px);
+                        width: 140px * view.scale;
+                        height: 140px * 0.6 * view.scale;
+                    }
+
+                    Blob {
+                        label: "Draft";
+                        x: view.apply-x(260px);
+                        y: view.apply-y(110px);
+                        width: 140px * view.scale;
+                        height: 140px * 0.6 * view.scale;
+                    }
+
+                    Blob {
+                        label: "Ship";
+                        x: view.apply-x(460px);
+                        y: view.apply-y(40px);
+                        width: 120px * view.scale;
+                        height: 120px * 0.6 * view.scale;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            Paragraph {
+                max-width: 560px;
+                text: "Content places itself with the transform; zoom stays between 0.1 and 8.";
+            }
+        }
+    }
+}

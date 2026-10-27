@@ -71,6 +71,8 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Pane / PaneGroup | layout/panes.rs | ✓ | ✓ split, close, focus, resize | n/a | ✓ press focus, divider drag | n/a | ✓ | ✓ buttons | ✓ `tests/dock_panes.rs`, `src/panes.rs` | G33 G35 | ✓ |
 | Workspace | layout/workspace.rs | ✓ | n/a | n/a | n/a | n/a | n/a | n/a | ✓ `src/workspace.rs`, `tests/dock_panes.rs` | | ✓ |
 
+Gallery: pages 1–3 (Foundations, Typography, Layout) mirror the story app; `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
+
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
 Not started: everything else in `INVENTORY.md`, in its port order.

@@ -1,0 +1,578 @@
+// Page 3, Layout: the basics and scrolling stories, after ely-gallery/src/pages/layout/basics.rs
+// and scrolling.rs, story for story.
+
+import {
+    Theme,
+    TextSize,
+    ContainerSize,
+    Radius,
+} from "../../theme/theme.slint";
+import {
+    HStack,
+    VStack,
+    ZStack,
+    ZLayer,
+    AspectRatio,
+    Container,
+} from "../../components/stack.slint";
+import { SimpleGrid, Masonry } from "../../components/grid.slint";
+import {
+    ScrollArea,
+    Scrollbar,
+    ScrollShadow,
+    ScrollToTop,
+    StickyHeader,
+} from "../../components/scroll.slint";
+import { Caption } from "../../components/caption.slint";
+import { TypeText } from "../../components/type-text.slint";
+import {
+    Section,
+    Row,
+    Specimens,
+    Specimen,
+    CodeHint,
+    Tile,
+    Outline,
+    DemoFrame,
+} from "../kit.slint";
+
+// One scrolling row (scrolling.rs `lines`): 12 × 8 px in, a hairline under it, small text.
+component Line inherits Rectangle {
+    in property <int> number;
+    min-height: body.min-height;
+    preferred-height: body.preferred-height;
+
+    body := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 8px;
+        padding-bottom: 1px + 8px;
+        TypeText {
+            text: @tr("Line {} · quiet content that scrolls", (root.number < 10 ? "0" : "") + root.number);
+            font-size: Theme.text-size(TextSize.sm);
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
+
+// The 320 × 200 box each scrolling story sits in.
+component ScrollWell inherits DemoFrame {
+    width: 320px;
+    height: 200px;
+}
+
+// A ZStack layer's content: `inset` in, then a fill with radius md (gpui's fixed `rounded_md`,
+// 6 px).
+component Inlay {
+    in property <length> inset;
+    in property <color> fill;
+    width: 100%;
+    height: 100%;
+    Rectangle {
+        x: root.inset;
+        y: root.inset;
+        width: parent.width - 2 * root.inset;
+        height: parent.height - 2 * root.inset;
+        border-radius: 6px;
+        background: root.fill;
+    }
+}
+
+// The ratio box's fill: sunken, the ratio centered in the quietest ink.
+component RatioFill inherits Rectangle {
+    in property <string> text;
+    background: Theme.colors.sunken;
+    border-radius: Theme.radius(Radius.lg);
+    TypeText {
+        text: root.text;
+        color: Theme.colors.fg-subtle;
+    }
+}
+
+export component LayoutBasics inherits VerticalLayout {
+    private property <[length]> heights: [72px, 120px, 56px, 96px, 140px, 64px, 88px, 110px];
+    private property <[string]> tags: ["design", "motion", "type", "color", "layout", "grid", "rhythm", "space"];
+
+    Section {
+        title: "Stack / HStack / VStack";
+        note: "h_stack() and v_stack(): flex rows and columns.";
+        Specimens {
+            Specimen {
+                caption: "h_stack";
+                HStack {
+                    spacing: 8px;
+                    Tile {
+                        text: "A";
+                    }
+
+                    Tile {
+                        text: "B";
+                    }
+
+                    Tile {
+                        text: "C";
+                    }
+                }
+            }
+
+            Specimen {
+                caption: "v_stack";
+                VStack {
+                    spacing: 8px;
+                    Tile {
+                        text: "A";
+                    }
+
+                    Tile {
+                        text: "B";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Flex";
+        note: "gpui's .flex(), with grow and justify.";
+        HorizontalLayout {
+            alignment: start;
+            Outline {
+                width: 420px;
+                inset: 8px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    Tile {
+                        text: "fixed";
+                        horizontal-stretch: 0;
+                    }
+
+                    Tile {
+                        text: "flex_1";
+                        horizontal-stretch: 1;
+                    }
+
+                    Tile {
+                        text: "fixed";
+                        horizontal-stretch: 0;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Grid / GridItem";
+        note: "gpui's .grid() and .col_span().";
+        HorizontalLayout {
+            alignment: start;
+            // Three equal columns (gpui's `grid_cols(3)`): each tile spans its share.
+            grid3 := GridLayout {
+                width: 420px;
+                spacing: 8px;
+                Tile {
+                    text: "span 2";
+                    colspan: 2;
+
+                    width: (grid3.width - 16px) / 3 * 2 + 8px;
+                }
+
+                Tile {
+                    text: "1";
+                    col: 2;
+
+                    width: (grid3.width - 16px) / 3;
+                }
+
+                Tile {
+                    text: "1";
+                    row: 1;
+                    col: 0;
+
+                    width: (grid3.width - 16px) / 3;
+                }
+
+                Tile {
+                    text: "span 2";
+                    row: 1;
+                    col: 1;
+                    colspan: 2;
+
+                    width: (grid3.width - 16px) / 3 * 2 + 8px;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "SimpleGrid";
+        note: "As many equal columns as fit at a minimum width.";
+        // The grid's cells bind its width, so its own width comes from the section, not from them.
+        Rectangle {
+            min-width: 0;
+            preferred-width: 0;
+            height: grid.preferred-height;
+            grid := SimpleGrid {
+                x: 0;
+                y: 0;
+                width: min(parent.width, 720px);
+                height: self.preferred-height;
+                min: 140px;
+                gap: 12px;
+                for n in 7: Tile {
+                    text: @tr("Item {}", n + 1);
+                    width: grid.cell-width;
+                    height: 56px;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Masonry";
+        note: "Each item joins the shortest column.";
+        HorizontalLayout {
+            alignment: start;
+            masonry := Masonry {
+                width: 560px;
+                columns: 3;
+                gap: 10px;
+                heights: root.heights;
+                for height[i] in root.heights: Tile {
+                    text: i + 1;
+                    x: masonry.item-x(i);
+                    y: masonry.item-y(i);
+                    width: masonry.column-width;
+                    height: height;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Center";
+        note: "flex, items_center, justify_center.";
+        HorizontalLayout {
+            alignment: start;
+            Outline {
+                width: 280px;
+                height: 96px;
+                VerticalLayout {
+                    alignment: center;
+                    HorizontalLayout {
+                        alignment: center;
+                        Tile {
+                            text: "centered";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Container";
+        note: "A centered column capped by a width token.";
+        VerticalLayout {
+            Outline {
+                VerticalLayout {
+                    padding-top: 12px;
+                    padding-bottom: 12px;
+                    Container {
+                        size: ContainerSize.sm;
+                        Rectangle {
+                            height: 40px;
+                            border-radius: Theme.radius(Radius.md);
+                            background: Theme.colors.sunken;
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "Container::new(ContainerSize::Sm)";
+        }
+    }
+
+    Section {
+        title: "AspectRatio";
+        note: "Width fills; height follows the ratio.";
+        Specimens {
+            VerticalLayout {
+                width: 240px;
+                AspectRatio {
+                    ratio: 16 / 9;
+                    border-radius: Theme.radius(Radius.lg);
+                    RatioFill {
+                        text: "16 : 9";
+                    }
+                }
+            }
+
+            VerticalLayout {
+                width: 120px;
+                AspectRatio {
+                    ratio: 1;
+                    border-radius: Theme.radius(Radius.lg);
+                    RatioFill {
+                        text: "1 : 1";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Inset / Padding";
+        note: "gpui's .p_*() on the rem scale.";
+        Specimens {
+            Specimen {
+                caption: "p_2";
+                Outline {
+                    inset: 8px;
+                    Tile {
+                        text: "content";
+                    }
+                }
+            }
+
+            Specimen {
+                caption: "p_6";
+                Outline {
+                    inset: 24px;
+                    Tile {
+                        text: "content";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Wrap";
+        note: "gpui's .flex_wrap() moves overflow to the next line.";
+        HorizontalLayout {
+            alignment: start;
+            Outline {
+                width: 320px;
+                inset: 12px;
+                FlexboxLayout {
+                    spacing: 8px;
+                    for tag in root.tags: Tile {
+                        text: tag;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Absolute / Positioned";
+        note: "gpui's .absolute() with edge offsets.";
+        HorizontalLayout {
+            alignment: start;
+            Rectangle {
+                width: 280px;
+                height: 112px;
+                border-radius: Theme.radius(Radius.lg);
+                border-width: 1px;
+                border-color: Theme.colors.border;
+                Tile {
+                    text: "top left";
+                    x: 8px;
+                    y: 8px;
+                    width: self.preferred-width;
+                    height: self.preferred-height;
+                }
+
+                Tile {
+                    text: "bottom right";
+                    x: parent.width - 8px - self.width;
+                    y: parent.height - 8px - self.height;
+                    width: self.preferred-width;
+                    height: self.preferred-height;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Layer / ZStack";
+        note: "The first child sets the size; the rest cover it.";
+        HorizontalLayout {
+            alignment: start;
+            ZStack {
+                Rectangle {
+                    width: 200px;
+                    height: 120px;
+                    border-radius: 8px;
+                    background: Theme.colors.sunken;
+                }
+
+                ZLayer {
+                    Inlay {
+                        inset: 16px;
+                        fill: Theme.colors.hover;
+                    }
+                }
+
+                ZLayer {
+                    Inlay {
+                        inset: 32px;
+                        fill: Theme.colors.active;
+                    }
+                }
+
+                ZLayer {
+                    Caption {
+                        text: "three layers";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ScrollArea";
+        note: "Overlay scrollbars appear while scrolling or hovered.";
+        HorizontalLayout {
+            alignment: start;
+            ScrollWell {
+                ScrollArea {
+                    vertical: true;
+                    for n in 24: Line {
+                        number: n + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Scrollbar";
+        note: "Any ScrollHandle can wear one. Drag the thumb.";
+        HorizontalLayout {
+            alignment: start;
+            ScrollWell {
+                bar-flick := Flickable {
+                    VerticalLayout {
+                        for n in 30: Line {
+                            number: n + 1;
+                        }
+                    }
+                }
+
+                Scrollbar {
+                    content-length: bar-flick.content-height;
+                    offset <=> bar-flick.content-y;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ScrollShadow";
+        note: "A soft edge wherever more content waits.";
+        HorizontalLayout {
+            alignment: start;
+            ScrollWell {
+                shadow-flick := Flickable {
+                    VerticalLayout {
+                        for n in 30: Line {
+                            number: n + 1;
+                        }
+                    }
+                }
+
+                ScrollShadow {
+                    content-length: shadow-flick.content-height;
+                    offset: shadow-flick.content-y;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ScrollToTop";
+        note: "Past half a screen, a button eases back up.";
+        HorizontalLayout {
+            alignment: start;
+            ScrollWell {
+                top-flick := Flickable {
+                    VerticalLayout {
+                        for n in 40: Line {
+                            number: n + 1;
+                        }
+                    }
+                }
+
+                ScrollToTop {
+                    offset <=> top-flick.content-y;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "StickyHeader";
+        note: "Each group's header pins until the next pushes it off.";
+        HorizontalLayout {
+            alignment: start;
+            ScrollWell {
+                sticky-flick := Flickable {
+                    VerticalLayout {
+                        for group in ["Today", "Yesterday", "Earlier"]: group-box := VerticalLayout {
+                            StickyHeader {
+                                box-top: sticky-flick.absolute-position.y;
+                                section-height: group-box.height;
+                                Rectangle {
+                                    background: Theme.colors.sunken;
+                                    min-height: label.min-height;
+                                    preferred-height: label.preferred-height;
+                                    label := HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        padding-top: 6px;
+                                        padding-bottom: 1px + 6px;
+                                        TypeText {
+                                            text: group;
+                                            font-size: Theme.text-size(TextSize.xs);
+                                            font-weight: 600;
+                                            color: Theme.colors.fg-muted;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        x: 0;
+                                        y: parent.height - 1px;
+                                        width: parent.width;
+                                        height: 1px;
+                                        background: Theme.colors.border;
+                                    }
+                                }
+                            }
+
+                            for n in 8: Line {
+                                number: n + 1;
+                            }
+                        }
+                    }
+                }
+
+                Scrollbar {
+                    content-length: sticky-flick.content-height;
+                    offset <=> sticky-flick.content-y;
+                }
+            }
+        }
+    }
+}

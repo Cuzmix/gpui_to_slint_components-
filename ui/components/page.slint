@@ -42,6 +42,8 @@ export component PageHeader inherits Rectangle {
         spacing: 24px;
         padding-bottom: 24px + 1px;
         VerticalLayout {
+            // The text takes the room the actions leave; text never stretches on its own.
+            horizontal-stretch: 1;
             spacing: 4px;
             alignment: end;
             TypeText {

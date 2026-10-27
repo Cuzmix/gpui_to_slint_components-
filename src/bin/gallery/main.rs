@@ -2,11 +2,11 @@
 
 slint::include_modules!();
 
+mod wire;
+
 fn main() -> Result<(), slint::PlatformError> {
     let gallery = Gallery::new()?;
-    ely_slint::wire_text_format!(gallery);
-    ely_slint::wire_links!(gallery);
-    let _clock = ely_slint::wire_clock!(gallery);
+    let _wired = wire::wire(&gallery);
     let platform = ely_slint::Platform::current();
     let spell = |keys: &str| ely_slint::shortcut_text(keys, platform).unwrap_or_default();
     gallery.set_save_shortcut(spell("cmd-s").into());

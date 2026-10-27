@@ -82,3 +82,77 @@ export component CodeHint inherits TypeText {
     font-size: Theme.text-size(TextSize.xs);
     color: Theme.colors.fg-muted;
 }
+
+// The layout chapter's sample box (ely-gallery layout/basics.rs `tile`): sunken, hairline,
+// 12 × 8 px in, small muted text centered.
+export component Tile inherits Rectangle {
+    in property <string> text;
+    border-radius: Theme.radius(Radius.md);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.sunken;
+    min-width: body.min-width;
+    min-height: body.min-height;
+    preferred-width: body.preferred-width;
+    preferred-height: body.preferred-height;
+
+    body := HorizontalLayout {
+        padding-left: 1px + 12px;
+        padding-right: 1px + 12px;
+        padding-top: 1px + 8px;
+        padding-bottom: 1px + 8px;
+        alignment: center;
+        TypeText {
+            text: root.text;
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.fg-muted;
+            // A tile's label is one line, so a flexbox can size it without its width first.
+            wrap: no-wrap;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// A hairline box, radius lg (layout/basics.rs `outline`), `inset` in from the line. A layout
+// at the root, so a flexbox can size it by its content without asking its width first.
+export component Outline inherits VerticalLayout {
+    in property <length> inset: 0;
+    padding: 1px + root.inset;
+
+    // The line, drawn over the whole box from a zero-height first item.
+    Rectangle {
+        height: 0;
+        Rectangle {
+            x: -1px - root.inset;
+            y: -1px - root.inset;
+            width: root.width;
+            height: root.height;
+            border-radius: Theme.radius(Radius.lg);
+            border-width: 1px;
+            border-color: Theme.colors.border;
+        }
+    }
+
+    @children
+}
+
+// A fixed box that clips inside a hairline, radius lg (layout/shells.rs `frame`, scrolling.rs
+// `well`); its children fill the room inside the line.
+export component DemoFrame inherits Rectangle {
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    clip: true;
+
+    Rectangle {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        // Rounded inside the border, so content corners don't square it off.
+        border-radius: max(0, Theme.radius(Radius.lg) - 1px);
+        clip: true;
+        @children
+    }
+}

@@ -30,16 +30,27 @@ if cargo tree --all-features -e normal,build,dev | grep -i gpui; then
 fi
 
 echo "== slint-viewer loads every component without warnings =="
+declare -A PREVIEW_PARENT=([ZLayer]=ZStack)
 out=$(mktemp -d)
 root=$(pwd)
 while IFS= read -r file; do
     while IFS= read -r name; do
+        # A component that only works inside a parent (it sets `row`/`col`) previews in it, with
+        # a child: Slint 1.18 drops an empty one and then reports its `row`/`col` as misplaced.
+        parent=${PREVIEW_PARENT[$name]:-}
+        if [ -n "$parent" ]; then
+            import="$name, $parent"
+            body="$parent { $name { Rectangle { } } }"
+        else
+            import="$name"
+            body="$name { }"
+        fi
         cat > "$out/preview.slint" <<SLINT
-import { $name } from "$root/$file";
+import { $import } from "$root/$file";
 export component Preview inherits Window {
     width: 480px;
     height: 320px;
-    $name { }
+    $body
 }
 SLINT
         log=$(slint-viewer "$out/preview.slint" --screenshot "$out/shot.png" 2>&1 || true)

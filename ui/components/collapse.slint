@@ -140,6 +140,8 @@ export component AccordionItem inherits VerticalLayout {
             padding-top: 1px + 12px;
             padding-bottom: 1px + 12px;
             TypeText {
+                // The text takes the room the actions leave; text never stretches on its own.
+                horizontal-stretch: 1;
                 text: root.title;
                 font-size: Theme.text-size(TextSize.base);
                 font-weight: 500;

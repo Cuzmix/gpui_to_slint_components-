@@ -1,0 +1,35 @@
+// Page 3, Layout, after ely-gallery/src/pages/layout/mod.rs: the basics, scrolling, regions,
+// shells and systems stories, in the source's order.
+
+import { LayoutBasics } from "layout-basics.slint";
+import { LayoutRegions } from "layout-regions.slint";
+import { LayoutSystems } from "layout-systems.slint";
+
+export component LayoutPage inherits VerticalLayout {
+    in-out property <bool> drawer-open;
+    in-out property <bool> sheet-open;
+    in-out property <bool> floating-open;
+    in property <string> workspace-json;
+    in property <string> workspace-note;
+    callback workspace-save();
+    callback workspace-restore();
+
+    LayoutBasics { }
+
+    LayoutRegions {
+        drawer-open <=> root.drawer-open;
+        sheet-open <=> root.sheet-open;
+    }
+
+    LayoutSystems {
+        floating-open <=> root.floating-open;
+        workspace-json: root.workspace-json;
+        workspace-note: root.workspace-note;
+        workspace-save => {
+            root.workspace-save();
+        }
+        workspace-restore => {
+            root.workspace-restore();
+        }
+    }
+}

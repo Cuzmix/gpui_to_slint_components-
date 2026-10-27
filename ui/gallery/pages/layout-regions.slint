@@ -1,0 +1,657 @@
+// Page 3, Layout: the region and shell stories, after ely-gallery/src/pages/layout/regions.rs
+// and shells.rs, story for story. The drawer and the sheet open over the whole window, so the
+// gallery draws them; this page only flips `drawer-open` and `sheet-open`.
+
+import {
+    Theme,
+    TextSize,
+    ControlSize,
+    IconSize,
+    Radius,
+} from "../../theme/theme.slint";
+import {
+    SplitPane,
+    SplitCell,
+    ResizeHandle,
+} from "../../components/split.slint";
+import {
+    Collapsible,
+    Accordion,
+    AccordionItem,
+} from "../../components/collapse.slint";
+import {
+    Card,
+    CardHeader,
+    CardBody,
+    CardFooter,
+    Panel,
+    PanelHeader,
+    Section as Block,
+    SectionHeader,
+    Fieldset,
+    Frame,
+    Well,
+} from "../../components/surface.slint";
+import { Sidebar } from "../../components/sidebar.slint";
+import {
+    Page,
+    PageHeader,
+    PageContent,
+    AppShell,
+    AppShellBar,
+    AppShellMain,
+    AppShellContent,
+    MasterDetail,
+} from "../../components/page.slint";
+import { Button, ButtonVariant } from "../../components/button.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import { Icon } from "../../components/icon.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Label } from "../../components/label.slint";
+import { Caption } from "../../components/caption.slint";
+import { Paragraph } from "../../components/paragraph.slint";
+import { TypeText } from "../../components/type-text.slint";
+import { Section, Row, CodeHint, Tile, DemoFrame } from "../kit.slint";
+
+// A split's pane (regions.rs `pane`): sunken, its name centered in the quietest ink.
+component Pane inherits Rectangle {
+    in property <string> text;
+    background: Theme.colors.sunken;
+    TypeText {
+        text: root.text;
+        color: Theme.colors.fg-subtle;
+    }
+}
+
+// The sidebar's links (shells.rs `nav`): icon and label rows, 28 px tall, 2 px apart; the
+// labels drop while folded.
+component Nav inherits VerticalLayout {
+    in property <bool> collapsed;
+    padding: 8px;
+    spacing: 2px;
+    alignment: start;
+    for item in [
+        { icon: Icons.house, label: "Home" },
+        { icon: Icons.inbox, label: "Inbox" },
+        { icon: Icons.settings, label: "Settings" },
+    ]: HorizontalLayout {
+        height: Theme.control-height(ControlSize.md);
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 12px;
+        alignment: start;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: item.icon;
+                size: IconSize.sm;
+                color: Theme.colors.fg-muted;
+            }
+        }
+
+        if !root.collapsed: TypeText {
+            text: item.label;
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.fg-muted;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// An app shell's bar (shells.rs `app_shell` `bar`): 28 px, 12 px in, extra-small quiet text,
+// and a hairline toward the content.
+component ShellBar inherits Rectangle {
+    in property <string> text;
+    in property <bool> line-below;
+    height: Theme.control-height(ControlSize.md);
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: root.line-below ? 0 : 1px;
+        padding-bottom: root.line-below ? 1px : 0;
+        TypeText {
+            text: root.text;
+            font-size: Theme.text-size(TextSize.xs);
+            color: Theme.colors.fg-subtle;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: root.line-below ? parent.height - 1px : 0;
+        width: parent.width;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
+
+export component LayoutRegions inherits VerticalLayout {
+    in-out property <bool> drawer-open;
+    in-out property <bool> sheet-open;
+    private property <bool> collapse-open: true;
+    private property <bool> sidebar-collapsed: false;
+
+    Section {
+        title: "SplitPane";
+        note: "Drag a divider. Panes nest across and down.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 560px;
+                height: 220px;
+                outer := SplitPane {
+                    count: 2;
+                    sizes: [0.3, 0.7];
+                    min: 96px;
+                    SplitCell {
+                        share: outer.share(0);
+                        Pane {
+                            text: "files";
+                        }
+                    }
+
+                    ResizeHandle {
+                        orientation: outer.orientation;
+                        grabbed => {
+                            outer.grab(0);
+                        }
+                        moved(along) => {
+                            outer.drag(0, along);
+                        }
+                    }
+
+                    SplitCell {
+                        share: outer.share(1);
+                        inner := SplitPane {
+                            orientation: Orientation.vertical;
+                            count: 2;
+                            min: 48px;
+                            SplitCell {
+                                share: inner.share(0);
+                                Pane {
+                                    text: "editor";
+                                }
+                            }
+
+                            ResizeHandle {
+                                orientation: inner.orientation;
+                                grabbed => {
+                                    inner.grab(0);
+                                }
+                                moved(along) => {
+                                    inner.drag(0, along);
+                                }
+                            }
+
+                            SplitCell {
+                                share: inner.share(1);
+                                Pane {
+                                    text: "terminal";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "ResizablePanel and ThreeColumnLayout are SplitPane.";
+        }
+    }
+
+    Section {
+        title: "ResizeHandle";
+        note: "A hairline with a wide grab. Hover lights it.";
+        Row {
+            spacing: 32px;
+            VerticalLayout {
+                height: 80px;
+                ResizeHandle {
+                    orientation: Orientation.horizontal;
+                }
+            }
+
+            HorizontalLayout {
+                width: 160px;
+                ResizeHandle {
+                    orientation: Orientation.vertical;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Collapsible";
+        note: "Height animates to the measured content.";
+        HorizontalLayout {
+            alignment: start;
+            VerticalLayout {
+                width: 420px;
+                spacing: 8px;
+                HorizontalLayout {
+                    alignment: start;
+                    Button {
+                        text: root.collapse-open ? "Collapse" : "Expand";
+                        variant: ButtonVariant.outline;
+                        trailing-icon: root.collapse-open ? Icons.chevron-up : Icons.chevron-down;
+                        clicked => {
+                            root.collapse-open = !root.collapse-open;
+                        }
+                    }
+                }
+
+                Collapsible {
+                    open: root.collapse-open;
+                    VerticalLayout {
+                        padding-top: 8px;
+                        Paragraph {
+                            text: "Content keeps its natural height. The frame grows to it, then lets go.";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Accordion / AccordionItem";
+        note: "One open at a time. The chevron turns with it.";
+        HorizontalLayout {
+            alignment: start;
+            faq := Accordion {
+                width: 480px;
+                first-open: true;
+                AccordionItem {
+                    title: "What is Ely?";
+                    text: "A component library for gpui, in light and dark.";
+                    open: faq.is-open(0);
+                    toggled => {
+                        faq.toggle(0);
+                    }
+                }
+
+                AccordionItem {
+                    title: "Does it animate?";
+                    text: "Where motion explains a change, and nowhere else.";
+                    open: faq.is-open(1);
+                    toggled => {
+                        faq.toggle(1);
+                    }
+                }
+
+                AccordionItem {
+                    title: "Can I theme it?";
+                    text: "Every color, size and radius comes from one token set.";
+                    open: faq.is-open(2);
+                    toggled => {
+                        faq.toggle(2);
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Card / CardHeader / CardBody / CardFooter";
+        note: "Flat: a hairline, no shadow.";
+        HorizontalLayout {
+            alignment: start;
+            Card {
+                width: 380px;
+                CardHeader {
+                    title: "Storage";
+                    description: "Across all workspaces";
+                    IconButton {
+                        icon: Icons.ellipsis;
+                        icon-name: "ellipsis";
+                        size: ControlSize.sm;
+                    }
+                }
+
+                CardBody {
+                    Label {
+                        text: "42.8 GB of 100 GB";
+                    }
+
+                    Caption {
+                        text: "Media takes the most room.";
+                    }
+                }
+
+                CardFooter {
+                    Button {
+                        text: "Later";
+                        variant: ButtonVariant.ghost;
+                    }
+
+                    Button {
+                        text: "Manage";
+                        variant: ButtonVariant.primary;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Panel / PanelHeader";
+        note: "An app region: a quiet header bar and a body.";
+        HorizontalLayout {
+            alignment: start;
+            Panel {
+                width: 320px;
+                height: 160px;
+                PanelHeader {
+                    title: "Outline";
+                    IconButton {
+                        icon: Icons.filter;
+                        icon-name: "filter";
+                        size: ControlSize.sm;
+                    }
+
+                    IconButton {
+                        icon: Icons.ellipsis;
+                        icon-name: "ellipsis";
+                        size: ControlSize.sm;
+                    }
+                }
+
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 8px;
+                    alignment: start;
+                    Tile {
+                        text: "fn render";
+                    }
+
+                    Tile {
+                        text: "struct Theme";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Section / SectionHeader";
+        note: "A page block: title, note, action.";
+        HorizontalLayout {
+            alignment: start;
+            Block {
+                width: 520px;
+                SectionHeader {
+                    title: "Members";
+                    description: "People who can open this workspace.";
+                    Button {
+                        text: "Invite";
+                        icon: Icons.plus;
+                    }
+                }
+
+                Row {
+                    Tile {
+                        text: "Ada";
+                    }
+
+                    Tile {
+                        text: "Grace";
+                    }
+
+                    Tile {
+                        text: "Linus";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Group / Fieldset";
+        note: "Related fields under one name.";
+        HorizontalLayout {
+            alignment: start;
+            Fieldset {
+                width: 420px;
+                legend: "Shipping address";
+                Tile {
+                    text: "Street";
+                }
+
+                Row {
+                    Tile {
+                        text: "City";
+                    }
+
+                    Tile {
+                        text: "Postcode";
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Frame";
+        note: "A bordered region with no fill.";
+        HorizontalLayout {
+            alignment: start;
+            Frame {
+                width: 320px;
+                Caption {
+                    text: "Framed content sits on the page tone.";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Well";
+        note: "A recessed region on the sunken tone.";
+        HorizontalLayout {
+            alignment: start;
+            Well {
+                width: 320px;
+                Caption {
+                    text: "Wells hold secondary material.";
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Sidebar";
+        note: "Folds to an icon rail; the width eases.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 560px;
+                height: 200px;
+                HorizontalLayout {
+                    Sidebar {
+                        collapsed: root.sidebar-collapsed;
+                        Nav {
+                            collapsed: root.sidebar-collapsed;
+                        }
+                    }
+
+                    VerticalLayout {
+                        padding: 16px;
+                        alignment: start;
+                        HorizontalLayout {
+                            alignment: start;
+                            Button {
+                                text: root.sidebar-collapsed ? "Expand" : "Collapse";
+                                variant: ButtonVariant.outline;
+                                icon: Icons.panel-left;
+                                clicked => {
+                                    root.sidebar-collapsed = !root.sidebar-collapsed;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Drawer";
+        note: "Rises from the bottom. Pull the handle down to dismiss.";
+        Row {
+            Button {
+                text: "Open drawer";
+                clicked => {
+                    root.drawer-open = !root.drawer-open;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Sheet";
+        note: "Slides in from an edge over a scrim.";
+        Row {
+            Button {
+                text: "Open sheet";
+                clicked => {
+                    root.sheet-open = !root.sheet-open;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "Page / PageHeader / PageContent";
+        note: "Title, note and actions over the body.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 640px;
+                height: 240px;
+                Page {
+                    PageHeader {
+                        title: "Projects";
+                        subtitle: "Everything your team is shipping.";
+                        Button {
+                            text: "New project";
+                            variant: ButtonVariant.primary;
+                            icon: Icons.plus;
+                        }
+                    }
+
+                    PageContent {
+                        Row {
+                            Tile {
+                                text: "Atlas";
+                            }
+
+                            Tile {
+                                text: "Beacon";
+                            }
+
+                            Tile {
+                                text: "Compass";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "AppShell";
+        note: "Title bar, sidebar, content, status bar.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 640px;
+                height: 260px;
+                AppShell {
+                    AppShellBar {
+                        ShellBar {
+                            text: "Ely — Projects";
+                            line-below: true;
+                        }
+                    }
+
+                    AppShellMain {
+                        Sidebar {
+                            Nav { }
+                        }
+
+                        AppShellContent {
+                            VerticalLayout {
+                                padding: 16px;
+                                alignment: start;
+                                Paragraph {
+                                    text: "The shell holds the frame. Your content fills the middle.";
+                                }
+                            }
+                        }
+                    }
+
+                    AppShellBar {
+                        ShellBar {
+                            text: "main · 3 changes · UTF-8";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "MasterDetail";
+        note: "A list beside the chosen item. The divider drags.";
+        HorizontalLayout {
+            alignment: start;
+            DemoFrame {
+                width: 640px;
+                height: 220px;
+                detail := MasterDetail {
+                    min: 160px;
+                    SplitCell {
+                        share: detail.share(0);
+                        VerticalLayout {
+                            padding: 8px;
+                            spacing: 4px;
+                            alignment: start;
+                            for item in ["Quarterly review", "Design sync", "Launch plan", "Hiring loop"]: Tile {
+                                text: item;
+                            }
+                        }
+                    }
+
+                    ResizeHandle {
+                        orientation: detail.orientation;
+                        grabbed => {
+                            detail.grab(0);
+                        }
+                        moved(along) => {
+                            detail.drag(0, along);
+                        }
+                    }
+
+                    SplitCell {
+                        share: detail.share(1);
+                        VerticalLayout {
+                            padding: 20px;
+                            spacing: 8px;
+                            alignment: start;
+                            Paragraph {
+                                text: "Quarterly review";
+                            }
+
+                            Caption {
+                                text: "Numbers, notes and the next three moves.";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

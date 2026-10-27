@@ -53,6 +53,8 @@ export component Masonry {
 
     horizontal-stretch: 1;
     preferred-height: root.wired ? LayoutMath.masonry-height(root.heights, root.count, root.gap) : 0;
+    // As tall as its columns, as gpui's block is; a crowded layout cannot squeeze it.
+    min-height: self.preferred-height;
 
     // The left edge of item `index`.
     public pure function item-x(index: int) -> length {

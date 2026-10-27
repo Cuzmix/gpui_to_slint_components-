@@ -6,6 +6,12 @@ import { Button, ButtonVariant } from "components/button.slint";
 import { ButtonsPage } from "gallery/pages/buttons.slint";
 import { PrimitivesPage } from "gallery/pages/primitives.slint";
 import { TypographyPage } from "gallery/pages/typography.slint";
+import { LayoutPage } from "gallery/pages/layout.slint";
+import { Sheet, Drawer } from "components/sheet.slint";
+import { FloatingPanel } from "components/floating-panel.slint";
+import { Paragraph } from "components/paragraph.slint";
+import { Caption } from "components/caption.slint";
+import { Tile } from "gallery/kit.slint";
 import { Backdrop } from "components/backdrop.slint";
 import { Elevated } from "components/elevated.slint";
 import { Elevation, Radius } from "theme/theme.slint";
@@ -14,6 +20,19 @@ export { TextFormat, RollCell } from "components/text-format.slint";
 export { Links } from "components/link.slint";
 export { Clock } from "components/value-text.slint";
 export { PlatformStyle } from "theme/theme.slint";
+export { LayoutMath, MasonrySpot } from "components/layout-math.slint";
+export {
+    Docks,
+    DockSide,
+    DockTab,
+    DockEdge,
+    DockFloatSpot,
+    PaneGroups,
+    PaneSpan,
+    PaneCell,
+    PaneDivider,
+} from "components/workspace-model.slint";
+export { Icons, IconEntry } from "icons/icons.slint";
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-Medium.ttf";
 import "fonts/Inter-SemiBold.ttf";
@@ -47,6 +66,12 @@ export component Gallery inherits Window {
             summary: "Inter for words, tabular figures for numbers, one ink for everything."
         },
         {
+            number: 3,
+            slug: "layout",
+            title: "Layout",
+            summary: "Stacks, grids, splits, docks. Structure that stays out of the way."
+        },
+        {
             number: 5,
             slug: "buttons",
             title: "Buttons & Actions",
@@ -55,6 +80,14 @@ export component Gallery inherits Window {
     ];
     in-out property <int> current: 0;
     in-out property <bool> backdrop-open: false;
+    in-out property <bool> drawer-open: false;
+    in-out property <bool> sheet-open: false;
+    in-out property <bool> floating-open: false;
+    // The saved workspace's first lines (empty until saved) and the last restore's outcome.
+    in property <string> workspace-json;
+    in property <string> workspace-note;
+    callback workspace-save();
+    callback workspace-restore();
     in property <string> save-shortcut: "Ctrl+S";
     in property <string> find-shortcut: "Ctrl+Shift+F";
     // Opens in dark mode; for captures.
@@ -103,7 +136,10 @@ export component Gallery inherits Window {
         }
 
         Flickable {
+            // A Flickable gives its content only its minimum height; the page wants its preferred one,
+            // or stories that can shrink (a masonry, a split) are squeezed.
             page-body := VerticalLayout {
+                min-height: self.preferred-height;
                 padding: 32px;
                 padding-top: 24px;
                 alignment: start;
@@ -124,6 +160,19 @@ export component Gallery inherits Window {
                     backdrop-open <=> root.backdrop-open;
                 }
                 if root.pages[root.current].slug == "typography": TypographyPage { }
+                if root.pages[root.current].slug == "layout": LayoutPage {
+                    drawer-open <=> root.drawer-open;
+                    sheet-open <=> root.sheet-open;
+                    floating-open <=> root.floating-open;
+                    workspace-json: root.workspace-json;
+                    workspace-note: root.workspace-note;
+                    workspace-save => {
+                        root.workspace-save();
+                    }
+                    workspace-restore => {
+                        root.workspace-restore();
+                    }
+                }
                 if root.pages[root.current].slug == "buttons": ButtonsPage {
                     save-shortcut: root.save-shortcut;
                     find-shortcut: root.find-shortcut;
@@ -132,6 +181,52 @@ export component Gallery inherits Window {
                     }
                 }
             }
+        }
+    }
+
+    // The layout chapter's overlays (systems.rs `floating`, shells.rs `drawer`, `sheet`).
+    if root.floating-open: FloatingPanel {
+        title: "Inspector";
+        start-x: 720px;
+        start-y: 160px;
+        panel-width: 240px;
+        Caption {
+            text: "Floating panels sit above the page.";
+        }
+
+        Tile {
+            text: "Opacity 100%";
+        }
+    }
+
+    if root.drawer-open: Drawer {
+        close => {
+            root.drawer-open = false;
+        }
+        Paragraph {
+            text: "Drawers hold short tasks close to where the hand already is.";
+        }
+
+        Caption {
+            text: "Drag the handle down, or click the scrim.";
+        }
+    }
+
+    if root.sheet-open: Sheet {
+        title: "Filters";
+        close => {
+            root.sheet-open = false;
+        }
+        Paragraph {
+            text: "Sheets keep context visible while a side task runs.";
+        }
+
+        Tile {
+            text: "Status: open";
+        }
+
+        Tile {
+            text: "Owner: anyone";
         }
     }
 
