@@ -50,6 +50,10 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Scrollbar | layout/scroll.rs | ✓ | n/a | n/a | ✓ thumb drag, track blocks presses | ✓ 900 ms idle, 320 ms fade | ✓ | ✓ (no node) | ✓ `tests/scroll.rs` | | ✓ |
 | ScrollArea | layout/scroll.rs | ✓ | n/a | n/a | ✓ wheel, hover shows bars | ✓ (Scrollbar) | ✓ | ✓ (no node) | ✓ `tests/scroll.rs` | G31 | ✓ |
 | ScrollShadow, ScrollToTop, StickyHeader | layout/scroll_aids.rs | ✓ | ✓ | ✓ (IconButton) | ✓ | ✓ 320 ms ease back | ✓ | ✓ button label | ✓ `tests/scroll.rs` | G10 | ✓ |
+| Card, CardHeader, CardBody, CardFooter | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
+| Panel, PanelHeader | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
+| Section, SectionHeader | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
+| Fieldset (Group), Frame, Well | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

@@ -1,0 +1,234 @@
+// Port of ely-core/src/layout/surface.rs: `Card` (with `CardHeader`), `Panel`, `Section`,
+// `Fieldset`, `Frame`, `Well`.
+//
+// gpui hands each surface its header, action and footer as separate elements. Slint has one
+// child slot, so the parts are components the owner places in order:
+//     Card {
+//         CardHeader { title: "Storage"; IconButton { ... } }   // the children are its action
+//         CardBody { Label { ... } }
+//         CardFooter { Button { ... } }
+//     }
+// gpui boxes count their border inside their size, so each 1 px border pads the content too.
+
+import { Theme, Radius, TextSize, ControlSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+// A title over an optional quiet line (surface.rs `heading`).
+component Heading inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    in property <TextSize> size: TextSize.md;
+
+    spacing: 2px;
+    TypeText {
+        text: root.title;
+        font-size: Theme.text-size(root.size);
+        font-weight: 600;
+        color: Theme.colors.fg;
+    }
+
+    if root.description != "": TypeText {
+        text: root.description;
+        font-size: Theme.text-size(TextSize.sm);
+        color: Theme.colors.fg-muted;
+    }
+}
+
+// A flat surface (`Card`): a hairline, the surface fill, no shadow. Holds a CardHeader, a
+// CardBody and a CardFooter, each optional, in that order.
+export component Card inherits Rectangle {
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.surface;
+
+    VerticalLayout {
+        padding: 1px;
+        @children
+    }
+}
+
+// A card's title row (`CardHeader`): title, an optional line under it, and its children as one
+// trailing action at the top.
+export component CardHeader inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 20px;
+    HorizontalLayout {
+        spacing: 16px;
+        Heading {
+            title: root.title;
+            description: root.description;
+            size: TextSize.md;
+        }
+
+        VerticalLayout {
+            alignment: start;
+            horizontal-stretch: 0;
+            @children
+        }
+    }
+}
+
+// A card's body: 20 px in, its children 12 px apart.
+export component CardBody inherits VerticalLayout {
+    padding: 20px;
+    spacing: 12px;
+}
+
+// A card's footer: a hairline above, its children at the end, 8 px apart.
+export component CardFooter inherits Rectangle {
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+    max-height: row.max-height;
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+
+    row := HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 1px + 12px;
+        padding-bottom: 12px;
+        spacing: 8px;
+        alignment: end;
+        @children
+    }
+}
+
+// An app region (`Panel`): a quiet header bar and a body, inside a hairline that clips. Put a
+// PanelHeader first; the children after it share the rest of the height.
+export component Panel inherits Rectangle {
+    border-radius: Theme.radius(Radius.md);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.surface;
+    clip: true;
+
+    VerticalLayout {
+        padding: 1px;
+        @children
+    }
+}
+
+// A panel's header bar (`Panel::new(title)` and its actions): the title, and its children as
+// actions at the end, 2 px apart.
+export component PanelHeader inherits Rectangle {
+    in property <string> title;
+
+    height: Theme.control-height(ControlSize.lg);
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 4px;
+        padding-bottom: 1px;
+        TypeText {
+            text: root.title;
+            font-size: Theme.text-size(TextSize.sm);
+            font-weight: 600;
+            color: Theme.colors.fg-muted;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+            HorizontalLayout {
+                spacing: 2px;
+                @children
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
+
+// A titled block of a page (`Section`): put a SectionHeader first, then the body; 16 px apart.
+export component Section inherits VerticalLayout {
+    spacing: 16px;
+}
+
+// A section's title row (`Section::new(title)`): large title, an optional line, and its children
+// as one action at the end, aligned to the bottom.
+export component SectionHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> description;
+
+    spacing: 16px;
+    Heading {
+        title: root.title;
+        description: root.description;
+        size: TextSize.lg;
+    }
+
+    VerticalLayout {
+        alignment: end;
+        horizontal-stretch: 0;
+        @children
+    }
+}
+
+// A named group of fields inside a hairline (`Fieldset`, also Group).
+export component Fieldset inherits VerticalLayout {
+    in property <string> legend;
+
+    spacing: 8px;
+    TypeText {
+        text: root.legend;
+        font-size: Theme.text-size(TextSize.xs);
+        font-weight: 600;
+        color: Theme.colors.fg-muted;
+    }
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.lg);
+        border-width: 1px;
+        border-color: Theme.colors.border;
+
+        VerticalLayout {
+            padding: 1px + 16px;
+            spacing: 12px;
+            @children
+        }
+    }
+}
+
+// A bordered region with no fill (`Frame`).
+export component Frame inherits Rectangle {
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border-strong;
+
+    VerticalLayout {
+        padding: 1px + 16px;
+        @children
+    }
+}
+
+// A recessed region on the sunken tone (`Well`).
+export component Well inherits Rectangle {
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.sunken;
+
+    VerticalLayout {
+        padding: 1px + 16px;
+        @children
+    }
+}
