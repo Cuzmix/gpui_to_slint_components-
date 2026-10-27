@@ -4,6 +4,7 @@
 //! cannot express (key syntax parsing, date math, large models) take plain values or models,
 //! and this crate computes them. Nothing here holds UI state.
 
+pub mod cascade;
 pub mod columns;
 #[cfg(feature = "desktop")]
 pub mod desktop;

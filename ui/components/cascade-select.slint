@@ -1,0 +1,189 @@
+// Port of ely-core/src/forms/cascade.rs (`Cascade`, `Cascader`): a select over a tree. Each
+// column opens the next, and a leaf picks the path from the root to it.
+//
+// A press toggles the columns, opening at the chosen path (else the first root); Down, Up,
+// Enter or Space open them. While open, Down and Up walk a column, wrapping; Right or Enter on
+// a branch opens its column; Left goes back one; Enter or Space on a leaf picks; Escape, a press
+// outside or leaving the field closes. Hovering a row opens it; pressing a leaf picks.
+//
+// Slint structs cannot nest, so the tree is flat: each `CascadeNode` names its parent's index
+// in the list, -1 for a root, and a level keeps its nodes' order. Walking it runs in Rust; the
+// host wires `Cascades` once, beside `wire_options!`, and puts an `OptionLayer` last:
+//     ely_slint::wire_cascades!(app);
+// Like Select (G48), `selected` is `in-out`: a pick sets it, then reports it.
+
+import { Theme, ControlSize, IconSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Choice, OptionAnchor } from "options.slint";
+import { FieldButton, FieldText } from "field-button.slint";
+
+// A node of the tree: what a pick reports, what it shows, and its parent's index (-1: a root).
+export struct CascadeNode {
+    value: string,
+    label: string,
+    parent: int,
+}
+
+// What CascadeSelect needs from Rust: Slint cannot walk a tree (`ely_slint::cascade`). A trail
+// is a row index per open column, root first.
+export global Cascades {
+    // The columns `trail` opens: the roots, then the children of each step with any. A row with
+    // children is a `branch`.
+    pure callback columns(nodes: [CascadeNode], trail: [int]) -> [[Choice]];
+    // The trail along `path` (values, root first), as far as it matches.
+    pure callback trail-of(nodes: [CascadeNode], path: [string]) -> [int];
+    // `trail` cut back to rows that exist; never empty.
+    pure callback fit(nodes: [CascadeNode], trail: [int]) -> [int];
+    // The values along `trail`.
+    pure callback path(nodes: [CascadeNode], trail: [int]) -> [string];
+    // The labels along `path`, joined by " / ".
+    pure callback shown(nodes: [CascadeNode], path: [string]) -> string;
+    // `trail` cut to `level` steps, then `index` added unless negative.
+    pure callback step-to(trail: [int], level: int, index: int) -> [int];
+    // The rows of the longest column `trail` opens.
+    pure callback deepest(nodes: [CascadeNode], trail: [int]) -> int;
+}
+
+export component CascadeSelect {
+    // Names the field's columns; unique among the fields that show lists.
+    in property <string> owner: "cascade";
+    // The tree, flat; at least one root.
+    in property <[CascadeNode]> nodes;
+    // The values from the root to the node chosen; empty for none.
+    in-out property <[string]> selected;
+    // What it shows with nothing chosen, and the name assistive technology reads.
+    in property <string> placeholder: @tr("Choose…");
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> has-focus: button.has-focus;
+    out property <bool> open;
+    // The row lit in each open column.
+    out property <[int]> trail: root.open ? Cascades.fit(root.nodes, root.kept) : [];
+
+    // The path picked.
+    callback selection-changed(path: [string]);
+
+    // The trail as last set; `trail` is it cut to the rows there are.
+    private property <[int]> kept;
+    private property <string> shown: root.selected.length > 0 ? Cascades.shown(root.nodes, root.selected) : "";
+    private property <[[Choice]]> columns: root.open ? Cascades.columns(root.nodes, root.trail) : [];
+
+    // Where the columns open: the chosen path, else the first root.
+    function start() -> [int] {
+        let trail = Cascades.trail-of(root.nodes, root.selected);
+        trail.length > 0 ? trail : [0]
+    }
+
+    function show(open: bool, trail: [int]) {
+        root.kept = trail;
+        root.open = open && root.nodes.length > 0;
+    }
+
+    function pick(trail: [int]) {
+        root.show(false, trail);
+        root.selected = Cascades.path(root.nodes, trail);
+        root.selection-changed(root.selected);
+    }
+
+    // What an open trail does with a key.
+    function walk(event: KeyEvent) -> EventResult {
+        let trail = root.trail;
+        let level = trail.length - 1;
+        let at = trail[level];
+        let count = root.columns[level].length;
+        let branch = root.columns[level][at].branch;
+        if event.text == Key.DownArrow {
+            root.show(true, Cascades.step-to(trail, level, mod(at + 1, count)));
+        } else if event.text == Key.UpArrow {
+            root.show(true, Cascades.step-to(trail, level, mod(at + count - 1, count)));
+        } else if event.text == Key.RightArrow && branch {
+            root.show(true, Cascades.step-to(trail, level + 1, 0));
+        } else if event.text == Key.LeftArrow && level > 0 {
+            root.show(true, Cascades.step-to(trail, level, -1));
+        } else if (event.text == Key.Return || event.text == " ") && !branch {
+            root.pick(trail);
+        } else if event.text == Key.Return || event.text == " " {
+            root.show(true, Cascades.step-to(trail, level + 1, 0));
+        } else if event.text == Key.Escape {
+            root.show(false, trail);
+        } else {
+            return reject;
+        }
+        accept
+    }
+
+    changed has-focus => {
+        if !root.has-focus {
+            root.open = false;
+        }
+    }
+
+    forward-focus: button;
+    horizontal-stretch: 1;
+    min-width: button.min-width;
+    preferred-width: button.preferred-width;
+    height: button.height;
+    accessible-role: combobox;
+    accessible-label: root.placeholder;
+    accessible-value: root.shown;
+    accessible-expandable: true;
+    accessible-expanded: root.open;
+    accessible-action-default => {
+        root.show(!root.open, root.start());
+    }
+
+    button := FieldButton {
+        width: root.width;
+        size: root.size;
+        pressed => {
+            root.show(!root.open, root.start());
+        }
+        key-pressed(event) => {
+            if root.open {
+                return root.walk(event);
+            }
+            if event.text == Key.DownArrow || event.text == Key.UpArrow || event.text == Key.Return || event.text == " " {
+                root.show(true, root.start());
+                return accept;
+            }
+            reject
+        }
+
+        FieldText {
+            text: root.shown;
+            placeholder: root.placeholder;
+            size: root.size;
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: Icons.chevrons-up-down;
+                size: IconSize.xs;
+                color: Theme.colors.fg-subtle;
+            }
+        }
+    }
+
+    OptionAnchor {
+        owner: root.owner;
+        open: root.open;
+        columns: root.columns;
+        trail: root.trail;
+        deepest: root.open ? Cascades.deepest(root.nodes, root.trail) : 0;
+        dismissable: true;
+        reached(level, ix, pick) => {
+            if pick {
+                root.pick(Cascades.step-to(root.trail, level, ix));
+            } else {
+                root.show(true, Cascades.step-to(root.trail, level, ix));
+            }
+        }
+        dismissed => {
+            root.open = false;
+        }
+    }
+}

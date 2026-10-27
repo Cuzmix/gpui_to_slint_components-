@@ -42,6 +42,8 @@ export struct Choice {
     disabled: bool,
     // How far it sits under a parent.
     depth: int,
+    // It opens a further column (CascadeSelect): a chevron ends the row.
+    branch: bool,
 }
 
 // What the list needs from Rust: Slint cannot walk an array (`ely_slint::options`).
@@ -85,6 +87,9 @@ export component OptionRow {
     // Picks on the press, keeping focus where it is (floating lists); false picks on the click
     // (ListBox).
     in property <bool> pick-on-press: true;
+
+    // Whether the pointer is over it.
+    out property <bool> hovered: touch.has-hover;
 
     callback picked();
     // A left press landed on the row.
@@ -151,6 +156,12 @@ export component OptionRow {
             font-family: Theme.font-family;
             vertical-alignment: center;
         }
+
+        if root.choice.branch: Icon {
+            source: Icons.chevron-right;
+            size: IconSize.xs;
+            color: Theme.colors.fg-subtle;
+        }
     }
 
     // A press picks and leaves focus where it was, as gpui's prevented mouse down does.
@@ -203,6 +214,16 @@ export global OptionFloat {
     // The last pick, and a count of picks so the owner sees each one.
     in-out property <int> picked: -1;
     in-out property <int> picks;
+    // Columns instead of rows (CascadeSelect): each column's rows, the row lit in each, and the
+    // longest column, for the side it opens to.
+    in-out property <[[Choice]]> columns;
+    in-out property <[int]> trail;
+    in-out property <int> deepest;
+    // The last row hovered or pressed in a column, whether pressed, and a count of them.
+    in-out property <int> reached-level;
+    in-out property <int> reached-index;
+    in-out property <bool> reached-pick;
+    in-out property <int> reaches;
 }
 
 // What a field puts inside itself, outside any layout, to show the list under its own box.
@@ -221,9 +242,15 @@ export component OptionAnchor {
     in property <[string]> checked;
     // A press outside the list asks to close it. It does not reach what lies under it (G54).
     in property <bool> dismissable;
+    // Columns instead of rows: their rows, the row lit in each column, and the longest column.
+    in property <[[Choice]]> columns;
+    in property <[int]> trail;
+    in property <int> deepest;
 
     // The row at `index` was pressed.
     callback picked(index: int);
+    // In columns: the row at `index` of column `level` was hovered, or pressed if `pick`.
+    callback reached(level: int, index: int, pick: bool);
     // A press landed outside the list.
     callback dismissed();
 
@@ -238,6 +265,7 @@ export component OptionAnchor {
     private property <Point> at: self.absolute-position;
     private property <int> picks: OptionFloat.picks;
     private property <int> dismissals: OptionFloat.dismissals;
+    private property <int> reaches: OptionFloat.reaches;
 
     function claim() {
         OptionFloat.rows = root.labels.length > 0 ? Choices.plain(root.labels) : root.rows;
@@ -245,6 +273,9 @@ export component OptionAnchor {
         OptionFloat.checks = root.checks;
         OptionFloat.checked = root.checked;
         OptionFloat.dismissable = root.dismissable;
+        OptionFloat.columns = root.columns;
+        OptionFloat.trail = root.trail;
+        OptionFloat.deepest = root.deepest;
         OptionFloat.anchor-x = root.absolute-position.x;
         OptionFloat.anchor-y = root.absolute-position.y;
         OptionFloat.anchor-width = root.width;
@@ -281,6 +312,12 @@ export component OptionAnchor {
     changed checked => {
         root.sync();
     }
+    changed columns => {
+        root.sync();
+    }
+    changed trail => {
+        root.sync();
+    }
     changed at => {
         root.sync();
     }
@@ -290,6 +327,11 @@ export component OptionAnchor {
     changed picks => {
         if OptionFloat.owner == root.owner && root.open {
             root.picked(OptionFloat.picked);
+        }
+    }
+    changed reaches => {
+        if OptionFloat.owner == root.owner && root.open {
+            root.reached(OptionFloat.reached-level, OptionFloat.reached-index, OptionFloat.reached-pick);
         }
     }
     changed dismissals => {
@@ -314,8 +356,10 @@ export component OptionLayer {
     height: 100%;
 
     private property <length> below: root.height - OptionFloat.anchor-y - OptionFloat.anchor-height;
-    // gpui's guess at the list's height, for the side it opens to: a md row per option, and one.
-    private property <length> list-height: min(Theme.control-height(ControlSize.md) * (OptionFloat.rows.length + 1), Theme.list-max-height);
+    private property <bool> in-columns: OptionFloat.columns.length > 0;
+    // gpui's guess at the list's height, for the side it opens to: a md row per option (per row
+    // of the longest column), and one.
+    private property <length> list-height: min(Theme.control-height(ControlSize.md) * ((root.in-columns ? OptionFloat.deepest : OptionFloat.rows.length) + 1), Theme.list-max-height);
     private property <int> opened: OptionFloat.opened;
     private property <duration> entered-at;
     private property <bool> rising;
@@ -345,7 +389,7 @@ export component OptionLayer {
         }
     }
 
-    if root.shown: list := OptionSurface {
+    if root.shown && !root.in-columns: list := OptionSurface {
         property <length> least: OptionFloat.anchor-width > 0 ? OptionFloat.anchor-width : Theme.tooltip-max-width;
         property <length> most: max(0, root.width - Theme.window-margin * 2);
         property <length> gap: Theme.nudge * (2 - root.rise);
@@ -387,6 +431,80 @@ export component OptionLayer {
                                 flick.content-y = -self.y;
                             } else if self.y + self.height > -flick.content-y + flick.height {
                                 flick.content-y = -(self.y + self.height - flick.height);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Columns side by side, each opening the next: a column's width is three quarters of a
+    // tooltip's, each scrolls past the list's height, and a hairline parts them.
+    if root.shown && root.in-columns: cascade := OptionSurface {
+        // The width of a column, the hairline inside it.
+        property <length> column-width: Theme.tooltip-max-width * 0.75;
+        property <length> gap: Theme.nudge * (2 - root.rise);
+
+        x: max(0, min(OptionFloat.anchor-x, root.width - self.width));
+        y: root.up ? OptionFloat.anchor-y - self.height - self.gap : OptionFloat.anchor-y + OptionFloat.anchor-height + self.gap;
+        width: self.column-width * OptionFloat.columns.length + 2px;
+        height: lists.preferred-height + 2px;
+        opacity: root.rise;
+        clip: true;
+        accessible-role: AccessibleRole.list;
+
+        TouchArea { }
+
+        lists := HorizontalLayout {
+            x: 1px;
+            y: 1px;
+            width: parent.width - 2px;
+            height: parent.height - 2px;
+            alignment: start;
+
+            for column[level] in OptionFloat.columns: Rectangle {
+                property <length> inset: level > 0 ? 1px : 0;
+
+                width: cascade.column-width;
+                preferred-height: min(Theme.list-max-height, rows.preferred-height + 8px);
+                min-height: self.preferred-height;
+
+                if level > 0: Rectangle {
+                    x: 0;
+                    width: 1px;
+                    background: Theme.colors.border;
+                }
+
+                scroll := Flickable {
+                    x: parent.inset + 4px;
+                    y: 4px;
+                    width: parent.width - parent.inset - 8px;
+                    height: parent.height - 8px;
+                    content-height: rows.preferred-height;
+
+                    rows := VerticalLayout {
+                        alignment: start;
+
+                        for choice[ix] in column: OptionRow {
+                            choice: choice;
+                            highlighted: level < OptionFloat.trail.length && OptionFloat.trail[level] == ix;
+                            changed hovered => {
+                                if self.hovered {
+                                    OptionFloat.reached-level = level;
+                                    OptionFloat.reached-index = ix;
+                                    OptionFloat.reached-pick = false;
+                                    OptionFloat.reaches += 1;
+                                }
+                            }
+                            // A leaf picks; a branch has opened on the hover.
+                            picked => {
+                                if !choice.branch {
+                                    OptionFloat.reached-level = level;
+                                    OptionFloat.reached-index = ix;
+                                    OptionFloat.reached-pick = true;
+                                    OptionFloat.reaches += 1;
+                                }
                             }
                         }
                     }
