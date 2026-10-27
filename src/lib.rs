@@ -15,6 +15,7 @@ pub mod layout;
 pub mod open;
 pub mod panes;
 pub mod text;
+pub mod toggles;
 pub mod window;
 pub mod windows;
 pub mod workspace;

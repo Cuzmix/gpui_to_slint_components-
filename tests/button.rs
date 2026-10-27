@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 use slint::platform::Key;
 
 slint::slint! {
-    import { Button, ButtonVariant, Theme } from "ui/index.slint";
+    import { Button, ButtonVariant, Theme, TextSize } from "ui/index.slint";
     export component Harness inherits Window {
         width: 400px;
         height: 100px;
@@ -15,6 +15,8 @@ slint::slint! {
         out property <bool> first-focused: first.has-focus;
         out property <bool> second-focused: second.has-focus;
         out property <length> first-height: first.height;
+        out property <length> first-width: first.width;
+        out property <length> save-width: probe.preferred-width;
         out property <color> fill: first.current-fill;
         out property <color> border: first.current-border;
         in-out property <ButtonVariant> variant: secondary;
@@ -36,6 +38,13 @@ slint::slint! {
             }
             second := Button { text: "Other"; }
         }
+        probe := Text {
+            visible: false;
+            text: "Save";
+            font-size: Theme.text-size(TextSize.base);
+            font-weight: 500;
+            font-family: Theme.font-family;
+        }
     }
 }
 
@@ -44,6 +53,12 @@ fn harness() -> Harness {
     let h = Harness::new().unwrap();
     show(&h);
     h
+}
+
+// The label sits 12 px inside the 1 px border on each side (md).
+fn padding_sits_inside_the_border() {
+    let h = harness();
+    assert_eq!(h.get_first_width(), h.get_save_width() + 2.0 * (12.0 + 1.0));
 }
 
 fn mouse_click_fires_and_does_not_take_focus() {
@@ -204,4 +219,4 @@ fn centers_in_a_flexbox_row() {
     assert_eq!(h.get_button_y(), 6.0);
 }
 
-cases!(button: hover_and_press_fill_follow_the_tone, primary_tone, disabled_shows_no_hover, focus_turns_the_border_focus_colored, mouse_click_fires_and_does_not_take_focus, press_outside_release_inside_does_not_click, disabled_ignores_press_and_leaves_tab_order, loading_ignores_press_but_keeps_tab_stop, enter_clicks_on_release_not_press, space_clicks_and_keys_are_interchangeable, another_key_between_cancels, modified_enter_does_not_click, focus_move_cancels_pending_key, height_follows_size_and_density, centers_in_a_flexbox_row);
+cases!(button: padding_sits_inside_the_border, hover_and_press_fill_follow_the_tone, primary_tone, disabled_shows_no_hover, focus_turns_the_border_focus_colored, mouse_click_fires_and_does_not_take_focus, press_outside_release_inside_does_not_click, disabled_ignores_press_and_leaves_tab_order, loading_ignores_press_but_keeps_tab_stop, enter_clicks_on_release_not_press, space_clicks_and_keys_are_interchangeable, another_key_between_cancels, modified_enter_does_not_click, focus_move_cancels_pending_key, height_follows_size_and_density, centers_in_a_flexbox_row);

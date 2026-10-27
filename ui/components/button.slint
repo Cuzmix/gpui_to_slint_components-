@@ -62,7 +62,8 @@ export component Button {
         }
 
         parts := HorizontalLayout {
-            padding-left: root.is-link ? 0 : Theme.control-padding(root.size);
+            // Inside the 1 px border, as gpui's padding is.
+            padding-left: (root.is-link ? 0 : Theme.control-padding(root.size)) + 1px;
             padding-right: self.padding-left;
             spacing: 6px;
             alignment: center;

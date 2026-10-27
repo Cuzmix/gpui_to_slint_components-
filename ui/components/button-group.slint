@@ -1,0 +1,268 @@
+// Port of ely-core/src/buttons/group.rs: `ButtonGroup`, `ToggleItem`, `ToggleButton`,
+// `ToggleGroup`.
+//
+// A ToggleGroup's selection is a list of values, which Slint cannot search or edit, so the
+// group asks the `Toggles` global; the host wires it once to `ely_slint` (Rust):
+//     ely_slint::wire_toggles!(app);
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { ButtonStyle } from "button-style.slint";
+import { Icon } from "icon.slint";
+import { TooltipController } from "tooltip.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// Buttons joined edge to edge. Give each Button its `group-slot` (first, middle, last); a
+// group joins two buttons or more:
+//     ButtonGroup {
+//         Button { text: "Previous"; group-slot: GroupSlot.first; }
+//         Button { text: "Next"; group-slot: GroupSlot.last; }
+//     }
+export component ButtonGroup inherits HorizontalLayout {
+    spacing: 0;
+    alignment: start;
+}
+
+// A toggle choice: a label, an icon, or both. `value` names it in a selection.
+export struct ToggleItem {
+    value: string,
+    label: string,
+    icon: image,
+    // The tip it shows on hover.
+    tooltip: string,
+}
+
+// What a ToggleGroup's selection needs from Rust (`ely_slint::toggles`).
+export global Toggles {
+    // Whether `value` is in `selected`.
+    pure callback contains(selected: [string], value: string) -> bool;
+    // The selection after pressing `value`: pressing an item that is on turns it off; one that is
+    // off joins the selection with `multiple`, else replaces it.
+    pure callback pressed(selected: [string], value: string, multiple: bool) -> [string];
+}
+
+// One toggle's face (`toggle_face`): a control-height box, as wide as its content and at least
+// square, the active fill while on. `compact` shows the icon alone, its word a tooltip.
+component ToggleFace {
+    in property <ToggleItem> item;
+    in property <bool> on;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> compact;
+    // False dims it, describes it unavailable, takes no press and leaves the Tab order.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> tooltip-shown: tip.shown;
+    out property <color> current-fill: root.on ? Theme.colors.active : root.enabled && touch.has-hover ? Theme.colors.hover : transparent;
+
+    callback pressed();
+
+    private property <bool> has-label: root.item.label != "";
+    private property <bool> has-icon: root.item.icon.width > 0;
+    private property <color> fg: root.on ? Theme.colors.fg : Theme.colors.fg-muted;
+
+    accessible-role: button;
+    accessible-label: root.item.label != "" ? root.item.label : root.item.tooltip != "" ? root.item.tooltip : root.item.value;
+    accessible-checkable: true;
+    accessible-checked: root.on;
+    accessible-enabled: root.enabled;
+    accessible-description: root.enabled ? "" : root.unavailable-text;
+    accessible-action-default => {
+        if root.enabled {
+            root.pressed();
+        }
+    }
+
+    forward-focus: keys;
+    height: Theme.control-height(root.size);
+    min-width: Theme.control-height(root.size);
+    horizontal-stretch: 0;
+    opacity: root.enabled ? 1 : 0.45;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : transparent;
+        background: root.current-fill;
+    }
+
+    HorizontalLayout {
+        // Inside the 1 px border, as gpui's padding is.
+        padding-left: (root.has-label && !root.compact ? Theme.control-padding(root.size) : 0) + 1px;
+        padding-right: self.padding-left;
+        spacing: 6px;
+        alignment: center;
+        cross-axis-alignment: center;
+
+        if root.has-icon: Icon {
+            source: root.item.icon;
+            size: ButtonStyle.icon-size(root.size);
+            color: root.fg;
+        }
+        if root.has-label && !root.compact: Text {
+            text: root.item.label;
+            color: root.fg;
+            font-size: Theme.text-size(ButtonStyle.text-size(root.size));
+            font-weight: 500;
+            font-family: Theme.font-family;
+            vertical-alignment: center;
+        }
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.compact && root.item.tooltip == "" ? root.item.label : root.item.tooltip;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.not-allowed;
+        clicked => {
+            if root.enabled {
+                root.pressed();
+            }
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    keys := ClickKeys {
+        enabled: root.enabled;
+        activated => {
+            if root.enabled {
+                root.pressed();
+            }
+        }
+    }
+}
+
+// A button that stays pressed until pressed again. Each press flips `on`, then reports it.
+export component ToggleButton {
+    in property <ToggleItem> item;
+    in-out property <bool> on;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+    // Shown, not pressable; the item's tooltip can say why.
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: face.has-focus;
+    out property <bool> tooltip-shown: face.tooltip-shown;
+    out property <color> current-fill: face.current-fill;
+
+    // Runs with the new state on each press.
+    callback toggled(on: bool);
+
+    forward-focus: face;
+
+    face := ToggleFace {
+        item: root.item;
+        on: root.on;
+        size: root.size;
+        enabled: root.enabled;
+        pressed => {
+            root.on = !root.on;
+            root.toggled(root.on);
+        }
+    }
+}
+
+// Every face with its word, edge to edge: the width below which an all-icon group goes compact.
+component NaturalWidth inherits HorizontalLayout {
+    in property <[ToggleItem]> items;
+    in property <ControlSize> size;
+
+    // The frame: 2 px padding and a hairline each side; 2 px between faces.
+    padding: 3px;
+    spacing: 2px;
+
+    for item in root.items: Rectangle {
+        private property <length> word: item.label != "" ? (Theme.control-padding(root.size) + 1px) * 2 + label.preferred-width : 0;
+        private property <length> glyph: item.icon.width > 0 ? Theme.icon-size(ButtonStyle.icon-size(root.size)) + 6px : 0;
+        preferred-width: max(Theme.control-height(root.size), self.word + self.glyph);
+
+        label := Text {
+            visible: false;
+            text: item.label;
+            font-size: Theme.text-size(ButtonStyle.text-size(root.size));
+            font-weight: 500;
+            font-family: Theme.font-family;
+        }
+    }
+}
+
+// Wrapping toggles; one on at a time, or several with `multiple`. Too narrow for every word, a
+// group whose items all have icons shows icons only, each word a tooltip.
+export component ToggleGroup inherits Rectangle {
+    in property <[ToggleItem]> items;
+    // The values of the items that are on.
+    in-out property <[string]> selected;
+    // Lets more than one item be on.
+    in property <bool> multiple;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> compact: root.all-icons && root.shown > 0 && root.shown < natural.preferred-width;
+
+    // Reports the whole selection after each press.
+    callback selection-changed(selected: [string]);
+
+    // gpui decides from the last frame's width.
+    private property <length> shown;
+    // Each item without an icon stands 1 px tall in `iconless`, so the column has height exactly
+    // when some item lacks one (Slint cannot test every item of an array).
+    private property <bool> all-icons: root.items.length > 0 && iconless.preferred-height == 0;
+
+    changed width => {
+        root.shown = self.width;
+    }
+
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+
+    // Measures only; sized nothing, so it never holds the group wider.
+    Rectangle {
+        width: 0;
+        height: 0;
+        natural := NaturalWidth {
+            visible: false;
+            items: root.items;
+            size: root.size;
+        }
+
+        iconless := VerticalLayout {
+            visible: false;
+            for item in root.items: Rectangle {
+                height: item.icon.width > 0 ? 0 : 1px;
+            }
+        }
+    }
+
+    FlexboxLayout {
+        padding: 3px;
+        spacing: 2px;
+        flex-wrap: wrap;
+        cross-axis-alignment: center;
+
+        for item[ix] in root.items: ToggleFace {
+            item: item;
+            on: Toggles.contains(root.selected, item.value);
+            size: root.size;
+            compact: root.compact;
+            pressed => {
+                root.selected = Toggles.pressed(root.selected, item.value, root.multiple);
+                root.selection-changed(root.selected);
+            }
+        }
+    }
+}
