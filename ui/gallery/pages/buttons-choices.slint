@@ -1,0 +1,85 @@
+// Page 5's choices, after ely-gallery/src/pages/buttons/choices.rs: ToggleButton, ToggleGroup,
+// SegmentedControl. Each holds its own choice, as the source's keyed state does.
+
+import { ToggleButton, ToggleGroup } from "../../components/button-group.slint";
+import { SegmentedControl } from "../../components/segmented.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Row, Specimens, Specimen } from "../kit.slint";
+
+export component ButtonsChoices inherits VerticalLayout {
+    Section {
+        title: "ToggleButton";
+        note: "Stays pressed until pressed again.";
+        Row {
+            ToggleButton {
+                item: { value: "pin", label: "Pinned", icon: Icons.pin };
+                on: true;
+            }
+
+            ToggleButton {
+                item: { value: "mute", icon: Icons.volume-x, tooltip: "Mute" };
+            }
+        }
+    }
+
+    Section {
+        title: "ToggleGroup";
+        note: "Several at once for marks; one at a time for alignment.";
+        Specimens {
+            Specimen {
+                caption: "multiple";
+                ToggleGroup {
+                    multiple: true;
+                    items: [
+                        { value: "bold", icon: Icons.bold, tooltip: "Bold" },
+                        { value: "italic", icon: Icons.italic, tooltip: "Italic" },
+                        { value: "underline", icon: Icons.underline, tooltip: "Underline" },
+                    ];
+                    selected: ["bold"];
+                }
+            }
+
+            Specimen {
+                caption: "single";
+                ToggleGroup {
+                    items: [
+                        { value: "left", label: "Left", icon: Icons.align-left },
+                        { value: "center", label: "Center", icon: Icons.align-center },
+                        { value: "right", label: "Right", icon: Icons.align-right },
+                    ];
+                    selected: ["left"];
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "SegmentedControl";
+        note: "One of a few. The thumb springs to the choice.";
+        Specimens {
+            Specimen {
+                caption: "text";
+                SegmentedControl {
+                    width: 300px;
+                    segments: [
+                        { value: "day", label: "Day" },
+                        { value: "week", label: "Week" },
+                        { value: "month", label: "Month" },
+                    ];
+                    selected: "day";
+                }
+            }
+
+            Specimen {
+                caption: "with icons";
+                SegmentedControl {
+                    segments: [
+                        { value: "list", label: "List", icon: Icons.list },
+                        { value: "grid", label: "Grid", icon: Icons.layout-grid },
+                    ];
+                    selected: "list";
+                }
+            }
+        }
+    }
+}

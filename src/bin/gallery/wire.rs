@@ -40,6 +40,9 @@ pub fn wire(gallery: &Gallery) -> Wired {
     ely_slint::wire_text_format!(gallery);
     ely_slint::wire_links!(gallery);
     ely_slint::wire_layout!(gallery);
+    ely_slint::wire_toggles!(gallery);
+    #[cfg(feature = "desktop")]
+    ely_slint::wire_sharing!(gallery);
     let clock = ely_slint::wire_clock!(gallery);
     let host = ely_slint::wire_workspace!(gallery);
     host.update(|systems| {

@@ -16,9 +16,12 @@ import { Paragraph } from "components/paragraph.slint";
 import { Caption } from "components/caption.slint";
 import { Tile } from "gallery/kit.slint";
 import { Backdrop } from "components/backdrop.slint";
+import { ActionSheet } from "components/action-sheet.slint";
 import { Elevated } from "components/elevated.slint";
 import { Elevation, Radius } from "theme/theme.slint";
 export { FocusSteps } from "components/focus-trap.slint";
+export { Toggles } from "components/button-group.slint";
+export { Sharing } from "components/share-button.slint";
 export { TextFormat, RollCell } from "components/text-format.slint";
 export { Links } from "components/link.slint";
 export { Clock } from "components/value-text.slint";
@@ -122,6 +125,9 @@ export component Gallery inherits Window {
     callback workspace-restore();
     in property <string> save-shortcut: "Ctrl+S";
     in property <string> find-shortcut: "Ctrl+Shift+F";
+    in property <[string]> quick-shortcuts: ["Ctrl+N", "Ctrl+O", "Ctrl+Shift+P", "Ctrl+,"];
+    // The Buttons page's ActionSheet (buttons/actions.rs `action_sheet`).
+    in-out property <bool> action-sheet-open: false;
     // Opens in dark mode; for captures.
     in property <bool> start-dark: false;
     // The current page's full height, so a capture can show it all.
@@ -257,8 +263,13 @@ export component Gallery inherits Window {
                 if root.pages[root.current].slug == "buttons": ButtonsPage {
                     save-shortcut: root.save-shortcut;
                     find-shortcut: root.find-shortcut;
+                    quick-shortcuts: root.quick-shortcuts;
+                    action-sheet-open <=> root.action-sheet-open;
                     clicked(name) => {
                         root.clicked(name);
+                    }
+                    logged(what) => {
+                        root.logged(what);
                     }
                 }
             }
@@ -338,6 +349,22 @@ export component Gallery inherits Window {
                     }
                 }
             }
+        }
+    }
+
+    if root.action-sheet-open: ActionSheet {
+        title: "dunes.jpg";
+        message: "Taken at dusk. 4.2 MB.";
+        actions: [
+            { label: "Set as wallpaper" },
+            { label: "Duplicate" },
+            { label: "Delete photo", destructive: true },
+        ];
+        activated(ix) => {
+            root.logged(["wallpaper", "duplicate", "delete photo"][ix]);
+        }
+        close => {
+            root.action-sheet-open = false;
         }
     }
 

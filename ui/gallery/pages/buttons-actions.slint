@@ -1,0 +1,307 @@
+// Page 5's actions, after ely-gallery/src/pages/buttons/actions.rs: what lands later, then the
+// FAB, ConfirmButton, the small buttons, ActionBar, BulkActionBar, ActionSheet and
+// QuickActions. The sheet itself covers the window, so the gallery's root shows it while
+// `action-sheet-open` holds.
+
+import { Theme, ControlSize, Radius } from "../../theme/theme.slint";
+import { Button, ButtonVariant } from "../../components/button.slint";
+import {
+    CloseButton,
+    BackButton,
+    MoreButton,
+} from "../../components/icon-button.slint";
+import { FloatingActionButton } from "../../components/fab.slint";
+import {
+    ConfirmButton,
+    ConfirmMode,
+} from "../../components/confirm-button.slint";
+import { CopyButton } from "../../components/copy-button.slint";
+import { ShareButton } from "../../components/share-button.slint";
+import { ActionBar, BulkActionBar } from "../../components/action-bar.slint";
+import { QuickActions } from "../../components/quick-actions.slint";
+import { Caption } from "../../components/caption.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Row, Specimens, Specimen, CodeHint } from "../kit.slint";
+
+export component ButtonsLater inherits VerticalLayout {
+    Section {
+        title: "SplitButton / DropdownButton / MenuButton / LoadingButton";
+        note: "Built from parts in later chapters.";
+        Caption {
+            text: "Split and dropdown buttons open a Menu: they land with Menus, chapter 8.";
+        }
+
+        Caption {
+            text: "The loading state spins a Spinner: it lands with Loading, chapter 11.";
+        }
+    }
+}
+
+export component ButtonsActions inherits VerticalLayout {
+    // The quick actions' shortcuts as the host spelled them (`ely_slint::shortcut_text`):
+    // cmd-n, cmd-o, cmd-shift-p, cmd-,.
+    in property <[string]> quick-shortcuts: ["Ctrl+N", "Ctrl+O", "Ctrl+Shift+P", "Ctrl+,"];
+    in-out property <bool> action-sheet-open;
+
+    callback logged(what: string);
+
+    private property <int> picked;
+
+    Section {
+        title: "FloatingActionButton";
+        note: "Round and raised for the screen's one main action. It rises in.";
+        Rectangle {
+            width: 420px;
+            height: 160px;
+            border-radius: Theme.radius(Radius.lg);
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            background: Theme.colors.sunken;
+
+            fabs := HorizontalLayout {
+                x: parent.width - self.width - 16px;
+                y: parent.height - self.height - 16px;
+                width: self.preferred-width;
+                height: self.preferred-height;
+                spacing: 12px;
+                cross-axis-alignment: center;
+
+                FloatingActionButton {
+                    icon: Icons.pencil;
+                    text: "Compose";
+                    clicked => {
+                        root.logged("compose");
+                    }
+                }
+
+                FloatingActionButton {
+                    icon: Icons.plus;
+                    tooltip: "New item";
+                    clicked => {
+                        root.logged("new item");
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ConfirmButton / HoldToConfirm";
+        note: "Hold until the fill completes, or click twice within three seconds.";
+        Specimens {
+            Specimen {
+                caption: "hold";
+                ConfirmButton {
+                    text: "Hold to delete";
+                    mode: ConfirmMode.hold;
+                    confirmed => {
+                        root.logged("held to delete");
+                    }
+                }
+            }
+
+            Specimen {
+                caption: "twice";
+                ConfirmButton {
+                    text: "Discard draft";
+                    mode: ConfirmMode.twice;
+                    confirmed => {
+                        root.logged("draft discarded");
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CopyButton / ShareButton / CloseButton / BackButton / MoreButton";
+        note: "Small, familiar verbs. Each names itself on hover.";
+        Row {
+            Specimen {
+                caption: "copy";
+                CopyButton {
+                    text: "https://ely.dev/invite/7Q2";
+                }
+            }
+
+            Specimen {
+                caption: "share";
+                ShareButton {
+                    text: "Ely, components for GPUI";
+                    url: "https://github.com/ELY-Open-Source/Ely-GPUI-Components";
+                }
+            }
+
+            Specimen {
+                caption: "close";
+                CloseButton { }
+            }
+
+            Specimen {
+                caption: "back";
+                BackButton { }
+            }
+
+            Specimen {
+                caption: "more";
+                MoreButton { }
+            }
+        }
+
+        CodeHint {
+            text: "CloseButton { }, BackButton { }, MoreButton { }";
+        }
+    }
+
+    Section {
+        title: "ActionBar";
+        note: "Docked along a panel's foot, or floating as a pill.";
+        Rectangle {
+            width: 560px;
+            height: 200px;
+            border-radius: Theme.radius(Radius.lg);
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            background: Theme.colors.sunken;
+            clip: true;
+
+            VerticalLayout {
+                // Inside the hairline.
+                padding: 1px;
+                alignment: end;
+
+                HorizontalLayout {
+                    padding-bottom: 16px;
+                    alignment: center;
+
+                    ActionBar {
+                        floating: true;
+                        Button {
+                            text: "Reply";
+                            variant: ButtonVariant.ghost;
+                            icon: Icons.reply;
+                        }
+
+                        Button {
+                            text: "Forward";
+                            variant: ButtonVariant.ghost;
+                            icon: Icons.forward;
+                        }
+
+                        Button {
+                            text: "Archive";
+                            variant: ButtonVariant.primary;
+                            icon: Icons.archive;
+                        }
+                    }
+                }
+
+                ActionBar {
+                    Button {
+                        text: "Cancel";
+                        variant: ButtonVariant.ghost;
+                    }
+
+                    Button {
+                        text: "Save changes";
+                        variant: ButtonVariant.primary;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "BulkActionBar";
+        note: "Rises once rows are selected. The count rolls as it changes.";
+        Row {
+            Button {
+                text: "Select one more";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.picked += 1;
+                }
+            }
+
+            Caption {
+                text: root.picked + " selected";
+            }
+        }
+
+        HorizontalLayout {
+            height: Theme.control-height(ControlSize.lg) * 1.5;
+            alignment: start;
+
+            VerticalLayout {
+                alignment: start;
+                BulkActionBar {
+                    count: root.picked;
+                    clearable: true;
+                    clear => {
+                        root.picked = 0;
+                    }
+                    Button {
+                        text: "Move";
+                        variant: ButtonVariant.ghost;
+                        icon: Icons.folder;
+                    }
+
+                    Button {
+                        text: "Delete";
+                        variant: ButtonVariant.danger;
+                        icon: Icons.trash-2;
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ActionSheet";
+        note: "A few choices from the bottom, and a separate way out.";
+        HorizontalLayout {
+            alignment: start;
+            Button {
+                text: "Photo options";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.action-sheet-open = true;
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "QuickActions";
+        note: "Common moves with their keys. Arrows choose, Enter runs.";
+        HorizontalLayout {
+            alignment: start;
+            QuickActions {
+                width: 420px;
+                actions: [
+                    {
+                        icon: Icons.file-plus,
+                        label: "New document",
+                        note: "Blank, or from a template",
+                        shortcut: root.quick-shortcuts[0],
+                    },
+                    { icon: Icons.folder-open, label: "Open…", shortcut: root.quick-shortcuts[1] },
+                    {
+                        icon: Icons.search,
+                        label: "Search everywhere",
+                        note: "Files, symbols, commands",
+                        shortcut: root.quick-shortcuts[2],
+                    },
+                    { icon: Icons.settings, label: "Settings", shortcut: root.quick-shortcuts[3] },
+                ];
+                activated(ix) => {
+                    root.logged("quick " + ["new", "open", "search", "settings"][ix]);
+                }
+            }
+        }
+
+        Caption {
+            text: "Tab in, then use the arrows.";
+        }
+    }
+}
