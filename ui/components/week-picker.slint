@@ -1,0 +1,76 @@
+// Port of ely-core/src/forms/date/week.rs (`WeekPicker`, `monday_of`): a calendar that picks
+// whole weeks. The week under the pointer shades; a press picks the ISO week of that day.
+//
+// The value is an ISO year and week; a week of 0 is none. Needs `wire_dates!`. Like Select
+// (G48) both are `in-out`: a pick sets them, then reports them.
+
+import { Icons } from "../icons/icons.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+import { Calendar } from "calendar.slint";
+import { CivilDate, Dates } from "dates.slint";
+
+export component WeekPicker {
+    in-out property <int> year;
+    in-out property <int> week;
+    // The date treated as now.
+    in property <CivilDate> today: Dates.today;
+
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+
+    callback week-changed(year: int, week: int);
+
+    private property <CivilDate> monday: root.week > 0 ? Dates.monday-of(root.year, root.week) : { };
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.calendar-range;
+        shown: root.week > 0 ? @tr("Week {0}, {1}", root.week, root.year) : "";
+        placeholder: @tr("Pick a week");
+        open: popup.is-open;
+        toggled(open) => {
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            calendar.focus();
+        }
+
+        calendar := Calendar {
+            week: true;
+            span-start: root.monday;
+            span-end: root.monday.year != 0 ? Dates.shift(root.monday, 6, 0) : { };
+            today: root.today;
+            picked(date) => {
+                let iso = Dates.iso-week(date);
+                root.year = iso.year;
+                root.week = iso.week;
+                root.week-changed(iso.year, iso.week);
+                root.close();
+            }
+            escape => {
+                root.close();
+                accept
+            }
+        }
+    }
+}

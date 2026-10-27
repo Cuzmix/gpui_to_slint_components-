@@ -42,6 +42,18 @@ pub fn shift(date: Date, days: i32, months: i32) -> Date {
     date.saturating_add(months.months()).saturating_add(days.days())
 }
 
+/// The Monday of ISO week `week` of ISO year `year`, or `None` when that week does not exist.
+pub fn monday_of(year: i32, week: i32) -> Option<Date> {
+    let (year, week) = (i16::try_from(year).ok()?, i8::try_from(week).ok()?);
+    jiff::civil::ISOWeekDate::new(year, week, jiff::civil::Weekday::Monday).ok().map(|week| week.date())
+}
+
+/// The ISO year and week holding `date`.
+pub fn iso_week(date: Date) -> (i32, i32) {
+    let week = date.iso_week_date();
+    (i32::from(week.year()), i32::from(week.week()))
+}
+
 thread_local! {
     static CLOCKS: std::cell::RefCell<Vec<slint::Timer>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -55,7 +67,7 @@ pub fn keep_ticking(tick: impl Fn() + 'static) {
 }
 
 /// Wires the `Dates` global, which every calendar and date picker asks, and keeps
-/// `Dates.today` current. The host's root `.slint` file exports `Dates` and `CivilDate`.
+/// `Dates.today` current. The host's root `.slint` file exports `Dates`, `CivilDate` and `IsoWeek`.
 ///
 /// ```ignore
 /// ely_slint::wire_dates!(app);
@@ -88,6 +100,11 @@ macro_rules! wire_dates {
         });
         dates.on_shift(|date, days, months| take(&date).map(|date| out($crate::dates::shift(date, days, months))).unwrap_or(date));
         dates.on_week_start(|date| take(&date).map(|date| out($crate::dates::week_start(date))).unwrap_or(date));
+        dates.on_monday_of(|year, week| $crate::dates::monday_of(year, week).map(out).unwrap_or_default());
+        dates.on_iso_week(|date| {
+            let (year, week) = take(&date).map($crate::dates::iso_week).unwrap_or_default();
+            IsoWeek { year, week }
+        });
     }};
 }
 
@@ -112,6 +129,14 @@ mod tests {
         assert_eq!(shift(day(2026, 1, 31), 0, 1), day(2026, 2, 28));
         assert_eq!(shift(day(2026, 3, 1), -1, 0), day(2026, 2, 28));
         assert_eq!(shift(day(2026, 9, 5), 7, -1), day(2026, 8, 12));
+    }
+
+    #[test]
+    fn iso_weeks_start_on_their_monday() {
+        assert_eq!(monday_of(2026, 39), Some(day(2026, 9, 21)));
+        assert_eq!(monday_of(2027, 1), Some(day(2027, 1, 4)));
+        assert_eq!(monday_of(2026, 60), None);
+        assert_eq!(iso_week(day(2027, 1, 3)), (2026, 53));
     }
 
     #[test]

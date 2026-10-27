@@ -6,8 +6,8 @@ use slint::ComponentHandle;
 use slint::platform::Key;
 
 slint::slint! {
-    import { DatePicker, DateRangePicker, CivilDate, Dates } from "ui/index.slint";
-    export { CivilDate, Dates }
+    import { DatePicker, DateRangePicker, CivilDate, IsoWeek, Dates } from "ui/index.slint";
+    export { CivilDate, IsoWeek, Dates }
     export component Harness inherits Window {
         width: 400px;
         height: 500px;

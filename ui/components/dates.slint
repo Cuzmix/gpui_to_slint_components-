@@ -11,6 +11,12 @@ export struct CivilDate {
     day: int,
 }
 
+// An ISO week: its ISO year and its number, 1–53.
+export struct IsoWeek {
+    year: int,
+    week: int,
+}
+
 // The calendar walks, in Rust (`ely_slint::dates`).
 export global Dates {
     // Today, in the system's zone.
@@ -21,6 +27,10 @@ export global Dates {
     pure callback shift(date: CivilDate, days: int, months: int) -> CivilDate;
     // The Monday of `date`'s week.
     pure callback week-start(date: CivilDate) -> CivilDate;
+    // The Monday of an ISO week; none when the week does not exist.
+    pure callback monday-of(year: int, week: int) -> CivilDate;
+    // The ISO week holding `date`.
+    pure callback iso-week(date: CivilDate) -> IsoWeek;
 }
 
 // Comparing days, in Slint.

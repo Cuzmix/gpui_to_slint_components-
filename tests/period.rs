@@ -6,8 +6,8 @@ use slint::ComponentHandle;
 use slint::platform::Key;
 
 slint::slint! {
-    import { MonthPicker, QuarterPicker, YearPicker, YearPages, CivilDate, Dates } from "ui/index.slint";
-    export { CivilDate, Dates }
+    import { MonthPicker, QuarterPicker, YearPicker, YearPages, CivilDate, IsoWeek, Dates } from "ui/index.slint";
+    export { CivilDate, IsoWeek, Dates }
     export component Harness inherits Window {
         width: 400px;
         height: 500px;
