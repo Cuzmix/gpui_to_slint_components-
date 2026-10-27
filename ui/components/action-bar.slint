@@ -1,0 +1,147 @@
+// Port of ely-core/src/buttons/bars.rs: `ActionBar`, `BulkActionBar`. Both rise in when they
+// show: they fade in from 8 px lower over BASE, easing out.
+
+import { Theme, ControlSize, Elevation, TextSize } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { IconButton } from "icon-button.slint";
+import { AnimatedNumber } from "animated-number.slint";
+import { Icons } from "../icons/icons.slint";
+
+// Actions in a row at a region's foot: docked, a full-width strip with its actions at the end,
+// or floating, a raised pill.
+export component ActionBar {
+    // A raised pill instead of a full-width strip.
+    in property <bool> floating;
+    // False: nothing shows and it takes no room; it rises in again when shown.
+    in property <bool> shown: true;
+
+    // How far its entrance has run, 0 to 1.
+    out property <float> entrance: root.rise;
+
+    private property <duration> entered-at;
+    private property <bool> rising;
+    private property <float> rise: root.rising ? Theme.ease-out-cubic(clamp((animation-tick() - root.entered-at) / Theme.motion-base, 0, 1)) : 1;
+
+    function enter() {
+        root.entered-at = animation-tick();
+        root.rising = true;
+        risen.running = true;
+        risen.restart();
+    }
+
+    init => {
+        if root.shown {
+            root.enter();
+        }
+    }
+    changed shown => {
+        if root.shown {
+            root.enter();
+        }
+    }
+
+    risen := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.rising = false;
+        }
+    }
+
+    visible: root.shown;
+    min-width: root.shown ? row.min-width : 0;
+    preferred-width: root.shown ? row.preferred-width : 0;
+    max-width: root.shown ? 100000px : 0;
+    min-height: root.shown ? row.min-height : 0;
+    preferred-height: root.shown ? row.preferred-height : 0;
+    max-height: root.shown ? row.preferred-height : 0;
+
+    // The bar is drawn lower while it rises; its box stays put (gap G49).
+    face := Elevated {
+        y: Theme.nudge * 2 * (1 - root.rise);
+        width: 100%;
+        height: 100%;
+        opacity: root.rise;
+        casting: root.floating;
+        elevation: Elevation.floating;
+        border-radius: root.floating ? self.height / 2 : 0;
+        border-width: root.floating ? 1px : 0;
+        border-color: Theme.colors.border;
+        background: root.floating ? Theme.colors.overlay : Theme.colors.surface;
+
+        // Docked: a hairline along the top.
+        if !root.floating: Rectangle {
+            x: 0;
+            y: 0;
+            width: 100%;
+            height: 1px;
+            background: Theme.colors.border;
+        }
+
+        row := HorizontalLayout {
+            // Inside the border: 6 px floating, 16 by 12 docked.
+            padding-left: root.floating ? 7px : 16px;
+            padding-right: self.padding-left;
+            padding-top: root.floating ? 7px : 13px;
+            padding-bottom: root.floating ? 7px : 12px;
+            spacing: 8px;
+            alignment: root.floating ? LayoutAlignment.start : LayoutAlignment.end;
+            cross-axis-alignment: center;
+
+            @children
+        }
+    }
+}
+
+// Rises when items are selected: the count, a hairline, the bulk actions, and a clear button.
+// Nothing shows while no item is selected.
+export component BulkActionBar inherits ActionBar {
+    // How many items are selected.
+    in property <int> count;
+    // Shows the clear button.
+    in property <bool> clearable;
+
+    // The clear button was pressed.
+    callback clear();
+
+    floating: true;
+    shown: root.count > 0;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        spacing: 4px;
+        cross-axis-alignment: center;
+
+        AnimatedNumber {
+            value: root.count;
+            size: TextSize.sm;
+        }
+
+        Text {
+            text: @tr("selected");
+            font-size: Theme.text-size(TextSize.sm);
+            font-family: Theme.font-family;
+            color: Theme.colors.fg;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        width: 1px;
+        height: Theme.control-height(ControlSize.sm);
+        background: Theme.colors.border;
+    }
+
+    @children
+
+    if root.clearable: IconButton {
+        icon: Icons.x;
+        icon-name: "x";
+        size: ControlSize.sm;
+        tooltip: @tr("Clear selection");
+        clicked => {
+            root.clear();
+        }
+    }
+}
