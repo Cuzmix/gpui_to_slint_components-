@@ -95,3 +95,12 @@ macro_rules! cases {
 pub fn wheel(w: &slint::Window, x: f32, y: f32, dx: f32, dy: f32) {
     w.dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(x, y), delta_x: dx, delta_y: dy });
 }
+
+// Clicks the middle of the first element assistive technology names `label`.
+pub fn click_label<C: ComponentHandle + 'static>(c: &C, label: &str) {
+    let e = i_slint_backend_testing::ElementHandle::find_by_accessible_label(c, label)
+        .next()
+        .unwrap_or_else(|| panic!("an element named {label}"));
+    let (at, size) = (e.absolute_position(), e.size());
+    click(c.window(), at.x + size.width / 2.0, at.y + size.height / 2.0);
+}

@@ -1,0 +1,108 @@
+// Port of ely-core/src/forms/transfer.rs (`TransferList`): two lists and the buttons between
+// them. Mark rows on either side, then move them across; the chosen values keep choice order.
+//
+// List edits run in Rust (`Choices`, `wire_options!`, with `wire_toggles!`). Like Select (G48),
+// `chosen` is `in-out`.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button.slint";
+import { Icons } from "../icons/icons.slint";
+import { Choice, Choices } from "options.slint";
+import { ListBox } from "list-box.slint";
+
+// One side: its title with a count, and a list of marks over a list-max-height frame.
+component TransferSide inherits VerticalLayout {
+    in property <string> title;
+    in property <[Choice]> rows;
+    in-out property <[string]> marked;
+    in property <string> label;
+
+    horizontal-stretch: 1;
+    spacing: 8px;
+
+    TypeText {
+        text: root.title + " · " + root.rows.length;
+        font-size: Theme.text-size(TextSize.sm);
+        color: Theme.colors.fg-muted;
+    }
+
+    Rectangle {
+        height: Theme.list-max-height;
+
+        // The list fills the frame, as gpui's `h_full`.
+        if root.rows.length > 0: VerticalLayout {
+            ListBox {
+                choices: root.rows;
+                selected <=> root.marked;
+                multiple: true;
+                label: root.title;
+            }
+        }
+    }
+}
+
+export component TransferList inherits HorizontalLayout {
+    in property <[Choice]> choices;
+    // The values in the right list.
+    in-out property <[string]> chosen;
+    // The two lists' titles.
+    in property <string> available-title: @tr("Available");
+    in property <string> chosen-title: @tr("Chosen");
+    in property <string> add-text: @tr("Move to chosen");
+    in property <string> remove-text: @tr("Move back");
+
+    // The chosen values after each move.
+    callback chosen-changed(chosen: [string]);
+
+    private property <[string]> left-marks;
+    private property <[string]> right-marks;
+
+    function shift(add: bool) {
+        root.chosen = Choices.moved(root.choices, root.chosen, add ? root.left-marks : root.right-marks, add);
+        root.left-marks = [];
+        root.right-marks = [];
+        root.chosen-changed(root.chosen);
+    }
+
+    spacing: 12px;
+
+    TransferSide {
+        title: root.available-title;
+        // Every row not chosen: `matching` with no query keeps all but the exceptions.
+        rows: Choices.matching(root.choices, "", root.chosen);
+        marked <=> root.left-marks;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 8px;
+
+        IconButton {
+            icon: Icons.chevron-right;
+            variant: ButtonVariant.outline;
+            tooltip: root.add-text;
+            enabled: root.left-marks.length > 0;
+            clicked => {
+                root.shift(true);
+            }
+        }
+
+        IconButton {
+            icon: Icons.chevron-left;
+            variant: ButtonVariant.outline;
+            tooltip: root.remove-text;
+            enabled: root.right-marks.length > 0;
+            clicked => {
+                root.shift(false);
+            }
+        }
+    }
+
+    TransferSide {
+        title: root.chosen-title;
+        rows: Choices.among(root.choices, root.chosen);
+        marked <=> root.right-marks;
+    }
+}

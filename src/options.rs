@@ -52,6 +52,11 @@ pub fn toggled<V: PartialEq + Clone>(choices: &[V], selected: &[V], value: &V, o
         .collect()
 }
 
+/// `chosen` after moving `marked` across, in choice order (ely transfer.rs `moved`).
+pub fn moved<V: PartialEq + Clone>(choices: &[V], chosen: &[V], marked: &[V], add: bool) -> Vec<V> {
+    choices.iter().filter(|value| if marked.contains(value) { add } else { chosen.contains(value) }).cloned().collect()
+}
+
 /// Wires the `Choices` global of a component that shows option lists.
 #[macro_export]
 macro_rules! wire_options {
@@ -73,6 +78,12 @@ macro_rules! wire_options {
                 .cloned()
                 .collect();
             ::slint::ModelRc::new(::slint::VecModel::from(kept))
+        });
+        $app.global::<Choices>().on_moved(|choices, chosen, marked, add| {
+            let values: Vec<::slint::SharedString> = choices.iter().map(|row| row.value).collect();
+            let chosen: Vec<::slint::SharedString> = chosen.iter().collect();
+            let marked: Vec<::slint::SharedString> = marked.iter().collect();
+            ::slint::ModelRc::new(::slint::VecModel::from($crate::options::moved(&values, &chosen, &marked, add)))
         });
         $app.global::<Choices>().on_among(|rows, values| {
             let values: Vec<::slint::SharedString> = values.iter().collect();
@@ -114,6 +125,13 @@ macro_rules! wire_options {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn moving_keeps_choice_order() {
+        let choices = ["a", "b", "c"];
+        assert_eq!(super::moved(&choices, &["c"], &["a"], true), ["a", "c"]);
+        assert_eq!(super::moved(&choices, &["a", "c"], &["c"], false), ["a"]);
+    }
+
     #[test]
     fn toggling_keeps_choice_order() {
         let choices = ["a", "b", "c"];

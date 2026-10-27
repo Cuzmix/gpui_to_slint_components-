@@ -67,6 +67,8 @@ export global Choices {
     // The rows whose value is among `values`, in row order; and rows' labels joined by ", ".
     pure callback among(rows: [Choice], values: [string]) -> [Choice];
     pure callback joined(rows: [Choice]) -> string;
+    // `chosen` after moving `marked` in (`add`) or out, in the order of `choices` (TransferList).
+    pure callback moved(choices: [Choice], chosen: [string], marked: [string], add: bool) -> [string];
     // The index of the row holding `value`; -1 when none does.
     pure callback index-of(rows: [Choice], value: string) -> int;
     pure callback toggled(choices: [Choice], selected: [string], value: string, on: bool) -> [string];
