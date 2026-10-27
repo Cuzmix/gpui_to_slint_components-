@@ -1,0 +1,219 @@
+// Port of ely-core/src/motion/progress.rs (`ProgressBar`, `ProgressRing`). Chapter 6's progress,
+// ported early for the splash screen and the update banner.
+//
+// Each new value glides from the last one over the base motion (200 ms, ease-out cubic), as
+// gpui's keyed glide does; the first value shows at once. gpui panics on a value or buffer
+// outside 0..1 and on fewer than two segments; here they are clamped, and one segment is drawn
+// (G43).
+
+import { Theme, TextSize } from "../theme/theme.slint";
+
+// Follows a value: gives where it shows now, gliding from the last target to the new one.
+component Glide {
+    in property <float> value;
+    out property <float> at: root.running ? root.from + (root.to - root.from) * Theme.ease-out-cubic(clamp((animation-tick() - root.started) / Theme.motion-base, 0, 1)) : root.to;
+
+    private property <float> from;
+    private property <float> to;
+    private property <duration> started;
+    private property <bool> running;
+
+    init => {
+        root.from = root.value;
+        root.to = root.value;
+    }
+    changed value => {
+        root.from = root.to;
+        root.to = root.value;
+        root.started = animation-tick();
+        root.running = true;
+    }
+}
+
+// A fill along a lane, from its left edge.
+component Fill inherits Rectangle {
+    in property <float> share;
+    in property <length> lane;
+    x: 0;
+    y: 0;
+    width: root.lane * clamp(root.share, 0, 1);
+    height: 100%;
+    border-radius: self.height / 2;
+}
+
+// How far a task has come: a thin track that fills and glides to each new value, or sweeps when
+// none is known (`indeterminate`). A buffer shows what has loaded ahead; segments split it into
+// steps.
+export component ProgressBar {
+    // How far, 0 to 1.
+    in property <float> value;
+    // No value known: a short fill sweeps the track.
+    in property <bool> indeterminate;
+    // What has loaded ahead of the value, drawn fainter; none when it lies behind (or below 0).
+    in property <float> buffer: -1;
+    // Splits the track into this many steps, 4 px apart.
+    in property <int> segments: 1;
+    // Where the fill stands now, 0 to 1, mid-glide included.
+    out property <float> shown: root.at;
+
+    private property <float> target: clamp(root.value, 0, 1);
+    private property <bool> buffered: !root.indeterminate && root.buffer >= 0 && clamp(root.buffer, 0, 1) > root.target;
+    private property <int> steps: root.segments >= 2 ? root.segments : 1;
+    private property <float> at: glide.at;
+    // The sweep runs over four slow beats, eased in and out, and rests at 35 % under reduced
+    // motion.
+    private property <float> sweep: Theme.ease-in-out-cubic(Math.mod(animation-tick() / (320ms * 4), 1));
+
+    height: Theme.progress-thickness;
+    min-width: 0;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: AccessibleRole.progress-indicator;
+    accessible-value: root.indeterminate ? "" : "\{Math.round(root.target * 100)}%";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 1;
+    accessible-value-step: 0;
+
+    glide := Glide {
+        value: root.target;
+    }
+
+    if root.indeterminate: Rectangle {
+        border-radius: self.height / 2;
+        clip: true;
+        background: Theme.colors.border;
+        Rectangle {
+            x: parent.width * (Theme.reduced-motion ? 0.35 : -0.3 + 1.3 * root.sweep);
+            y: 0;
+            width: parent.width * 0.3;
+            height: parent.height;
+            border-radius: self.height / 2;
+            background: Theme.colors.fg;
+        }
+    }
+
+    if !root.indeterminate: HorizontalLayout {
+        spacing: 4px;
+        for ix in root.steps: lane := Rectangle {
+            // This step's share of a whole-bar value.
+            pure function share(whole: float) -> float {
+                clamp(whole * root.steps - ix, 0, 1)
+            }
+            horizontal-stretch: 1;
+            min-width: 0;
+            border-radius: self.height / 2;
+            clip: true;
+            background: Theme.colors.border;
+            if root.buffered: Fill {
+                share: share(root.buffer);
+                lane: lane.width;
+                background: Theme.opacity(Theme.colors.fg, 0.25);
+            }
+            Fill {
+                share: share(root.at);
+                lane: lane.width;
+                background: Theme.colors.fg;
+            }
+        }
+    }
+}
+
+// Progress as a ring that fills clockwise from the top and glides to each new value; the percent
+// (`percent`), or the children, sit inside. Its stroke keeps the theme ring's weight at any size.
+export component ProgressRing {
+    // How far, 0 to 1.
+    in property <float> value;
+    // Shows the value as a percent inside the ring (gpui: a percent or content, not both).
+    in property <bool> percent;
+    // Its width and height; the theme's ring otherwise.
+    in property <length> size: Theme.progress-ring;
+    // Where the fill stands now, 0 to 1, mid-glide included.
+    out property <float> shown: root.at;
+
+    private property <float> at: glide.at;
+    private property <length> stroke: Theme.progress-ring / 12;
+    private property <length> radius: Math.min(root.width, root.height) / 2 - root.stroke;
+    private property <length> cx: root.width / 2;
+    private property <length> cy: root.height / 2;
+    // The fill's end, clockwise from the top, drawn as two arcs so a full turn closes.
+    private property <angle> sweep: 360deg * clamp(root.at, 0, 1);
+    private property <angle> half: Math.min(root.sweep, 180deg);
+
+    width: root.size;
+    height: root.size;
+    accessible-role: AccessibleRole.progress-indicator;
+    accessible-value: "\{Math.round(clamp(root.value, 0, 1) * 100)}%";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 1;
+    accessible-value-step: 0;
+
+    glide := Glide {
+        value: clamp(root.value, 0, 1);
+    }
+
+    // The track: a full ring.
+    Rectangle {
+        x: root.cx - root.radius - root.stroke / 2;
+        y: root.cy - root.radius - root.stroke / 2;
+        width: (root.radius + root.stroke / 2) * 2;
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: root.stroke;
+        border-color: Theme.colors.border;
+    }
+
+    if root.at > 0: Path {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        stroke: Theme.colors.fg;
+        stroke-width: root.stroke;
+        fill: transparent;
+        MoveTo {
+            x: root.cx / 1px;
+            y: (root.cy - root.radius) / 1px;
+        }
+
+        ArcTo {
+            x: (root.cx + root.radius * Math.cos(-90deg + root.half)) / 1px;
+            y: (root.cy + root.radius * Math.sin(-90deg + root.half)) / 1px;
+            radius-x: root.radius / 1px;
+            radius-y: root.radius / 1px;
+            sweep: true;
+            large-arc: false;
+        }
+
+        ArcTo {
+            x: (root.cx + root.radius * Math.cos(-90deg + root.sweep)) / 1px;
+            y: (root.cy + root.radius * Math.sin(-90deg + root.sweep)) / 1px;
+            radius-x: root.radius / 1px;
+            radius-y: root.radius / 1px;
+            sweep: true;
+            large-arc: false;
+        }
+    }
+
+    if root.percent: Text {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        text: "\{Math.round(root.at * 100)}%";
+        font-size: Theme.text-size(TextSize.xs);
+        color: Theme.colors.fg;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            @children
+        }
+    }
+}
