@@ -1,0 +1,210 @@
+// Port of ely-core/src/buttons/sheet.rs (`ActionSheet`): a short list of choices rising from the
+// bottom over a scrim, with its own Cancel. Choosing runs the action, then closes; Cancel,
+// Escape or a press on the scrim close.
+//
+// It sits on a Backdrop: show it with `if`, as the last child of the window (or of the box it
+// covers), and drop it from `close`. It takes focus when it shows and keeps Tab inside (wire
+// `FocusSteps`, gap G18); Slint does not hand focus back on its own (G19), so the owner focuses
+// what it wants in `close`.
+
+import {
+    Theme,
+    ControlSize,
+    Radius,
+    TextSize,
+    Elevation,
+} from "../theme/theme.slint";
+import { Backdrop, Place } from "backdrop.slint";
+import { Elevated } from "elevated.slint";
+import { FocusTrap } from "focus-trap.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// One choice: its label, and whether it destroys something (set in the danger tone).
+export struct SheetAction {
+    label: string,
+    destructive: bool,
+}
+
+// A card of rows: rounded, on the overlay fill, a hairline round it, the modal shadow.
+component SheetCard inherits Elevated {
+    elevation: Elevation.modal;
+    border-radius: Theme.radius(Radius.xl);
+    background: Theme.colors.overlay;
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    clip: true;
+
+    VerticalLayout {
+        padding: 1px;
+        @children
+    }
+}
+
+// One row: a lg control and a half tall, its label centered; a hairline on top unless `first`.
+component SheetRow {
+    in property <string> label;
+    in property <color> ink: Theme.colors.fg;
+    in property <bool> strong;
+    in property <bool> lined: true;
+
+    out property <bool> has-focus: keys.has-focus;
+
+    callback activated();
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.activated();
+    }
+
+    forward-focus: keys;
+    height: Theme.control-height(ControlSize.lg) + Theme.control-height(ControlSize.sm) / 2;
+
+    Rectangle {
+        background: touch.has-hover ? Theme.colors.hover : keys.has-focus ? Theme.colors.active : transparent;
+    }
+
+    if root.lined: Rectangle {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+
+    Text {
+        // Below the hairline, centered in the rest.
+        y: root.lined ? 1px : 0;
+        width: 100%;
+        height: parent.height - self.y;
+        text: root.label;
+        color: root.ink;
+        font-size: Theme.text-size(TextSize.md);
+        font-weight: root.strong ? 600 : 400;
+        font-family: Theme.font-family;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.activated();
+        }
+    }
+
+    keys := ClickKeys {
+        activated => {
+            root.activated();
+        }
+    }
+}
+
+export component ActionSheet inherits Backdrop {
+    // A title over the choices.
+    in property <string> title;
+    // A line under the title.
+    in property <string> message;
+    in property <[SheetAction]> actions;
+
+    // The choice at `index` was taken; `close` follows.
+    callback activated(index: int);
+    // It closed: by a choice, Cancel, Escape or the scrim.
+    callback close();
+
+    private property <float> rise: 0;
+    animate rise {
+        duration: Theme.motion-base;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+    // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
+    init => {
+        root.rise = 1;
+        trap.focus();
+    }
+
+    place: Place.bottom;
+    dismiss => {
+        root.close();
+    }
+
+    HorizontalLayout {
+        alignment: center;
+
+        // Drawn up to 24 px lower while it rises; its box stays put (gap G49).
+        Rectangle {
+            width: Theme.sheet-size;
+            preferred-height: trap.preferred-height + 16px;
+
+            trap := FocusTrap {
+                y: Theme.nudge * 6 * (1 - root.rise);
+                width: parent.width;
+                height: self.preferred-height;
+                opacity: root.rise;
+                // No dialog role in Slint 1.18 (gap G51).
+                accessible-role: groupbox;
+                accessible-label: root.title != "" ? root.title : root.message != "" ? root.message : @tr("Actions");
+                accessible-description: root.title != "" ? root.message : "";
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        root.close();
+                        return accept;
+                    }
+                    reject
+                }
+
+                VerticalLayout {
+                    spacing: 8px;
+
+                    SheetCard {
+                        if root.title != "" || root.message != "": VerticalLayout {
+                            padding-left: 24px;
+                            padding-right: 24px;
+                            padding-top: 16px;
+                            padding-bottom: 16px;
+                            spacing: 4px;
+
+                            if root.title != "": Text {
+                                text: root.title;
+                                color: Theme.colors.fg-muted;
+                                font-size: Theme.text-size(TextSize.sm);
+                                font-weight: 600;
+                                font-family: Theme.font-family;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                            if root.message != "": Text {
+                                text: root.message;
+                                color: Theme.colors.fg-subtle;
+                                font-size: Theme.text-size(TextSize.sm);
+                                font-family: Theme.font-family;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+
+                        for action[ix] in root.actions: SheetRow {
+                            label: action.label;
+                            ink: action.destructive ? Theme.colors.danger : Theme.colors.fg;
+                            activated => {
+                                root.activated(ix);
+                                root.close();
+                            }
+                        }
+                    }
+
+                    SheetCard {
+                        SheetRow {
+                            label: @tr("Cancel");
+                            strong: true;
+                            lined: false;
+                            activated => {
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

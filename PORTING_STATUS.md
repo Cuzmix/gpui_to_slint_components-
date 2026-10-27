@@ -44,6 +44,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | ConfirmButton (ConfirmMode) | buttons/confirm.rs | ✓ | ✓ confirmed | ✓ keys press twice | ✓ hold 1.2 s, release cancels | ✓ hold fill, check turns in | ✓ | ✓ button named by its label | ✓ `tests/confirm.rs` | G26 G36 | ✓ |
 | ShareButton (Sharing, `wire_sharing!`) | buttons/share.rs | ✓ | ✓ share (host) | ✓ (IconButton) | ✓ (IconButton) | n/a | ✓ (IconButton) | ✓ named Share, or why not | ✓ `tests/share.rs` | G50 | ✓ |
 | ActionBar, BulkActionBar | buttons/bars.rs | ✓ | ✓ clear | ✓ (Button, IconButton) | ✓ (IconButton) | ✓ 200 ms rise, count rolls | ✓ | ✓ text, clear button named | ✓ `tests/action_bar.rs` | G49 | ✓ |
+| ActionSheet (SheetAction) | buttons/sheet.rs | ✓ | ✓ activated, close | ✓ Tab wraps, Enter, Escape | ✓ rows, scrim | ✓ 200 ms rise | ✓ | ✓ group named by title, rows are buttons | ✓ `tests/action_sheet.rs` | G18 G19 G49 G51 | ✓ |
 | CopyableText | typography/copy.rs | ✓ | n/a | ✓ (CopyButton) | ✓ | ✓ | ✓ | ✓ | ✓ `tests/copy_select.rs` | G20 | ✓ |
 | SelectableText | typography/select.rs | ✓ | n/a | ✓ copy, select all | ✓ press, shift, drag | n/a | ✓ selection fill | ✓ text node | ✓ `tests/copy_select.rs` | G27 | ✓ |
 | Emoji | typography/emoji.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/copy_select.rs` | | ✓ |
