@@ -1,0 +1,211 @@
+// Port of ely-core/src/typography/fit.rs (`Ellipsis`, `MiddleEllipsis`, `EllipsisTooltip`).
+// One line that cuts itself to its box: at the end, or in the middle so both ends stay.
+//
+// The cuts come from the host: `TextFormat.end-cuts` and `middle-cuts`. Slint measures each
+// and shows the longest that fits, which is the cut gpui's binary search finds. Unwired, the
+// line falls back to Slint's own end elision.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat } from "text-format.slint";
+import { TooltipController } from "tooltip.slint";
+
+// The whole text when it fits, else the longest of `cuts` that does, else nothing.
+component CutLine inherits Rectangle {
+    in property <string> text;
+    // Every cut, shortest first; widths never shrink.
+    in property <[string]> cuts;
+    // gpui takes these from the text style around the line; Slint passes them in.
+    in property <length> font-size;
+    in property <color> text-color;
+    in property <int> font-weight;
+    in property <float> leading;
+    in property <TextHorizontalAlignment> horizontal-alignment;
+    // Whether the line shows less than its text.
+    out property <bool> cut: !fits;
+    // What the line shows.
+    out property <string> shown: root.fits || root.cuts.length == 0 ? root.text : root.picked;
+
+    private property <bool> fits: whole.preferred-width <= root.width;
+    // The cut on screen, set by the cut that shows.
+    private property <string> picked;
+
+    clip: true;
+    min-width: 0;
+    preferred-width: whole.preferred-width;
+    height: whole.preferred-height;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    whole := TypeText {
+        width: parent.width;
+        text: root.text;
+        font-size: root.font-size;
+        color: root.text-color;
+        font-weight: root.font-weight;
+        leading: root.leading;
+        horizontal-alignment: root.horizontal-alignment;
+        wrap: no-wrap;
+        overflow: elide;
+        visible: root.fits || root.cuts.length == 0;
+        accessible-role: none;
+    }
+
+    if !root.fits: Rectangle {
+        for cut[ix] in root.cuts: Rectangle {
+            private property <bool> next-fits: ix + 1 < root.cuts.length && next.preferred-width <= root.width;
+            visible: own.preferred-width <= root.width && !self.next-fits;
+            accessible-role: none;
+            init => {
+                if self.visible {
+                    root.picked = cut;
+                }
+            }
+            changed visible => {
+                if self.visible {
+                    root.picked = cut;
+                } else if root.picked == cut {
+                    root.picked = "";
+                }
+            }
+            own := TypeText {
+                width: root.width;
+                text: cut;
+                font-size: root.font-size;
+                color: root.text-color;
+                font-weight: root.font-weight;
+                leading: root.leading;
+                horizontal-alignment: root.horizontal-alignment;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+
+            next := TypeText {
+                visible: false;
+                text: ix + 1 < root.cuts.length ? root.cuts[ix + 1] : "";
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+        }
+    }
+}
+
+// One line cut at the end with an ellipsis when its box is too narrow; trailing spaces and
+// `.,;:` go before the ellipsis.
+export component Ellipsis {
+    in property <string> text;
+    // The text style around it, as gpui hands it down.
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <color> color: Theme.colors.fg;
+    in property <int> font-weight: 400;
+    in property <float> leading: 1.618034;
+    in property <TextHorizontalAlignment> horizontal-alignment: left;
+    // Whether the line shows less than its text.
+    out property <bool> cut: line.cut;
+    // What the line shows: the text, a cut of it, or nothing.
+    out property <string> shown: line.shown;
+
+    min-width: 0;
+    preferred-width: line.preferred-width;
+    height: line.height;
+
+    line := CutLine {
+        width: root.width;
+        text: root.text;
+        cuts: TextFormat.end-cuts(root.text);
+        font-size: root.font-size;
+        text-color: root.color;
+        font-weight: root.font-weight;
+        leading: root.leading;
+        horizontal-alignment: root.horizontal-alignment;
+    }
+}
+
+// One line cut in the middle when its box is too narrow, so both ends stay: paths, file
+// names, hashes.
+export component MiddleEllipsis {
+    in property <string> text;
+    // The text style around it, as gpui hands it down.
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <color> color: Theme.colors.fg;
+    in property <int> font-weight: 400;
+    in property <float> leading: 1.618034;
+    in property <TextHorizontalAlignment> horizontal-alignment: left;
+    // Whether the line shows less than its text.
+    out property <bool> cut: line.cut;
+    // What the line shows: the text, a cut of it, or nothing.
+    out property <string> shown: line.shown;
+
+    min-width: 0;
+    preferred-width: line.preferred-width;
+    height: line.height;
+
+    line := CutLine {
+        width: root.width;
+        text: root.text;
+        cuts: TextFormat.middle-cuts(root.text);
+        font-size: root.font-size;
+        text-color: root.color;
+        font-weight: root.font-weight;
+        leading: root.leading;
+        horizontal-alignment: root.horizontal-alignment;
+    }
+}
+
+// One line truncated at the end, base size at 1.4 leading in fg; hovering shows the whole
+// text in a tooltip, only while the line is cut.
+export component EllipsisTooltip {
+    in property <string> text;
+    // Whether the line shows less than its text.
+    out property <bool> cut: whole.preferred-width > root.width;
+    // Whether the tip is on screen.
+    out property <bool> shown: tip.shown;
+
+    min-width: 0;
+    preferred-width: whole.preferred-width;
+    height: line.preferred-height;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    line := TypeText {
+        width: root.width;
+        text: root.text;
+        font-size: Theme.text-size(TextSize.base);
+        color: Theme.colors.fg;
+        leading: 1.4;
+        wrap: no-wrap;
+        overflow: elide;
+        accessible-role: none;
+    }
+
+    whole := TypeText {
+        visible: false;
+        text: root.text;
+        font-size: Theme.text-size(TextSize.base);
+        wrap: no-wrap;
+        accessible-role: none;
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.cut ? root.text : "";
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+}
