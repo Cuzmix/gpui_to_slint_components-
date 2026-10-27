@@ -23,6 +23,15 @@ echo "== build and test =="
 cargo build --all-targets
 cargo test
 
+echo "== desktop feature =="
+cargo test --features desktop --test desktop
+# The tray's macOS and Windows code type-checks wherever their standard libraries are installed.
+for target in aarch64-apple-darwin x86_64-pc-windows-gnu; do
+    if rustup target list --installed 2>/dev/null | grep -qx "$target"; then
+        cargo check --lib --features desktop --target "$target"
+    fi
+done
+
 echo "== no gpui in the dependency tree =="
 if cargo tree --all-features -e normal,build,dev | grep -i gpui; then
     echo "gpui found in the dependency tree" >&2

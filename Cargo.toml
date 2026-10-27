@@ -20,6 +20,38 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 unicode-segmentation = "1"
 
+[features]
+# The tray icon and the Dock badge (`ely_slint::desktop`).
+desktop = ["dep:futures", "dep:objc2", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:windows", "dep:image", "dep:zbus"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+futures = { version = "0.3", optional = true }
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+zbus = { version = "5", default-features = false, features = ["async-io"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "NSApplication",
+    "NSButton",
+    "NSControl",
+    "NSDockTile",
+    "NSImage",
+    "NSMenu",
+    "NSMenuItem",
+    "NSResponder",
+    "NSStatusBar",
+    "NSStatusBarButton",
+    "NSStatusItem",
+    "NSView",
+], optional = true }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"], optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"], optional = true }
+
 [build-dependencies]
 slint-build = "=1.18.1"
 

@@ -5,6 +5,8 @@
 //! and this crate computes them. Nothing here holds UI state.
 
 pub mod columns;
+#[cfg(feature = "desktop")]
+pub mod desktop;
 pub mod dock;
 pub mod focus;
 pub mod format;

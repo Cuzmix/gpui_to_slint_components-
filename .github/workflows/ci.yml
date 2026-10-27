@@ -13,9 +13,12 @@ jobs:
         run: |
           if grep -r "std""-widgets" .; then exit 1; fi
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # The tray's macOS and Windows code type-checks against these.
+          targets: aarch64-apple-darwin, x86_64-pc-windows-gnu
       - uses: Swatinem/rust-cache@v2
       - name: System libraries
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev dbus
       - name: Slint tools 1.18.1
         run: cargo install slint-lsp@1.18.1 slint-viewer@1.18.1 --locked
       - name: All checks

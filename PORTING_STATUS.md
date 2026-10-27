@@ -87,6 +87,8 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | WindowManager (Rust, `wire_managed_windows!`) | shell/windows.rs | ✓ | ✓ open, list, focus | n/a | n/a | n/a | n/a | n/a | ✓ `tests/switcher.rs`, `src/windows.rs` | G44 G45 | ✓ |
 | WindowSwitcher (ManagedWindows) | shell/switcher.rs | ✓ | ✓ close, focus | ✓ arrows, Tab, Shift+Tab, Enter on release, Escape | ✓ scrim, rows | ✓ rise in | ✓ | ✓ list, selectable items | ✓ `tests/switcher.rs` | G19 G45 | ✓ |
 | MiniWindow (Corner, `open_mini`, `wire_mini_window!`) | shell/windows.rs | ✓ | ✓ expand, close | n/a | ✓ bar on hover, title drags | n/a | ✓ | ✓ buttons | ✓ `tests/switcher.rs` | G44 G45 | ✓ |
+| TrayIcon (TrayItem, TrayLook) | ely-desktop native.rs, native/linux.rs, platform/ | ✓ | ✓ picks on the event loop | n/a | ✓ left click picks the first | n/a | n/a | system menus | ✓ `tests/desktop.rs` (Linux, private bus); macOS and Windows type-checked | G46 | ✓ |
+| Dock badge (`set_dock_badge`, `dock_badge`) | ely-desktop native.rs, platform/mac.rs | ✓ | n/a | n/a | n/a | n/a | n/a | n/a | type-checked (macOS only) | G46 | ✓ |
 | Toolbar / ToolbarGroup / ToolbarSeparator | shell/bars.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/bars.rs` | | ✓ |
 | StatusBar / StatusBarSide / StatusBarItem | shell/bars.rs, status.rs | ✓ | ✓ clicked | n/a | ✓ hover, tooltip | n/a | ✓ | ✓ clickable items are buttons | ✓ `tests/bars.rs` | | ✓ |
 | ActivityBar (ActivityItem) | shell/activity.rs | ✓ | ✓ select | n/a | ✓ hover, tooltip | ✓ mark grows in | ✓ | ✓ tab role, selected | ✓ `tests/bars.rs` | | ✓ |

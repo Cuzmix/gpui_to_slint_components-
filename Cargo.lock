@@ -1088,10 +1088,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "emojis",
+ "futures",
  "i-slint-backend-testing",
+ "image",
  "iso_currency",
  "jiff",
  "log",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
  "png",
  "regex",
  "serde",
@@ -1099,6 +1104,8 @@ dependencies = [
  "slint",
  "slint-build",
  "unicode-segmentation",
+ "windows",
+ "zbus",
 ]
 
 [[package]]
