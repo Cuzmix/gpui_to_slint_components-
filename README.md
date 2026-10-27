@@ -61,7 +61,7 @@ Some GPUI behavior needs logic `.slint` cannot express. The `ely-slint` crate co
 | Button (shortcut hint) | `shortcut: string`, already spelled for the platform | `ely_slint::shortcut_text("secondary-s", Platform::current())` gives `⌘S` or `Ctrl+S` |
 | FocusTrap | `FocusSteps.step(forward)`, once per window (export `FocusSteps` from your root file) | `ely_slint::focus::step(window, forward)` |
 | Picture (network or slow sources) | `loading` while it fetches, then `source` | none: use your own loader |
-| Kbd, KbdCombo, Highlight (and later Ellipsis, MiddleEllipsis) | `TextFormat`'s pure callbacks, once per window (export `TextFormat` and `PlatformStyle` from your root file) | `ely_slint::wire_text_format!(app)` |
+| Kbd, KbdCombo, Highlight, Ellipsis, MiddleEllipsis | `TextFormat`'s pure callbacks, once per window (export `TextFormat` and `PlatformStyle` from your root file) | `ely_slint::wire_text_format!(app)` |
 | IntersectionObserver | `visible-x`/`-y`/`-width`/`-height`, the area that counts as on screen | none |
 
 ```rust

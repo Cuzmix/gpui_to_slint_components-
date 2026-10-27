@@ -18,9 +18,9 @@ export component TypeText inherits Text {
     font-size: Theme.text-size(TextSize.base);
     color: Theme.colors.fg;
     wrap: word-wrap;
-    // GPUI snaps a line to whole device pixels, rounding half down.
-    private property <length> line: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
+    // One line's height: GPUI snaps it to whole device pixels, rounding half down.
+    out property <length> line-height: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
 
     // A thousandth of a pixel under, so f32 rounding never tips Slint's ceil of the block up a pixel.
-    line-height-factor: (root.line - 0.001px) / (root.font-size * root.line-ratio);
+    line-height-factor: (root.line-height - 0.001px) / (root.font-size * root.line-ratio);
 }

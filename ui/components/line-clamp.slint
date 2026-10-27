@@ -1,0 +1,12 @@
+// Port of gpui's `.line_clamp(n)` as Ely's story shows it (ely-gallery typography `line_clamp`).
+// Wrapped text kept to its first `lines` lines, then a hard cut: no ellipsis.
+
+import { TypeText } from "type-text.slint";
+
+export component LineClamp inherits TypeText {
+    // How many lines show.
+    in property <int> lines: 2;
+
+    overflow: clip;
+    height: min(self.preferred-height, max(0, self.lines) * self.line-height);
+}

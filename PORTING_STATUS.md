@@ -30,6 +30,9 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Blockquote | typography/inline.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/inline.rs` | G21 | ✓ |
 | KeyCap, Kbd, KbdCombo | typography/inline.rs, keys.rs | ✓ | n/a | n/a | n/a | n/a | ✓ per platform | ✓ each cap reads its label | ✓ `tests/inline.rs` | G20 | ✓ |
 | Highlight | typography/inline.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ reads the whole text | ✓ `tests/inline.rs` | G22 | ✓ |
+| Ellipsis (Truncate), MiddleEllipsis | typography/fit.rs | ✓ | n/a | n/a | n/a | n/a | ✓ cuts, alignment, nothing when no room | ✓ reads the whole text | ✓ `tests/fit.rs` | G23 | ✓ |
+| EllipsisTooltip | typography/fit.rs | ✓ | n/a | n/a | ✓ tip only while cut | ✓ (TooltipController) | ✓ | ✓ reads the whole text | ✓ `tests/fit.rs` | G7 G23 | ✓ |
+| LineClamp (gpui `.line_clamp`) | gpui text style | ✓ | n/a | n/a | n/a | n/a | ✓ hard cut | ✓ text role | ✓ `tests/fit.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
