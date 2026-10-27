@@ -1,0 +1,99 @@
+// Port of ely-core/src/forms/expression.rs (`ExpressionInput`, `expression_highlights`): a
+// formula field after "=", colored as you type, with its value or its problem below. Formulas
+// take numbers, the variables given, + - * / % ^ (right-associative), parentheses, and abs,
+// sqrt, round, floor, ceil, min and max.
+//
+// Reading and coloring run in Rust over f64 (`Formulas`, `wire_formulas!`); the field's text
+// needs `wire_fields!` too.
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { InputFrame, InputText, InputStyle } from "input.slint";
+import { TypeText } from "type-text.slint";
+
+// A name a formula may use, and its value.
+export struct FormulaVariable {
+    name: string,
+    value: float,
+}
+
+// The line under a formula: whether there is one, whether it is a value, and its text.
+export struct FormulaResult {
+    shown: bool,
+    ok: bool,
+    text: string,
+}
+
+// What formula fields need from Rust (`ely_slint::expression`).
+export global Formulas {
+    pure callback result(source: string, variables: [FormulaVariable]) -> FormulaResult;
+    // Numbers, functions, names, operators and punctuation colored from `palette` in that
+    // order, the rest `plain`.
+    pure callback colors(source: string, palette: [color], plain: color) -> styled-text;
+}
+
+export component ExpressionInput inherits VerticalLayout {
+    in-out property <string> text;
+    in property <[FormulaVariable]> variables;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <FormulaResult> result: Formulas.result(root.text, root.variables);
+
+    callback edited(text: string);
+    callback accepted();
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    spacing: 4px;
+
+    InputFrame {
+        size: ControlSize.md;
+        enabled: root.enabled;
+        invalid: root.result.shown && !root.result.ok;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        Text {
+            text: "=";
+            color: Theme.colors.fg-subtle;
+            font-family: Theme.mono-family;
+            font-size: Theme.text-size(InputStyle.text-size(ControlSize.md));
+            vertical-alignment: center;
+        }
+
+        field := InputText {
+            text <=> root.text;
+            placeholder: root.placeholder;
+            label: root.label;
+            description: root.result.text;
+            size: ControlSize.md;
+            enabled: root.enabled;
+            font-family: Theme.mono-family;
+            highlighting: true;
+            highlights: Formulas.colors(root.text, [
+                Theme.colors.syntax.number,
+                Theme.colors.syntax.function,
+                Theme.colors.syntax.property,
+                Theme.colors.syntax.operator,
+                Theme.colors.syntax.punctuation,
+            ], root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled);
+            edited(text) => {
+                root.edited(text);
+            }
+            accepted => {
+                root.accepted();
+            }
+        }
+    }
+
+    if root.result.shown: TypeText {
+        text: root.result.text;
+        color: root.result.ok ? Theme.colors.fg-muted : Theme.colors.danger;
+        font-size: Theme.text-size(TextSize.xs);
+        wrap: word-wrap;
+    }
+}

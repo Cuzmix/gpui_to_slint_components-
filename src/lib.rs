@@ -8,6 +8,7 @@ pub mod columns;
 #[cfg(feature = "desktop")]
 pub mod desktop;
 pub mod dock;
+pub mod expression;
 pub mod fields;
 pub mod focus;
 pub mod format;
