@@ -1,0 +1,137 @@
+// Port of ely-core/src/forms/upload.rs (`UploadList`, `Upload`, `UploadState`): files on their
+// way up. Each row shows its name, the percent and a progress bar while it goes, then its size
+// and a check, or why it failed with Retry.
+//
+// A row's button shows only when the owner takes its action (`can-cancel`, `can-retry`,
+// `can-remove`); gpui shows it when the handler is set. Sizes read through `TextFormat`
+// (`wire_text_format!`); sizes are `float`s (gap G55).
+
+import { Theme, ControlSize, IconSize, TextSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { TypeText } from "type-text.slint";
+import { ProgressBar } from "progress.slint";
+import { TextFormat } from "text-format.slint";
+
+// Where one upload stands.
+export enum UploadState {
+    // Sent `share` of it, 0 to 1.
+    uploading,
+    // Sent whole.
+    done,
+    // Stopped; `reason` says why.
+    failed,
+}
+
+// One file on its way up.
+export struct Upload {
+    name: string,
+    // Its size in bytes.
+    bytes: float,
+    state: UploadState,
+    // How much is sent, 0 to 1, while uploading.
+    share: float,
+    // Why it failed.
+    reason: string,
+}
+
+export component UploadList {
+    in property <[Upload]> uploads;
+    // Which rows show a button: uploads under way (Cancel), failed ones (Retry), finished ones
+    // (Remove).
+    in property <bool> can-cancel;
+    in property <bool> can-retry;
+    in property <bool> can-remove;
+
+    // The row of an upload under way, a failed one, or a finished one.
+    callback cancel(index: int);
+    callback retry(index: int);
+    callback remove(index: int);
+
+    VerticalLayout {
+        for upload[ix] in root.uploads: HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 12px;
+
+            VerticalLayout {
+                alignment: center;
+
+                Icon {
+                    source: upload.state == UploadState.done ? Icons.circle-check : upload.state == UploadState.failed ? Icons.circle-alert : Icons.file-text;
+                    size: IconSize.md;
+                    color: upload.state == UploadState.done ? Theme.colors.success : upload.state == UploadState.failed ? Theme.colors.danger : Theme.colors.fg-muted;
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                min-width: 0;
+                spacing: 4px;
+                alignment: center;
+
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    Ellipsis {
+                        horizontal-stretch: 1;
+                        text: upload.name;
+                        font-weight: 500;
+                    }
+
+                    VerticalLayout {
+                        alignment: end;
+
+                        TypeText {
+                            text: upload.state == UploadState.uploading ? round(upload.share * 100) + "%" : upload.state == UploadState.done ? TextFormat.file-size(upload.bytes, false) : upload.reason;
+                            font-size: Theme.text-size(TextSize.xs);
+                            color: upload.state == UploadState.failed ? Theme.colors.danger : Theme.colors.fg-subtle;
+                            wrap: no-wrap;
+                        }
+                    }
+                }
+
+                if upload.state == UploadState.uploading: ProgressBar {
+                    value: upload.share;
+                }
+            }
+
+            if (upload.state == UploadState.uploading && root.can-cancel) || (upload.state == UploadState.done && root.can-remove): VerticalLayout {
+                alignment: center;
+
+                IconButton {
+                    icon: Icons.x;
+                    size: ControlSize.sm;
+                    variant: ButtonVariant.ghost;
+                    tooltip: upload.state == UploadState.done ? @tr("Remove") : @tr("Cancel");
+                    clicked => {
+                        if upload.state == UploadState.done {
+                            root.remove(ix);
+                        } else {
+                            root.cancel(ix);
+                        }
+                    }
+                }
+            }
+
+            if upload.state == UploadState.failed && root.can-retry: VerticalLayout {
+                alignment: center;
+
+                IconButton {
+                    icon: Icons.rotate-cw;
+                    size: ControlSize.sm;
+                    variant: ButtonVariant.ghost;
+                    tooltip: @tr("Retry");
+                    clicked => {
+                        root.retry(ix);
+                    }
+                }
+            }
+        }
+    }
+}

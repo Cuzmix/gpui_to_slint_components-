@@ -1,0 +1,113 @@
+// What the file fields share, after ely-core/src/forms/files.rs (`taken`, `hovering`,
+// `file_name`, `PICTURES`): the `Files` global, the drop tint and a dashed outline.
+//
+// Checking files (do they exist, are they files, of which kind) runs in Rust; the host wires
+// `Files` once:
+//     ely_slint::wire_files!(app);
+// Slint 1.18 hands no files dragged in from other apps to a window (gap G64), so the host routes
+// them to a target by its `owner`: `hover_files!`, `drop_files!`, `leave_files!`.
+
+import { Theme } from "../theme/theme.slint";
+
+// Files from another app over a target: whose, which, whether they are only hovering or were
+// dropped; each drop counts up `serial`.
+export struct FileDrag {
+    owner: string,
+    paths: [string],
+    hovering: bool,
+    dropped: bool,
+    serial: int,
+}
+
+// What the file fields need from Rust (`ely_slint::files`).
+export global Files {
+    // Why `paths` are refused (nothing, several when one is taken, a folder, a kind not in
+    // `kinds`), or "" when they are taken. No kinds takes any file.
+    pure callback refusal(paths: [string], multiple: bool, kinds: [string]) -> string;
+    // Why `paths` are not one picture (png, jpg, gif or webp), or "".
+    pure callback picture-refusal(paths: [string]) -> string;
+    // The file's name, or the whole path for a root.
+    pure callback name(path: string) -> string;
+    // Logs a refusal and a take, as ely does.
+    callback refused(what: string, reason: string);
+    callback took(what: string, count: int);
+    // Files dragged in from other apps, as the host routes them.
+    in-out property <FileDrag> drag;
+    // Files a picture may be, by extension.
+    out property <[string]> pictures: ["png", "jpg", "jpeg", "gif", "webp"];
+}
+
+// A drop target's tint while files hover: focus and selection when it takes them, danger when not.
+export global FileDrops {
+    public pure function tint-border(over: bool, takes: bool) -> color {
+        !over ? transparent : takes ? Theme.colors.focus : Theme.colors.danger
+    }
+    public pure function tint-fill(over: bool, takes: bool) -> color {
+        !over ? transparent : takes ? Theme.colors.selection : Theme.colors.danger-subtle
+    }
+}
+
+// A dashed outline with `radius` corners; give it its parent's size. Slint draws no dashed border: dashes
+// twice the `thickness` long with gaps of one thickness along each edge, the corners solid
+// (gap G34).
+export component DashedOutline {
+    in property <length> radius;
+    in property <length> thickness: 1px;
+    in property <color> color;
+
+    private property <length> dash: root.thickness * 2;
+    private property <length> period: root.thickness * 3;
+    private property <int> across: Math.max(0, floor((root.width - 2 * root.radius) / root.period));
+    private property <int> down: Math.max(0, floor((root.height - 2 * root.radius) / root.period));
+
+    for i in root.across: Rectangle {
+        x: root.radius + i * root.period;
+        y: 0;
+        width: root.dash;
+        height: root.thickness;
+        background: root.color;
+    }
+
+    for i in root.across: Rectangle {
+        x: root.radius + i * root.period;
+        y: root.height - root.thickness;
+        width: root.dash;
+        height: root.thickness;
+        background: root.color;
+    }
+
+    for i in root.down: Rectangle {
+        x: 0;
+        y: root.radius + i * root.period;
+        width: root.thickness;
+        height: root.dash;
+        background: root.color;
+    }
+
+    for i in root.down: Rectangle {
+        x: root.width - root.thickness;
+        y: root.radius + i * root.period;
+        width: root.thickness;
+        height: root.dash;
+        background: root.color;
+    }
+
+    // The corners, drawn whole: each a quarter of the full outline.
+    for corner in 4: Rectangle {
+        x: Math.mod(corner, 2) == 0 ? 0 : root.width - root.radius;
+        y: corner < 2 ? 0 : root.height - root.radius;
+        width: root.radius;
+        height: root.radius;
+        clip: true;
+
+        Rectangle {
+            x: -parent.x;
+            y: -parent.y;
+            width: root.width;
+            height: root.height;
+            border-radius: root.radius;
+            border-width: root.thickness;
+            border-color: root.color;
+        }
+    }
+}

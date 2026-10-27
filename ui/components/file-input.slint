@@ -1,0 +1,131 @@
+// Port of ely-core/src/forms/files.rs (`FileInput`): chosen files in a field. A press, or Enter
+// or Space, opens the system's file dialog; files dropped on it count too. A clear button
+// empties it.
+//
+// The dialog goes through `Paths` (`wire_paths!`, gap G56); checking dropped files through
+// `Files` (`wire_files!`), with drops routed by the host (gap G64). Like Select (G48), `paths`
+// is `in-out`: a change sets it, then reports it.
+
+import { Theme, ControlSize, IconSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { FieldButton, FieldText } from "field-button.slint";
+import { Paths } from "path-input.slint";
+import { Files, FileDrag, FileDrops } from "files.slint";
+
+export component FileInput {
+    // Names the field to the dialog and to drops; unique among them.
+    in property <string> owner: "file";
+    // The files chosen; at most one unless `multiple`.
+    in-out property <[string]> paths;
+    // Takes several files at once.
+    in property <bool> multiple;
+
+    out property <bool> has-focus: button.has-focus;
+    // Files from another app hover it, and whether it takes them.
+    out property <bool> drag-over: Files.drag.hovering && Files.drag.owner == root.owner;
+    out property <bool> takes-drag: root.drag-over && Files.refusal(Files.drag.paths, root.multiple, []) == "";
+
+    // The paths after each change.
+    callback paths-changed(paths: [string]);
+
+    private property <string> what: "file input \"" + root.owner + "\"";
+    private property <string> placeholder: root.multiple ? @tr("Choose files…") : @tr("Choose a file…");
+    private property <string> shown: root.paths.length == 0 ? "" : root.paths.length == 1 ? Files.name(root.paths[0]) : Files.name(root.paths[0]) + " +" + (root.paths.length - 1);
+    private property <int> answers: Paths.answers;
+    private property <int> drops: Files.drag.serial;
+    // Enter or Space pressed, waiting for its release (gpui's keyboard click).
+    private property <bool> armed;
+
+    function set(next: [string]) {
+        root.paths = next;
+        Files.took(root.what, next.length);
+        root.paths-changed(next);
+    }
+
+    function browse() {
+        Paths.choose({ owner: root.owner, directories: false, multiple: root.multiple, prompt: @tr("Choose") });
+    }
+
+    changed answers => {
+        if Paths.answered-owner == root.owner {
+            root.set(Paths.answered);
+        }
+    }
+    changed drops => {
+        if Files.drag.dropped && Files.drag.owner == root.owner {
+            let reason = Files.refusal(Files.drag.paths, root.multiple, []);
+            if reason == "" {
+                root.set(Files.drag.paths);
+            } else {
+                Files.refused(root.what, "a drop: " + reason);
+            }
+        }
+    }
+
+    forward-focus: button;
+    horizontal-stretch: 1;
+    min-width: button.min-width;
+    preferred-width: button.preferred-width;
+    height: button.height;
+    accessible-role: AccessibleRole.button;
+    accessible-label: root.placeholder;
+    accessible-value: root.shown;
+    accessible-action-default => {
+        root.browse();
+    }
+
+    button := FieldButton {
+        width: root.width;
+        size: ControlSize.md;
+        tint-border: FileDrops.tint-border(root.drag-over, root.takes-drag);
+        tint-fill: FileDrops.tint-fill(root.drag-over, root.takes-drag);
+        clicked => {
+            root.browse();
+        }
+        key-pressed(event) => {
+            root.armed = (event.text == Key.Return || event.text == " ") && !event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta;
+            reject
+        }
+        key-released(event) => {
+            if root.armed && (event.text == Key.Return || event.text == " ") {
+                root.armed = false;
+                root.browse();
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: Icons.file;
+                size: IconSize.sm;
+                color: Theme.colors.fg-subtle;
+            }
+        }
+
+        FieldText {
+            text: root.shown;
+            placeholder: root.placeholder;
+            size: ControlSize.md;
+        }
+
+        if root.paths.length > 0: VerticalLayout {
+            alignment: center;
+
+            IconButton {
+                icon: Icons.x;
+                size: ControlSize.sm;
+                variant: ButtonVariant.ghost;
+                tooltip: @tr("Clear");
+                clicked => {
+                    root.set([]);
+                }
+            }
+        }
+    }
+}

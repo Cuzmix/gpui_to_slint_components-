@@ -14,6 +14,7 @@ pub mod desktop;
 pub mod dock;
 pub mod expression;
 pub mod fields;
+pub mod files;
 pub mod focus;
 pub mod format;
 pub mod highlight;

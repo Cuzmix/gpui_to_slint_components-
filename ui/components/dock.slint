@@ -18,6 +18,7 @@
 // floating panels, and every zone under the pointer lights; letting go moves the panel to the
 // top one (the float zone, then bottom, top, right, left).
 
+import { DashedOutline } from "files.slint";
 import {
     Theme,
     ControlSize,
@@ -162,52 +163,12 @@ component DockZone inherits Rectangle {
     background: root.lit ? Theme.colors.focus.with-alpha(0.12) : transparent;
 
     // Slint draws no dashed border: dashes 4 px long with 2 px gaps along each edge (gap G34).
-    private property <color> edge: root.lit ? Theme.colors.focus.with-alpha(0.7) : Theme.colors.border-strong;
-    private property <length> inset: Theme.radius(Radius.lg);
-    for i in max(0, floor((root.width - 2 * root.inset) / 6px)): Rectangle {
-        x: root.inset + i * 6px;
-        y: 0;
-        width: 4px;
-        height: 2px;
-        background: root.edge;
-    }
-    for i in max(0, floor((root.width - 2 * root.inset) / 6px)): Rectangle {
-        x: root.inset + i * 6px;
-        y: root.height - 2px;
-        width: 4px;
-        height: 2px;
-        background: root.edge;
-    }
-    for i in max(0, floor((root.height - 2 * root.inset) / 6px)): Rectangle {
-        x: 0;
-        y: root.inset + i * 6px;
-        width: 2px;
-        height: 4px;
-        background: root.edge;
-    }
-    for i in max(0, floor((root.height - 2 * root.inset) / 6px)): Rectangle {
-        x: root.width - 2px;
-        y: root.inset + i * 6px;
-        width: 2px;
-        height: 4px;
-        background: root.edge;
-    }
-    // The corners, drawn whole: each a quarter of the full outline.
-    for corner in 4: Rectangle {
-        x: Math.mod(corner, 2) == 0 ? 0 : root.width - root.inset;
-        y: corner < 2 ? 0 : root.height - root.inset;
-        width: root.inset;
-        height: root.inset;
-        clip: true;
-        Rectangle {
-            x: -parent.x;
-            y: -parent.y;
-            width: root.width;
-            height: root.height;
-            border-radius: root.border-radius;
-            border-width: 2px;
-            border-color: root.edge;
-        }
+    DashedOutline {
+        width: parent.width;
+        height: parent.height;
+        radius: Theme.radius(Radius.lg);
+        thickness: 2px;
+        color: root.lit ? Theme.colors.focus.with-alpha(0.7) : Theme.colors.border-strong;
     }
 }
 

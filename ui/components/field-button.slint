@@ -9,13 +9,19 @@ import { Ellipsis } from "ellipsis.slint";
 export component FieldButton {
     in property <ControlSize> size: ControlSize.md;
     in property <bool> enabled: true;
+    // A drop target's tint while files hover (`FileDrops.tint-border`, `tint-fill`); transparent leaves the field's own.
+    in property <color> tint-border: transparent;
+    in property <color> tint-fill: transparent;
 
     out property <bool> has-focus: keys.has-focus;
 
     // A left press, after it took focus.
     callback pressed();
+    // A left press and release inside.
+    callback clicked();
     // A key while focused; reject to pass it on.
     callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     forward-focus: keys;
     horizontal-stretch: 1;
@@ -26,8 +32,8 @@ export component FieldButton {
     Rectangle {
         border-radius: Theme.radius(Radius.md);
         border-width: 1px;
-        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
-        background: root.enabled ? Theme.colors.surface : Theme.colors.sunken;
+        border-color: root.tint-border != transparent ? root.tint-border : keys.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+        background: root.tint-fill != transparent ? root.tint-fill : root.enabled ? Theme.colors.surface : Theme.colors.sunken;
     }
 
     TouchArea {
@@ -39,6 +45,9 @@ export component FieldButton {
                 root.pressed();
             }
         }
+        clicked => {
+            root.clicked();
+        }
     }
 
     keys := FocusScope {
@@ -46,6 +55,9 @@ export component FieldButton {
         focus-on-click: false;
         key-pressed(event) => {
             root.key-pressed(event)
+        }
+        key-released(event) => {
+            root.key-released(event)
         }
     }
 
