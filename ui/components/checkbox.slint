@@ -69,26 +69,18 @@ export component CheckMark {
     }
 }
 
-export component Checkbox {
-    in-out property <CheckState> state;
-    // Text beside the box; a press on it toggles too.
+// The row alone: it reports presses and leaves the state to its owner, so a group's binding
+// stays (Checkbox and CheckboxGroup build on it).
+component CheckboxRow {
+    in property <CheckState> state;
     in property <string> label;
-    // The name assistive technology reads when the box draws no label; nothing is drawn.
     in property <string> name;
-    // Dims it and takes no press.
     in property <bool> enabled: true;
-    in property <string> unavailable-text: @tr("Unavailable");
+    in property <string> unavailable-text;
 
     out property <bool> has-focus: keys.has-focus;
 
-    // Runs with the new value. Mixed and off both turn on.
-    callback toggled(on: bool);
-
-    function press() {
-        let next = root.state != CheckState.on;
-        root.state = next ? CheckState.on : CheckState.off;
-        root.toggled(next);
-    }
+    callback pressed();
 
     forward-focus: keys;
     min-width: row.min-width;
@@ -103,7 +95,7 @@ export component Checkbox {
     accessible-enabled: root.enabled;
     accessible-action-default => {
         if root.enabled {
-            root.press();
+            root.pressed();
         }
     }
 
@@ -136,14 +128,49 @@ export component Checkbox {
         enabled: root.enabled;
         mouse-cursor: MouseCursor.pointer;
         clicked => {
-            root.press();
+            root.pressed();
         }
     }
 
     keys := ClickKeys {
         enabled: root.enabled;
         activated => {
-            root.press();
+            root.pressed();
+        }
+    }
+}
+
+export component Checkbox {
+    in-out property <CheckState> state;
+    // Text beside the box; a press on it toggles too.
+    in property <string> label;
+    // The name assistive technology reads when the box draws no label; nothing is drawn.
+    in property <string> name;
+    // Dims it and takes no press.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: face.has-focus;
+
+    // Runs with the new value. Mixed and off both turn on.
+    callback toggled(on: bool);
+
+    forward-focus: face;
+    min-width: face.min-width;
+    preferred-width: face.preferred-width;
+    min-height: face.min-height;
+    preferred-height: face.preferred-height;
+
+    face := CheckboxRow {
+        state: root.state;
+        label: root.label;
+        name: root.name;
+        enabled: root.enabled;
+        unavailable-text: root.unavailable-text;
+        pressed => {
+            let next = root.state != CheckState.on;
+            root.state = next ? CheckState.on : CheckState.off;
+            root.toggled(next);
         }
     }
 }
@@ -160,12 +187,15 @@ export component CheckboxGroup inherits VerticalLayout {
 
     spacing: 8px;
 
-    for choice in root.choices: Checkbox {
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    for choice in root.choices: CheckboxRow {
         state: Toggles.contains(root.selected, choice.value) ? CheckState.on : CheckState.off;
         label: choice.label;
         enabled: !choice.disabled;
-        toggled(on) => {
-            root.selected = Choices.toggled(root.choices, root.selected, choice.value, on);
+        unavailable-text: root.unavailable-text;
+        pressed => {
+            root.selected = Choices.toggled(root.choices, root.selected, choice.value, !Toggles.contains(root.selected, choice.value));
             root.selection-changed(root.selected);
         }
     }

@@ -86,6 +86,10 @@ fn a_group_keeps_choice_order() {
     click(h.window(), 18.0, 110.0);
     assert_eq!(days(&h), ["mon", "tue"]);
     assert_eq!(h.get_group_changes(), 1);
+    // The owner's new selection still shows: the boxes stay bound to it.
+    h.set_days(slint::ModelRc::new(slint::VecModel::from(vec![slint::SharedString::from("tue")])));
+    click(h.window(), 18.0, 110.0);
+    assert_eq!(days(&h), ["mon", "tue"], "Monday was off again, so the press turns it on");
 }
 
 fn the_motion_settles() {
