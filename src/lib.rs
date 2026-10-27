@@ -6,6 +6,7 @@
 
 pub mod cascade;
 pub mod columns;
+pub mod dates;
 #[cfg(feature = "desktop")]
 pub mod desktop;
 pub mod dock;

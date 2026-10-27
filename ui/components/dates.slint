@@ -1,0 +1,118 @@
+// Port of ely-core/src/forms/date/mod.rs and the calendar math of calendar.rs: days, how a day
+// reads, and the walks Slint cannot do (`Dates`, wired by `ely_slint::wire_dates!`).
+//
+// A day is `CivilDate { year, month, day }`; a year of 0 is no day, so an unset property means
+// "none". `Dates.today` is the system's date, kept current by the wiring; unwired it is none.
+
+// A day: year, month 1–12, day 1–31. A year of 0 is no day.
+export struct CivilDate {
+    year: int,
+    month: int,
+    day: int,
+}
+
+// The calendar walks, in Rust (`ely_slint::dates`).
+export global Dates {
+    // Today, in the system's zone.
+    in-out property <CivilDate> today;
+    // The 42 days a month shows: six weeks from the Monday on or before its first.
+    pure callback grid(month: CivilDate) -> [CivilDate];
+    // `date` moved by `months`, then `days`; a month too short keeps its last day.
+    pure callback shift(date: CivilDate, days: int, months: int) -> CivilDate;
+    // The Monday of `date`'s week.
+    pure callback week-start(date: CivilDate) -> CivilDate;
+}
+
+// Comparing days, in Slint.
+export global DateMath {
+    // Whether `date` names a day.
+    public pure function is-set(date: CivilDate) -> bool {
+        date.year != 0
+    }
+
+    // A number that orders days.
+    public pure function key(date: CivilDate) -> int {
+        date.year * 10000 + date.month * 100 + date.day
+    }
+
+    public pure function same(a: CivilDate, b: CivilDate) -> bool {
+        a.year != 0 && a.year == b.year && a.month == b.month && a.day == b.day
+    }
+
+    // The first of `date`'s month.
+    public pure function first-of-month(date: CivilDate) -> CivilDate {
+        { year: date.year, month: date.month, day: 1 }
+    }
+
+    // Whether `date` is on or after `minimum` and on or before `maximum`, each when set.
+    public pure function within(date: CivilDate, minimum: CivilDate, maximum: CivilDate) -> bool {
+        (minimum.year == 0 || DateMath.key(date) >= DateMath.key(minimum)) && (maximum.year == 0 || DateMath.key(date) <= DateMath.key(maximum))
+    }
+
+    // The earlier and the later of two days.
+    public pure function earlier(a: CivilDate, b: CivilDate) -> CivilDate {
+        DateMath.key(a) <= DateMath.key(b) ? a : b
+    }
+    public pure function later(a: CivilDate, b: CivilDate) -> CivilDate {
+        DateMath.key(a) <= DateMath.key(b) ? b : a
+    }
+}
+
+// How days read, in the reader's language.
+export global DateWords {
+    out property <[string]> months: [
+        @tr("Jan"),
+        @tr("Feb"),
+        @tr("Mar"),
+        @tr("Apr"),
+        @tr("May"),
+        @tr("Jun"),
+        @tr("Jul"),
+        @tr("Aug"),
+        @tr("Sep"),
+        @tr("Oct"),
+        @tr("Nov"),
+        @tr("Dec"),
+    ];
+    out property <[string]> months-long: [
+        @tr("January"),
+        @tr("February"),
+        @tr("March"),
+        @tr("April"),
+        @tr("May"),
+        @tr("June"),
+        @tr("July"),
+        @tr("August"),
+        @tr("September"),
+        @tr("October"),
+        @tr("November"),
+        @tr("December"),
+    ];
+    // Monday first.
+    out property <[string]> weekdays: [@tr("Mo"), @tr("Tu"), @tr("We"), @tr("Th"), @tr("Fr"), @tr("Sa"), @tr("Su")];
+
+    // "Sep 5, 2026".
+    public pure function day(date: CivilDate) -> string {
+        @tr("{0} {1}, {2}", DateWords.months[date.month - 1], date.day, date.year)
+    }
+
+    // "September 2026".
+    public pure function month(date: CivilDate) -> string {
+        @tr("{0} {1}", DateWords.months-long[date.month - 1], date.year)
+    }
+
+    // A span, naming only what differs: "Sep 3 – 17, 2026", "Sep 28 – Oct 2, 2026",
+    // "Dec 30, 2026 – Jan 2, 2027".
+    public pure function span(start: CivilDate, end: CivilDate) -> string {
+        if DateMath.same(start, end) {
+            return DateWords.day(start);
+        }
+        if start.year != end.year {
+            return @tr("{0} – {1}", DateWords.day(start), DateWords.day(end));
+        }
+        if start.month != end.month {
+            return @tr("{0} {1} – {2} {3}, {4}", DateWords.months[start.month - 1], start.day, DateWords.months[end.month - 1], end.day, start.year);
+        }
+        @tr("{0} {1} – {2}, {3}", DateWords.months[start.month - 1], start.day, end.day, start.year)
+    }
+}
