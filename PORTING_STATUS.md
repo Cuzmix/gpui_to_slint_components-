@@ -77,6 +77,11 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | WindowResizeBorder (ResizeBorder) | shell/frame.rs | ✓ | ✓ start-resize | n/a | ✓ edge cursors | n/a | ✓ | n/a | ✓ `tests/title_bar.rs` | G37 | ✓ |
 | Vibrancy | shell/vibrancy.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | n/a (a fill) | | ✓ |
 | ColumnShell / ShellColumn (ShellColumnHeader, ShellColumnTitle, ShellColumnBody) | shell/columns.rs | ✓ | ✓ resized, close-requested | n/a | ✓ border drags from the drawn width, header drags the window | n/a | ✓ | ✓ title text | ✓ `tests/column_shell.rs`, `src/columns.rs` | G39 G42 | ✓ |
+| Hosted window (HostedWindow, `open_hosted`, `open_splash`) | shell/windows.rs | ✓ | ✓ Escape closes | ✓ Escape | ✓ strip drags | n/a | ✓ | n/a | ✓ `tests/dialogs.rs` | G44 | ✓ |
+| AboutDialog (AboutLink) | shell/dialogs.rs | ✓ | ✓ links open | n/a | n/a | n/a | ✓ | ✓ texts, links | ✓ `tests/dialogs.rs` | G44 | ✓ |
+| SplashScreen | shell/dialogs.rs | ✓ | n/a | n/a | n/a | ✓ rises in | ✓ | ✓ progress | ✓ `tests/dialogs.rs` | G43 G44 | ✓ |
+| CrashReporter | shell/crash.rs | ✓ | ✓ send, dismiss, copied | n/a | ✓ report opens | ✓ collapse | ✓ | ✓ buttons | ✓ `tests/dialogs.rs` | G44 | ✓ |
+| UpdateBanner / UpdateDialog (UpdateState) | shell/update.rs | ✓ | ✓ download, restart, later | n/a | n/a | ✓ progress glide | ✓ | ✓ buttons | ✓ `tests/dialogs.rs` | | ✓ |
 | Toolbar / ToolbarGroup / ToolbarSeparator | shell/bars.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/bars.rs` | | ✓ |
 | StatusBar / StatusBarSide / StatusBarItem | shell/bars.rs, status.rs | ✓ | ✓ clicked | n/a | ✓ hover, tooltip | n/a | ✓ | ✓ clickable items are buttons | ✓ `tests/bars.rs` | | ✓ |
 | ActivityBar (ActivityItem) | shell/activity.rs | ✓ | ✓ select | n/a | ✓ hover, tooltip | ✓ mark grows in | ✓ | ✓ tab role, selected | ✓ `tests/bars.rs` | | ✓ |

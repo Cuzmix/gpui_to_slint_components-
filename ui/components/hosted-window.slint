@@ -1,0 +1,58 @@
+// Port of ely-core/src/shell/windows.rs (`Hosted`, `open_hosted`): a fixed-size window whose
+// content is one component (the children), under a strip the title bar's height that drags the
+// window. Escape closes it. The splash screen sets `framed` and `movable` false.
+//
+// The host shows it with `ely_slint::window::open_hosted` (or `open_splash`), which centers it,
+// turns resizing and minimizing off and logs the opening, and wires its `WindowChrome` with
+// `ely_slint::wire_window!` (Rust):
+//
+//     let about = AboutWindow::new()?;
+//     ely_slint::wire_window!(about);
+//     ely_slint::window::open_hosted(about.window(), "About Ely")?;
+
+import { Theme } from "../theme/theme.slint";
+import { WindowChrome } from "window-chrome.slint";
+import { WindowDragArea } from "window-controls.slint";
+
+export component HostedWindow inherits Window {
+    // The window's title (gpui's titlebar title), shown by the system.
+    in property <string> heading;
+    // Its fixed size: an about window (360 × 400), a dialog (400 × 480), a splash (480 × 300).
+    in property <length> window-width: Theme.dialog-window-width;
+    in property <length> window-height: Theme.dialog-window-height;
+    // Drawn with the system's frame and title bar; false for a splash (gpui `titlebar: None`).
+    in property <bool> framed: true;
+    // The strip drags the window (gpui `is_movable`).
+    in property <bool> movable: true;
+
+    title: root.heading;
+    no-frame: !root.framed;
+    background: Theme.colors.bg;
+    preferred-width: root.window-width;
+    preferred-height: root.window-height;
+    min-width: root.window-width;
+    max-width: root.window-width;
+    min-height: root.window-height;
+    max-height: root.window-height;
+    default-font-family: Theme.font-family;
+    forward-focus: scope;
+
+    scope := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                WindowChrome.close();
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            WindowDragArea {
+                height: Theme.titlebar-height;
+                enabled: root.movable;
+            }
+
+            @children
+        }
+    }
+}

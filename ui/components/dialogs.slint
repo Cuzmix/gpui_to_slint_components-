@@ -1,0 +1,210 @@
+// Port of ely-core/src/shell/dialogs.rs (`AboutDialog`, `SplashScreen`): the contents of the
+// About window and of the first screen while an app loads. Put either in a `HostedWindow`.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Title } from "title.slint";
+import { Caption } from "caption.slint";
+import { Paragraph } from "paragraph.slint";
+import { CopyableText } from "copyable-text.slint";
+import { ExternalLink } from "link.slint";
+import { ProgressBar } from "progress.slint";
+import { TextFormat } from "text-format.slint";
+import { TypeText } from "type-text.slint";
+
+// A link on the About window.
+export struct AboutLink {
+    label: string,
+    url: string,
+}
+
+// The app's mark: its glyph, or its name's first letter, on a 64 px sunken tile.
+component AppMark inherits Rectangle {
+    in property <string> name;
+    in property <image> icon;
+    in property <bool> has-icon;
+
+    width: Theme.control-height(ControlSize.lg) * 2;
+    height: self.width;
+    border-radius: Theme.radius(Radius.xl);
+    background: Theme.colors.sunken;
+    border-width: 1px;
+    border-color: Theme.colors.border;
+
+    if root.has-icon: Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: root.icon;
+        size: IconSize.xxl;
+        color: Theme.colors.fg;
+    }
+    if !root.has-icon: Text {
+        // gpui takes the first character; the host's grapheme split is the nearest (G44).
+        text: TextFormat.grapheme-prefix(root.name, 1);
+        font-size: Theme.text-size(TextSize.xxl);
+        color: Theme.colors.fg;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Name, version, credits: the About window's content (`AboutDialog`). Its window is 360 × 400
+// and titled "About {name}".
+export component AboutDialog inherits VerticalLayout {
+    in property <string> name;
+    in property <string> version;
+    // The app glyph; the name's initial stands in without one.
+    in property <image> icon;
+    in property <bool> has-icon;
+    // A line under the name; none when empty.
+    in property <string> description;
+    // Links that open their address.
+    in property <[AboutLink]> links;
+    // The copyright line; none when empty.
+    in property <string> copyright;
+
+    alignment: start;
+    spacing: 8px;
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-top: 16px;
+    padding-bottom: 32px;
+
+    HorizontalLayout {
+        alignment: center;
+        AppMark {
+            name: root.name;
+            icon: root.icon;
+            has-icon: root.has-icon;
+        }
+    }
+
+    VerticalLayout {
+        padding-top: 12px;
+        Title {
+            text: root.name;
+            horizontal-alignment: center;
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        CopyableText {
+            text: @tr("Version {}", root.version);
+        }
+    }
+
+    if !root.description.is-empty: VerticalLayout {
+        padding-top: 8px;
+        Paragraph {
+            text: root.description;
+            horizontal-alignment: center;
+        }
+    }
+
+    if root.links.length > 0: HorizontalLayout {
+        padding-top: 8px;
+        spacing: 16px;
+        alignment: center;
+        for link in root.links: ExternalLink {
+            text: link.label;
+            url: link.url;
+        }
+    }
+
+    if !root.copyright.is-empty: VerticalLayout {
+        padding-top: 16px;
+        Caption {
+            text: root.copyright;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// The first screen while an app loads: mark, name, progress (`SplashScreen`). The block rises in
+// over the slow motion. Its window is 480 × 300, frameless, and neither moves nor resizes.
+export component SplashScreen inherits VerticalLayout {
+    in property <string> name;
+    // The mark's glyph; the name's initial stands in without one.
+    in property <image> icon;
+    in property <bool> has-icon;
+    // A line under the name; none when empty.
+    in property <string> tagline;
+    // What is loading now.
+    in property <string> status;
+    // A known progress, 0 to 1, in `progress`; without it the bar sweeps.
+    in property <bool> has-progress;
+    in property <float> progress;
+
+    private property <bool> risen;
+    private property <float> rise: root.risen ? 1 : 0;
+    animate rise {
+        duration: Theme.motion-slow;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+    init => {
+        root.risen = true;
+    }
+
+    alignment: center;
+    spacing: 8px;
+    padding-left: 40px;
+    padding-right: 40px;
+
+    // gpui's `mt(NUDGE × 2 × (1 − t))`: the block starts 8 px lower, and as the column centers
+    // its rows, both rows start 4 px lower.
+    Rectangle {
+        opacity: root.rise;
+        VerticalLayout {
+            padding-top: Theme.nudge * 2 * (1 - root.rise);
+            spacing: 8px;
+            HorizontalLayout {
+                alignment: center;
+                AppMark {
+                    name: root.name;
+                    icon: root.icon;
+                    has-icon: root.has-icon;
+                }
+            }
+
+            VerticalLayout {
+                padding-top: 8px;
+                Title {
+                    text: root.name;
+                    horizontal-alignment: center;
+                }
+            }
+
+            if !root.tagline.is-empty: Caption {
+                text: root.tagline;
+                horizontal-alignment: center;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        VerticalLayout {
+            width: (root.width - 80px) * 0.6;
+            padding-top: 32px;
+            spacing: 8px;
+            ProgressBar {
+                indeterminate: !root.has-progress;
+                value: root.progress;
+            }
+
+            TypeText {
+                text: root.status;
+                font-size: Theme.text-size(TextSize.xs);
+                color: Theme.colors.fg-subtle;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

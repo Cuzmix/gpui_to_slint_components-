@@ -181,12 +181,54 @@ pub fn minimize(window: &slint::Window) {
 /// Maximizes `window`, or restores it.
 pub fn zoom(window: &slint::Window) {
     log::info!("window controls: Maximize");
-    window.set_maximized(!window.is_maximized());
+    if resizable(window) {
+        window.set_maximized(!window.is_maximized());
+    }
 }
 
 /// A title bar's double click: zoom, as Linux does and macOS's default setting (gap G38).
 pub fn title_double_click(window: &slint::Window) {
-    window.set_maximized(!window.is_maximized());
+    if resizable(window) {
+        window.set_maximized(!window.is_maximized());
+    }
+}
+
+// A window that does not resize does not zoom either, as the systems keep it.
+fn resizable(window: &slint::Window) -> bool {
+    window.with_winit_window(|w| w.is_resizable()).unwrap_or(true)
+}
+
+/// Shows a `HostedWindow` as gpui's `open_hosted` does: centered on its display, not resizable,
+/// not minimizable. Wire its `WindowChrome` with `wire_window!` first.
+pub fn open_hosted(window: &slint::Window, title: &str) -> Result<(), slint::PlatformError> {
+    window.show()?;
+    settle(window, winit::window::WindowButtons::CLOSE);
+    log::info!("window: opened {title}");
+    Ok(())
+}
+
+/// Shows a frameless `HostedWindow` as gpui's `SplashScreen::open` does: centered, neither
+/// resizable nor minimizable. Hide it once the app has loaded.
+pub fn open_splash(window: &slint::Window) -> Result<(), slint::PlatformError> {
+    window.show()?;
+    settle(window, winit::window::WindowButtons::empty());
+    log::info!("splash: shown");
+    Ok(())
+}
+
+// Fixes the window's size and buttons and centers it on its display. The window shows for a
+// moment where the system placed it first (G44).
+fn settle(window: &slint::Window, buttons: winit::window::WindowButtons) {
+    window.with_winit_window(|w| {
+        w.set_resizable(false);
+        w.set_enabled_buttons(buttons);
+        if let Some(display) = w.current_monitor() {
+            let (at, room, size) = (display.position(), display.size(), w.outer_size());
+            let x = at.x + (room.width as i32 - size.width as i32) / 2;
+            let y = at.y + (room.height as i32 - size.height as i32) / 2;
+            w.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+        }
+    });
 }
 
 /// Connects a window component's `WindowChrome` to its window. Returns the `Rc<WindowHost>`,

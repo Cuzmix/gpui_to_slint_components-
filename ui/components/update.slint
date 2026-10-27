@@ -1,0 +1,259 @@
+// Port of ely-core/src/shell/update.rs (`UpdateState`, `UpdateBanner`, `UpdateDialog`): a slim
+// bar that offers a new version, shows the download, then asks to restart; and the update
+// window. Each button shows only when its `offers-…` is set (gpui: only with a handler).
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Title } from "title.slint";
+import { Caption } from "caption.slint";
+import { Label } from "label.slint";
+import { TypeText } from "type-text.slint";
+import { Button } from "button.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { ScrollArea } from "scroll.slint";
+import { ProgressBar } from "progress.slint";
+
+// Where an update stands. While downloading, `progress` says how far, 0 to 1.
+export enum UpdateState {
+    // A new version can download.
+    available,
+    // Downloading.
+    downloading,
+    // Downloaded; a restart installs it.
+    ready,
+}
+
+// The handlers both share, as properties and callbacks.
+component UpdateButtons inherits HorizontalLayout {
+    in property <UpdateState> state;
+    in property <ControlSize> size;
+    in property <bool> offers-download;
+    in property <bool> offers-restart;
+    in property <bool> offers-later;
+
+    callback download();
+    callback restart();
+    callback later();
+
+    spacing: 8px;
+    alignment: end;
+
+    if root.offers-later: Button {
+        text: @tr("Later");
+        variant: ButtonVariant.ghost;
+        size: root.size;
+        clicked => {
+            root.later();
+        }
+    }
+    if root.state == UpdateState.available && root.offers-download: Button {
+        text: @tr("Download");
+        variant: ButtonVariant.primary;
+        size: root.size;
+        clicked => {
+            root.download();
+        }
+    }
+    if root.state == UpdateState.ready && root.offers-restart: Button {
+        text: @tr("Restart to update");
+        variant: ButtonVariant.primary;
+        size: root.size;
+        clicked => {
+            root.restart();
+        }
+    }
+}
+
+// A slim bar across the window (`UpdateBanner`): the message, Download or "Restart to update",
+// and an x that puts the update off; the progress along its foot while downloading.
+export component UpdateBanner inherits Rectangle {
+    // The version on offer.
+    in property <string> version;
+    in property <UpdateState> state: UpdateState.available;
+    // How far the download is, 0 to 1.
+    in property <float> progress;
+    // Shows Download while available (gpui's `on_download`).
+    in property <bool> offers-download;
+    // Shows "Restart to update" once ready (gpui's `on_restart`).
+    in property <bool> offers-restart;
+    // Shows the x (gpui's `on_later`).
+    in property <bool> offers-later;
+
+    callback download();
+    callback restart();
+    callback later();
+
+    background: Theme.colors.surface;
+    min-height: row.min-height + 1px;
+    preferred-height: row.preferred-height + 1px;
+    vertical-stretch: 0;
+
+    row := HorizontalLayout {
+        y: 0;
+        height: root.height - 1px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        padding-left: 16px;
+        padding-right: 8px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: Icons.download;
+                size: IconSize.sm;
+                color: Theme.colors.fg-muted;
+            }
+        }
+
+        TypeText {
+            text: root.state == UpdateState.available ? @tr("Version {} is available.", root.version) : root.state == UpdateState.downloading ? @tr("Downloading {}… {}%", root.version, Math.round(clamp(root.progress, 0, 1) * 100)) : @tr("Version {} is ready.", root.version);
+            font-size: Theme.text-size(TextSize.sm);
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        if (root.state == UpdateState.available && root.offers-download) || (root.state == UpdateState.ready && root.offers-restart): VerticalLayout {
+            alignment: center;
+            UpdateButtons {
+                state: root.state;
+                size: ControlSize.sm;
+                offers-download: root.offers-download;
+                offers-restart: root.offers-restart;
+                download => {
+                    root.download();
+                }
+                restart => {
+                    root.restart();
+                }
+            }
+        }
+        if root.offers-later: VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.x;
+                icon-name: "x";
+                size: ControlSize.sm;
+                clicked => {
+                    root.later();
+                }
+            }
+        }
+    }
+
+    // The hairline below.
+    Rectangle {
+        y: root.height - 1px;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+
+    if root.state == UpdateState.downloading: ProgressBar {
+        x: 0;
+        y: root.height - 1px - self.height;
+        width: root.width;
+        value: root.progress;
+    }
+}
+
+// The update window's content (`UpdateDialog`): what changed, and what to do. Put it in a
+// `HostedWindow` of 400 × 480 titled "Software Update".
+export component UpdateDialog inherits VerticalLayout {
+    // The app's name.
+    in property <string> name;
+    // The version installed.
+    in property <string> current;
+    // The version on offer.
+    in property <string> version;
+    // The release notes, a line each.
+    in property <[string]> notes;
+    in property <UpdateState> state: UpdateState.available;
+    // How far the download is, 0 to 1.
+    in property <float> progress;
+    in property <bool> offers-download;
+    in property <bool> offers-restart;
+    in property <bool> offers-later;
+
+    callback download();
+    callback restart();
+    callback later();
+
+    spacing: 16px;
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-bottom: 24px;
+
+    VerticalLayout {
+        spacing: 4px;
+        Title {
+            text: root.state == UpdateState.ready ? @tr("{} {} is ready", root.name, root.version) : @tr("{} {} is available", root.name, root.version);
+        }
+
+        Caption {
+            text: @tr("You have {}.", root.current);
+        }
+    }
+
+    Rectangle {
+        vertical-stretch: 1;
+        min-height: 0;
+        border-radius: Theme.radius(Radius.lg);
+        border-width: 1px;
+        border-color: Theme.colors.border;
+        background: Theme.colors.sunken;
+        Rectangle {
+            x: 1px;
+            y: 1px;
+            width: parent.width - 2px;
+            height: parent.height - 2px;
+            border-radius: Theme.radius(Radius.lg) - 1px;
+            clip: true;
+            ScrollArea {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+                    for line in root.notes: HorizontalLayout {
+                        spacing: 8px;
+                        Label {
+                            text: "·";
+                            horizontal-stretch: 0;
+                        }
+
+                        Label {
+                            text: line;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.state == UpdateState.downloading: ProgressBar {
+        value: root.progress;
+    }
+
+    UpdateButtons {
+        state: root.state;
+        size: ControlSize.md;
+        offers-download: root.offers-download;
+        offers-restart: root.offers-restart;
+        offers-later: root.offers-later;
+        download => {
+            root.download();
+        }
+        restart => {
+            root.restart();
+        }
+        later => {
+            root.later();
+        }
+    }
+}

@@ -1,0 +1,144 @@
+// Port of ely-core/src/shell/crash.rs (`CrashReporter`): after a crash, what happened, the
+// report, and a choice to send it. Put it in a `HostedWindow` of 400 × 480 titled
+// "{name} crashed".
+
+import { Theme, IconSize, TextSize, Radius } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Title } from "title.slint";
+import { Paragraph } from "paragraph.slint";
+import { TypeText } from "type-text.slint";
+import { Button } from "button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Collapsible } from "collapse.slint";
+import { ScrollArea } from "scroll.slint";
+import { ClipboardWriter } from "clipboard.slint";
+
+export component CrashReporter inherits VerticalLayout {
+    // The app's name.
+    in property <string> name;
+    // What happened, in a line.
+    in property <string> summary;
+    // The full report.
+    in property <string> report;
+    // The report is open; set it to open the report at first.
+    in-out property <bool> details;
+    // Shows "Send report" (gpui's `on_send`).
+    in property <bool> sendable;
+    // Shows "Don't send" (gpui's `on_dismiss`).
+    in property <bool> dismissable;
+
+    // Send was pressed.
+    callback send();
+    // "Don't send" was pressed.
+    callback dismiss();
+    // The report went to the clipboard (gpui logs it).
+    callback copied();
+
+    spacing: 16px;
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-bottom: 24px;
+
+    HorizontalLayout {
+        alignment: start;
+        Icon {
+            source: Icons.triangle-alert;
+            size: IconSize.xl;
+            color: Theme.colors.fg-muted;
+        }
+    }
+
+    Title {
+        text: @tr("{} quit unexpectedly", root.name);
+    }
+
+    Paragraph {
+        text: root.summary;
+    }
+
+    HorizontalLayout {
+        alignment: space-between;
+        VerticalLayout {
+            alignment: center;
+            Button {
+                text: root.details ? @tr("Hide report") : @tr("Show report");
+                variant: ButtonVariant.link;
+                trailing-icon: root.details ? Icons.chevron-up : Icons.chevron-down;
+                clicked => {
+                    root.details = !root.details;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Button {
+                text: @tr("Copy report");
+                variant: ButtonVariant.ghost;
+                icon: Icons.copy;
+                clicked => {
+                    clipboard.write(root.report);
+                    root.copied();
+                }
+            }
+        }
+    }
+
+    Collapsible {
+        open: root.details;
+        Rectangle {
+            height: Theme.pane-min;
+            border-radius: Theme.radius(Radius.md);
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            background: Theme.colors.sunken;
+            Rectangle {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                border-radius: Theme.radius(Radius.md) - 1px;
+                clip: true;
+                ScrollArea {
+                    VerticalLayout {
+                        padding: 12px;
+                        TypeText {
+                            text: root.report;
+                            font-family: Theme.mono-family;
+                            line-ratio: Theme.mono-line-ratio;
+                            font-size: Theme.text-size(TextSize.xs);
+                            color: Theme.colors.fg-muted;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // The spacer that holds the choice at the foot.
+    Rectangle {
+        vertical-stretch: 1;
+        clipboard := ClipboardWriter { }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        if root.dismissable: Button {
+            text: @tr("Don't send");
+            variant: ButtonVariant.ghost;
+            clicked => {
+                root.dismiss();
+            }
+        }
+        if root.sendable: Button {
+            text: @tr("Send report");
+            variant: ButtonVariant.primary;
+            clicked => {
+                root.send();
+            }
+        }
+    }
+}
