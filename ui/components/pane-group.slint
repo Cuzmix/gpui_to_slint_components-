@@ -1,0 +1,200 @@
+// Port of ely-core/src/layout/panes.rs (`PaneGroup`'s view): editor-style split panes, each with
+// a header to split it right or down or close it.
+//
+// The split tree lives in Rust (`ely_slint::panes::PaneGroup`, see workspace-model.slint), which
+// lays the panes out; Slint has no recursive components. gpui draws each pane's body with a
+// closure; here the group draws the headers and dividers and the owner draws the bodies where
+// the group says (gap G33):
+//     group := PaneGroup {
+//         name: "editor";
+//         for cell in group.cells: Buffer {
+//             x: group.body-x(cell); y: group.body-y(cell);
+//             width: group.body-width(cell); height: group.body-height(cell);
+//             pane: cell.id;
+//         }
+//     }
+// A press on a pane's header or empty body focuses it. A body that takes presses itself calls
+// `PaneGroups.focus(name, id)` to do the same (gap G35). It fills its parent.
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import {
+    PaneGroups,
+    PaneSpan,
+    PaneCell,
+    PaneDivider,
+} from "workspace-model.slint";
+import { ResizeHandle } from "split.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+
+// One pane's chrome: its fill and header.
+component PaneChrome inherits Rectangle {
+    in property <string> group;
+    in property <PaneCell> cell;
+    // The only pane left: its close button is off.
+    in property <bool> lone;
+
+    background: root.cell.focused ? Theme.colors.surface : Theme.colors.bg;
+    clip: true;
+
+    // gpui focuses the pane on any left press inside it.
+    function press() {
+        if !root.cell.focused {
+            PaneGroups.focus(root.group, root.cell.id);
+        }
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.press();
+            }
+        }
+    }
+
+    Rectangle {
+        y: 0;
+        height: Theme.control-height(ControlSize.lg);
+
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 4px;
+            padding-bottom: 1px;
+            TypeText {
+                text: @tr("Pane {}", root.cell.id);
+                font-size: Theme.text-size(TextSize.sm);
+                color: root.cell.focused ? Theme.colors.fg : Theme.colors.fg-subtle;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+                HorizontalLayout {
+                    spacing: 2px;
+                    IconButton {
+                        icon: Icons.panel-right;
+                        icon-name: "panel-right";
+                        size: ControlSize.sm;
+                        clicked => {
+                            root.press();
+                            PaneGroups.split(root.group, root.cell.id, true);
+                        }
+                    }
+
+                    IconButton {
+                        icon: Icons.panel-bottom;
+                        icon-name: "panel-bottom";
+                        size: ControlSize.sm;
+                        clicked => {
+                            root.press();
+                            PaneGroups.split(root.group, root.cell.id, false);
+                        }
+                    }
+
+                    IconButton {
+                        icon: Icons.x;
+                        icon-name: "x";
+                        size: ControlSize.sm;
+                        enabled: !root.lone;
+                        clicked => {
+                            root.press();
+                            PaneGroups.close(root.group, root.cell.id);
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            x: 0;
+            y: parent.height - 1px;
+            width: parent.width;
+            height: 1px;
+            background: Theme.colors.border;
+        }
+    }
+}
+
+// Editor-style split panes: split right or down, close, focus (`PaneGroup`).
+export component PaneGroup inherits Rectangle {
+    // The model's name in `PaneGroups`.
+    in property <string> name;
+    // The panes in tree order, for the owner's body loop.
+    out property <[PaneCell]> cells: PaneGroups.cells(root.name);
+
+    private property <[PaneDivider]> dividers: PaneGroups.dividers(root.name);
+    private property <length> strip: Theme.control-height(ControlSize.lg);
+    private property <length> anchor;
+    private property <bool> anchored: false;
+
+    // An edge in this group, on a whole pixel as taffy places it.
+    pure function across(span: PaneSpan) -> length {
+        round((span.scale * root.width + span.offset) / 1px) * 1px
+    }
+    pure function down(span: PaneSpan) -> length {
+        round((span.scale * root.height + span.offset) / 1px) * 1px
+    }
+
+    // A pane's box, header included.
+    public pure function cell-x(cell: PaneCell) -> length {
+        root.across(cell.left)
+    }
+    public pure function cell-y(cell: PaneCell) -> length {
+        root.down(cell.top)
+    }
+    public pure function cell-width(cell: PaneCell) -> length {
+        max(0, root.across(cell.right) - root.across(cell.left))
+    }
+    public pure function cell-height(cell: PaneCell) -> length {
+        max(0, root.down(cell.bottom) - root.down(cell.top))
+    }
+
+    // The room under a pane's header, where the owner draws its body.
+    public pure function body-x(cell: PaneCell) -> length {
+        root.cell-x(cell)
+    }
+    public pure function body-y(cell: PaneCell) -> length {
+        root.cell-y(cell) + root.strip
+    }
+    public pure function body-width(cell: PaneCell) -> length {
+        root.cell-width(cell)
+    }
+    public pure function body-height(cell: PaneCell) -> length {
+        max(0, root.cell-height(cell) - root.strip)
+    }
+
+    clip: true;
+
+    for cell in root.cells: PaneChrome {
+        x: root.cell-x(cell);
+        y: root.cell-y(cell);
+        width: root.cell-width(cell);
+        height: root.cell-height(cell);
+        group: root.name;
+        cell: cell;
+        lone: root.cells.length == 1;
+    }
+
+    for divider[index] in root.dividers: ResizeHandle {
+        x: root.across(divider.left);
+        y: root.down(divider.top);
+        width: max(0, root.across(divider.right) - root.across(divider.left));
+        height: max(0, root.down(divider.bottom) - root.down(divider.top));
+        orientation: divider.horizontal ? Orientation.horizontal : Orientation.vertical;
+        grabbed => {
+            root.anchored = false;
+            PaneGroups.grab(root.name, index, root.width, root.height);
+        }
+        moved(along) => {
+            if !root.anchored {
+                root.anchor = along;
+                root.anchored = true;
+            }
+            PaneGroups.drag(root.name, along - root.anchor);
+        }
+    }
+
+    @children
+}

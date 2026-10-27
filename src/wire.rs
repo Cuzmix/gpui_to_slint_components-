@@ -252,3 +252,314 @@ macro_rules! wire_layout {
         });
     }};
 }
+
+/// Brings `model` to `rows` in place: changed rows are set, the rest added or dropped at the
+/// end. A repeater over it keeps its instances, so a press or drag under way survives.
+pub fn sync<T: Clone + PartialEq + 'static>(model: &VecModel<T>, rows: Vec<T>) {
+    use slint::Model;
+    for (ix, row) in rows.iter().enumerate() {
+        if ix < model.row_count() {
+            if model.row_data(ix).as_ref() != Some(row) {
+                model.set_row_data(ix, row.clone());
+            }
+        } else {
+            model.push(row.clone());
+        }
+    }
+    while model.row_count() > rows.len() {
+        model.remove(model.row_count() - 1);
+    }
+}
+
+/// Wires `Docks` and `PaneGroups` to the docks and pane groups in a
+/// [`WorkspaceHost`](crate::workspace::WorkspaceHost), which it returns. The host's root
+/// `.slint` file exports `Docks`, `PaneGroups`, `DockSide`, `DockTab`, `DockEdge`, `DockFloatSpot`,
+/// `PaneSpan`, `PaneCell`, `PaneDivider`, `Icons` and `IconEntry`. A panel's icon is its name in
+/// `Icons.all`.
+///
+/// ```ignore
+/// let host = ely_slint::wire_workspace!(app);
+/// host.update(|systems| { systems.groups.insert("editor".into(), ely_slint::panes::PaneGroup::new()); });
+/// ```
+#[macro_export]
+macro_rules! wire_workspace {
+    ($app:expr) => {{
+        use ::std::{cell::RefCell, collections::HashMap, rc::Rc};
+        use $crate::{dock, panes, wire::sync};
+
+        #[derive(Default)]
+        struct DockModels {
+            edges: Rc<::slint::VecModel<DockEdge>>,
+            tabs: [Rc<::slint::VecModel<DockTab>>; 4],
+            floating: Rc<::slint::VecModel<DockFloatSpot>>,
+        }
+        #[derive(Default)]
+        struct GroupModels {
+            cells: Rc<::slint::VecModel<PaneCell>>,
+            dividers: Rc<::slint::VecModel<PaneDivider>>,
+            handles: Vec<panes::PaneHandle>,
+        }
+        #[derive(Default)]
+        struct Models {
+            docks: HashMap<String, DockModels>,
+            groups: HashMap<String, GroupModels>,
+        }
+        type Icons_ = HashMap<String, ::slint::Image>;
+
+        fn side_of(side: DockSide) -> dock::DockSide {
+            match side {
+                DockSide::Left => dock::DockSide::Left,
+                DockSide::Right => dock::DockSide::Right,
+                DockSide::Top => dock::DockSide::Top,
+                DockSide::Bottom => dock::DockSide::Bottom,
+            }
+        }
+        fn span(span: panes::Span) -> PaneSpan {
+            PaneSpan { scale: span.scale, offset: span.offset }
+        }
+        fn fill_dock(models: &DockModels, dock: Option<&dock::Dock>, icons: &Icons_) {
+            let Some(dock) = dock else {
+                sync(&models.edges, Vec::new());
+                models.tabs.iter().for_each(|tabs| sync(tabs, Vec::new()));
+                sync(&models.floating, Vec::new());
+                return;
+            };
+            let edges = dock::DockSide::ALL
+                .iter()
+                .map(|side| DockEdge {
+                    active: dock.active(*side).map(|panel| panel.id.as_str()).unwrap_or("").into(),
+                    size: dock.size(*side),
+                })
+                .collect();
+            sync(&models.edges, edges);
+            for (ix, side) in dock::DockSide::ALL.iter().enumerate() {
+                let tabs = dock
+                    .tabs(*side)
+                    .into_iter()
+                    .map(|(panel, selected)| DockTab {
+                        id: panel.id.as_str().into(),
+                        title: panel.title.as_str().into(),
+                        icon: icons.get(&panel.icon).cloned().unwrap_or_default(),
+                        selected,
+                    })
+                    .collect();
+                sync(&models.tabs[ix], tabs);
+            }
+            let floating = dock
+                .floating()
+                .into_iter()
+                .map(|(panel, x, y)| DockFloatSpot { id: panel.id.as_str().into(), title: panel.title.as_str().into(), x, y })
+                .collect();
+            sync(&models.floating, floating);
+        }
+        fn fill_group(models: &mut GroupModels, group: Option<&panes::PaneGroup>) {
+            let Some(group) = group else {
+                sync(&models.cells, Vec::new());
+                sync(&models.dividers, Vec::new());
+                models.handles.clear();
+                return;
+            };
+            let (places, handles) = group.geometry();
+            let focused = group.focused();
+            let cells = places
+                .iter()
+                .map(|place| PaneCell {
+                    id: place.id as i32,
+                    focused: place.id == focused,
+                    left: span(place.edges.left),
+                    right: span(place.edges.right),
+                    top: span(place.edges.top),
+                    bottom: span(place.edges.bottom),
+                })
+                .collect();
+            sync(&models.cells, cells);
+            let dividers = handles
+                .iter()
+                .map(|handle| PaneDivider {
+                    horizontal: handle.axis == panes::Axis::Horizontal,
+                    left: span(handle.edges.left),
+                    right: span(handle.edges.right),
+                    top: span(handle.edges.top),
+                    bottom: span(handle.edges.bottom),
+                })
+                .collect();
+            sync(&models.dividers, dividers);
+            models.handles = handles;
+        }
+
+        let app = &$app;
+        let icons: Rc<Icons_> = Rc::new({
+            use ::slint::Model;
+            app.global::<Icons>().get_all().iter().map(|entry| (entry.name.to_string(), entry.image)).collect()
+        });
+        let host = $crate::workspace::WorkspaceHost::new();
+        let models = Rc::new(RefCell::new(Models::default()));
+        {
+            let (models, icons) = (models.clone(), icons.clone());
+            host.on_redraw(move |systems| {
+                let mut models = models.borrow_mut();
+                for name in systems.docks.keys() {
+                    models.docks.entry(name.clone()).or_default();
+                }
+                for (name, dock_models) in &models.docks {
+                    fill_dock(dock_models, systems.docks.get(name), &icons);
+                }
+                for name in systems.groups.keys() {
+                    models.groups.entry(name.clone()).or_default();
+                }
+                for (name, group_models) in models.groups.iter_mut() {
+                    fill_group(group_models, systems.groups.get(name));
+                }
+            });
+        }
+        // Each getter hands out the same models for a name, filled when first asked for.
+        let docks = app.global::<Docks>();
+        {
+            let (models, host, icons) = (models.clone(), host.clone(), icons.clone());
+            docks.on_edges(move |name| {
+                let mut models = models.borrow_mut();
+                let entry = models.docks.entry(name.to_string()).or_insert_with(|| {
+                    let fresh = DockModels::default();
+                    host.read(|systems| fill_dock(&fresh, systems.docks.get(name.as_str()), &icons));
+                    fresh
+                });
+                ::slint::ModelRc::from(entry.edges.clone())
+            });
+        }
+        {
+            let (models, host, icons) = (models.clone(), host.clone(), icons.clone());
+            docks.on_tabs(move |name, side| {
+                let mut models = models.borrow_mut();
+                let entry = models.docks.entry(name.to_string()).or_insert_with(|| {
+                    let fresh = DockModels::default();
+                    host.read(|systems| fill_dock(&fresh, systems.docks.get(name.as_str()), &icons));
+                    fresh
+                });
+                let ix = dock::DockSide::ALL.iter().position(|each| *each == side_of(side)).unwrap_or(0);
+                ::slint::ModelRc::from(entry.tabs[ix].clone())
+            });
+        }
+        {
+            let (models, host, icons) = (models.clone(), host.clone(), icons.clone());
+            docks.on_floating(move |name| {
+                let mut models = models.borrow_mut();
+                let entry = models.docks.entry(name.to_string()).or_insert_with(|| {
+                    let fresh = DockModels::default();
+                    host.read(|systems| fill_dock(&fresh, systems.docks.get(name.as_str()), &icons));
+                    fresh
+                });
+                ::slint::ModelRc::from(entry.floating.clone())
+            });
+        }
+        // Acts on dock `name` if it is there and holds the panel `id`.
+        fn with_panel(host: &$crate::workspace::WorkspaceHost, name: &str, id: &str, act: impl FnOnce(&mut dock::Dock)) {
+            host.update(|systems| match systems.docks.get_mut(name) {
+                Some(dock) if dock.find(id).is_some() => act(dock),
+                Some(_) => $crate::log::error!("dock {name}: no panel {id}"),
+                None => $crate::log::error!("no dock {name}"),
+            });
+        }
+        {
+            let host = host.clone();
+            docks.on_activate(move |name, id| with_panel(&host, &name, &id, |dock| dock.activate(&id)));
+        }
+        {
+            let host = host.clone();
+            docks.on_dock_panel(move |name, id, side| {
+                with_panel(&host, &name, &id, |dock| dock.move_panel(&id, dock::Spot::Docked(side_of(side))))
+            });
+        }
+        {
+            let host = host.clone();
+            docks.on_float_panel(move |name, id, x, y| {
+                with_panel(&host, &name, &id, |dock| dock.move_panel(&id, dock::Spot::Floating { x, y }))
+            });
+        }
+        {
+            let host = host.clone();
+            docks.on_floated(move |name, id, x, y| {
+                host.quietly(|systems| match systems.docks.get_mut(name.as_str()) {
+                    Some(dock) if dock.find(&id).is_some() => dock.floated(&id, x, y),
+                    _ => $crate::log::error!("dock {name}: no panel {id}"),
+                });
+            });
+        }
+        {
+            let host = host.clone();
+            docks.on_resize(move |name, side, span, extent| {
+                host.update(|systems| match systems.docks.get_mut(name.as_str()) {
+                    Some(dock) => dock.resize(side_of(side), span, extent),
+                    None => $crate::log::error!("no dock {name}"),
+                });
+            });
+        }
+
+        let groups = app.global::<PaneGroups>();
+        {
+            let (models, host) = (models.clone(), host.clone());
+            groups.on_cells(move |name| {
+                let mut models = models.borrow_mut();
+                let entry = models.groups.entry(name.to_string()).or_insert_with(|| {
+                    let mut fresh = GroupModels::default();
+                    host.read(|systems| fill_group(&mut fresh, systems.groups.get(name.as_str())));
+                    fresh
+                });
+                ::slint::ModelRc::from(entry.cells.clone())
+            });
+        }
+        {
+            let (models, host) = (models.clone(), host.clone());
+            groups.on_dividers(move |name| {
+                let mut models = models.borrow_mut();
+                let entry = models.groups.entry(name.to_string()).or_insert_with(|| {
+                    let mut fresh = GroupModels::default();
+                    host.read(|systems| fill_group(&mut fresh, systems.groups.get(name.as_str())));
+                    fresh
+                });
+                ::slint::ModelRc::from(entry.dividers.clone())
+            });
+        }
+        fn with_group(host: &$crate::workspace::WorkspaceHost, name: &str, act: impl FnOnce(&mut panes::PaneGroup)) {
+            host.update(|systems| match systems.groups.get_mut(name) {
+                Some(group) => act(group),
+                None => $crate::log::error!("no pane group {name}"),
+            });
+        }
+        {
+            let host = host.clone();
+            groups.on_split(move |name, pane, horizontal| {
+                let axis = if horizontal { panes::Axis::Horizontal } else { panes::Axis::Vertical };
+                with_group(&host, &name, |group| {
+                    group.split(pane.max(0) as u64, axis);
+                })
+            });
+        }
+        {
+            let host = host.clone();
+            groups.on_close(move |name, pane| with_group(&host, &name, |group| group.close(pane.max(0) as u64)));
+        }
+        {
+            let host = host.clone();
+            groups.on_focus(move |name, pane| with_group(&host, &name, |group| group.focus(pane.max(0) as u64)));
+        }
+        {
+            let (models, host) = (models.clone(), host.clone());
+            groups.on_grab(move |name, index, width, height| {
+                let handle = models.borrow().groups.get(name.as_str()).and_then(|m| m.handles.get(index.max(0) as usize).cloned());
+                match handle {
+                    Some(handle) => host.quietly(|systems| {
+                        if let Some(group) = systems.groups.get_mut(name.as_str()) {
+                            group.grab(&handle, width, height);
+                        }
+                    }),
+                    None => $crate::log::error!("pane group {name}: no divider {index}"),
+                }
+            });
+        }
+        {
+            let host = host.clone();
+            groups.on_drag(move |name, delta| with_group(&host, &name, |group| group.drag(delta)));
+        }
+        host
+    }};
+}

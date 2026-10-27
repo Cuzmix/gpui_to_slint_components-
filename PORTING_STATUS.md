@@ -66,6 +66,10 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | MasterDetail | layout/page.rs | ✓ | ✓ (SplitPane) | n/a | ✓ (SplitPane) | n/a | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
 | Viewport (Transform) | layout/viewport.rs | ✓ | n/a | ✓ ⌘/Ctrl zoom | ✓ drag pan, wheel pan, zoom about pointer | n/a | ✓ | ✓ (no node) | ✓ `tests/viewport.rs` | G31 | ✓ |
 | FloatingPanel | layout/floating.rs | ✓ | ✓ moved | n/a | ✓ bar drag, kept in window | n/a | ✓ | ✓ text role | ✓ `tests/viewport.rs` | G12 | ✓ |
+| DragTouch | div.rs `DRAG_THRESHOLD` (gpui) | ✓ | ✓ started, moved, ended, tapped | n/a | ✓ 2 px threshold | n/a | n/a | n/a | ✓ `tests/split.rs`, `tests/shells.rs` | | ✓ |
+| Dock / DockPanel / DockZone | layout/dock/ | ✓ | ✓ activate, move, float, resize | n/a | ✓ tab click and drag, zones, handle | n/a | ✓ | ✓ tab role, selected | ✓ `tests/dock_panes.rs`, `src/dock.rs` | G12 G33 G34 | ✓ |
+| Pane / PaneGroup | layout/panes.rs | ✓ | ✓ split, close, focus, resize | n/a | ✓ press focus, divider drag | n/a | ✓ | ✓ buttons | ✓ `tests/dock_panes.rs`, `src/panes.rs` | G33 G35 | ✓ |
+| Workspace | layout/workspace.rs | ✓ | n/a | n/a | n/a | n/a | n/a | n/a | ✓ `src/workspace.rs`, `tests/dock_panes.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

@@ -1,0 +1,421 @@
+// Port of ely-core/src/layout/dock/view.rs: `Dock`, its tabs, drop zones and floating panels.
+//
+// The model lives in Rust (`ely_slint::dock::Dock`, see workspace-model.slint). gpui draws each
+// panel's body with a closure; Slint cannot take a component as a value, so the dock draws its
+// chrome (sides, tabs, handles, zones) and the owner draws the bodies where the dock says
+// (gap G33):
+//     dock := Dock {
+//         name: "main";
+//         for side in [DockSide.left, DockSide.right, DockSide.top, DockSide.bottom]: PanelBody {
+//             x: dock.body-x(side); y: dock.body-y(side);
+//             width: dock.body-width(side); height: dock.body-height(side);
+//             panel: dock.shown(side);
+//         }
+//         Editor { x: dock.center-x; y: dock.center-y; width: dock.center-width; height: dock.center-height; }
+//         for float in dock.floating: DockFloat { dock: dock.name; panel: float; PanelBody { panel: float.id; } }
+//     }
+// It fills its parent. While a tab drags, the drop zones show over the bodies and under the
+// floating panels, and every zone under the pointer lights; letting go moves the panel to the
+// top one (the float zone, then bottom, top, right, left).
+
+import {
+    Theme,
+    ControlSize,
+    Radius,
+    TextSize,
+    IconSize,
+} from "../theme/theme.slint";
+import {
+    Docks,
+    DockSide,
+    DockTab,
+    DockEdge,
+    DockFloatSpot,
+} from "workspace-model.slint";
+import { ResizeHandle } from "split.slint";
+import { FloatingPanel } from "floating-panel.slint";
+import { DragGhost } from "drag-ghost.slint";
+import { DragTouch } from "drag-touch.slint";
+import { Icon } from "icon.slint";
+import { TypeText } from "type-text.slint";
+
+// One tab: the icon and the title; the shown one on the hover fill, in medium weight.
+component DockTabButton inherits Rectangle {
+    in property <DockTab> tab;
+    // Clicked without a drag.
+    callback tapped();
+    // A drag began at the window point (`x`, `y`), then followed it, then let go.
+    callback drag-started(x: length, y: length);
+    callback drag-moved(x: length, y: length);
+    callback drag-ended();
+
+    private property <color> ink: root.tab.selected ? Theme.colors.fg : Theme.colors.fg-subtle;
+
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: Theme.control-height(ControlSize.sm);
+    border-radius: Theme.radius(Radius.md);
+    background: root.tab.selected ? Theme.colors.hover : transparent;
+    accessible-role: AccessibleRole.tab;
+    accessible-label: root.tab.title;
+    accessible-item-selected: root.tab.selected;
+    accessible-action-default => {
+        root.tapped();
+    }
+
+    row := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 6px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.tab.icon;
+                size: IconSize.sm;
+                color: root.ink;
+            }
+        }
+
+        TypeText {
+            text: root.tab.title;
+            font-size: Theme.text-size(TextSize.sm);
+            font-weight: root.tab.selected ? 500 : 400;
+            color: touch.has-hover ? Theme.colors.fg : root.ink;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+
+    touch := DragTouch {
+        mouse-cursor: pointer;
+        tapped => {
+            root.tapped();
+        }
+        drag-started => {
+            root.drag-started(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+        }
+        drag-moved(x, y) => {
+            root.drag-moved(x, y);
+        }
+        drag-ended => {
+            root.drag-ended();
+        }
+    }
+}
+
+// A side's pane: the tab strip over the body's room, on the surface tone, clipped.
+component DockPane inherits Rectangle {
+    in property <string> dock;
+    in property <DockSide> side;
+    callback drag-started(tab: DockTab, x: length, y: length, tab-x: length, tab-y: length);
+    callback drag-moved(x: length, y: length);
+    callback drag-ended();
+
+    background: Theme.colors.surface;
+    clip: true;
+
+    Rectangle {
+        y: 0;
+        height: Theme.control-height(ControlSize.lg);
+
+        HorizontalLayout {
+            padding-left: 4px;
+            padding-right: 4px;
+            padding-bottom: 1px;
+            spacing: 2px;
+            alignment: start;
+            for tab in Docks.tabs(root.dock, root.side): VerticalLayout {
+                alignment: center;
+                button := DockTabButton {
+                    tab: tab;
+                    tapped => {
+                        Docks.activate(root.dock, tab.id);
+                    }
+                    drag-started(x, y) => {
+                        root.drag-started(tab, x, y, self.absolute-position.x, self.absolute-position.y);
+                    }
+                    drag-moved(x, y) => {
+                        root.drag-moved(x, y);
+                    }
+                    drag-ended => {
+                        root.drag-ended();
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            x: 0;
+            y: parent.height - 1px;
+            width: parent.width;
+            height: 1px;
+            background: Theme.colors.border;
+        }
+    }
+}
+
+// A drop zone: a dashed outline that lights while the pointer is over it.
+component DockZone inherits Rectangle {
+    in property <bool> lit;
+
+    border-radius: Theme.radius(Radius.lg);
+    background: root.lit ? Theme.colors.focus.with-alpha(0.12) : transparent;
+
+    // Slint draws no dashed border: dashes 4 px long with 2 px gaps along each edge (gap G34).
+    private property <color> edge: root.lit ? Theme.colors.focus.with-alpha(0.7) : Theme.colors.border-strong;
+    private property <length> inset: Theme.radius(Radius.lg);
+    for i in max(0, floor((root.width - 2 * root.inset) / 6px)): Rectangle {
+        x: root.inset + i * 6px;
+        y: 0;
+        width: 4px;
+        height: 2px;
+        background: root.edge;
+    }
+    for i in max(0, floor((root.width - 2 * root.inset) / 6px)): Rectangle {
+        x: root.inset + i * 6px;
+        y: root.height - 2px;
+        width: 4px;
+        height: 2px;
+        background: root.edge;
+    }
+    for i in max(0, floor((root.height - 2 * root.inset) / 6px)): Rectangle {
+        x: 0;
+        y: root.inset + i * 6px;
+        width: 2px;
+        height: 4px;
+        background: root.edge;
+    }
+    for i in max(0, floor((root.height - 2 * root.inset) / 6px)): Rectangle {
+        x: root.width - 2px;
+        y: root.inset + i * 6px;
+        width: 2px;
+        height: 4px;
+        background: root.edge;
+    }
+    // The corners, drawn whole: each a quarter of the full outline.
+    for corner in 4: Rectangle {
+        x: Math.mod(corner, 2) == 0 ? 0 : root.width - root.inset;
+        y: corner < 2 ? 0 : root.height - root.inset;
+        width: root.inset;
+        height: root.inset;
+        clip: true;
+        Rectangle {
+            x: -parent.x;
+            y: -parent.y;
+            width: root.width;
+            height: root.height;
+            border-radius: root.border-radius;
+            border-width: 2px;
+            border-color: root.edge;
+        }
+    }
+}
+
+// A floating panel of a Dock, 240 × 380, placed by the dock's model; its children are the body.
+// Put it in the Dock, after the bodies.
+export component DockFloat {
+    in property <string> dock;
+    in property <DockFloatSpot> panel;
+
+    z: 2;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    FloatingPanel {
+        title: root.panel.title;
+        // The model keeps window coordinates; the panel reads its parent, the dock, as the window.
+        start-x: root.panel.x - root.absolute-position.x;
+        start-y: root.panel.y - root.absolute-position.y;
+        panel-width: Theme.sidebar-width(false);
+        panel-height: Theme.sheet-size;
+        moved(x, y) => {
+            Docks.floated(root.dock, root.panel.id, x + root.absolute-position.x, y + root.absolute-position.y);
+        }
+        @children
+    }
+}
+
+// Side docks around a center; panels move between docks and float (`Dock`).
+export component Dock inherits Rectangle {
+    // The model's name in `Docks`.
+    in property <string> name;
+    // The floating panels, for the owner's DockFloat loop.
+    out property <[DockFloatSpot]> floating: Docks.floating(root.name);
+    // The center's box.
+    out property <length> center-x: root.x0;
+    out property <length> center-y: root.y0;
+    out property <length> center-width: root.x1 - root.x0;
+    out property <length> center-height: root.y1 - root.y0;
+    // A tab is being dragged; the zones show.
+    out property <bool> dragging: false;
+
+    private property <[DockEdge]> edges: Docks.edges(root.name);
+    private property <length> hit: Theme.handle-hit;
+    private property <length> strip: Theme.control-height(ControlSize.lg);
+    private property <length> x0: root.on(DockSide.left) ? root.reach(DockSide.left) + root.hit : 0;
+    private property <length> x1: max(root.x0, root.width - (root.on(DockSide.right) ? root.reach(DockSide.right) + root.hit : 0));
+    private property <length> y0: root.on(DockSide.top) ? root.reach(DockSide.top) + root.hit : 0;
+    private property <length> y1: max(root.y0, root.height - (root.on(DockSide.bottom) ? root.reach(DockSide.bottom) + root.hit : 0));
+
+    // The dragged tab, the pointer (window coordinates) and the ghost's offset from it.
+    private property <DockTab> held;
+    private property <length> pointer-x;
+    private property <length> pointer-y;
+    private property <length> grip-x;
+    private property <length> grip-y;
+    private property <length> local-x: root.pointer-x - root.absolute-position.x;
+    private property <length> local-y: root.pointer-y - root.absolute-position.y;
+
+    pure function slot(side: DockSide) -> int {
+        side == DockSide.left ? 0 : side == DockSide.right ? 1 : side == DockSide.top ? 2 : 3
+    }
+    pure function on(side: DockSide) -> bool {
+        root.edges[root.slot(side)].active != ""
+    }
+    pure function reach(side: DockSide) -> length {
+        root.edges[root.slot(side)].size
+    }
+
+    // The panel `side` shows; empty when the side is not drawn.
+    public pure function shown(side: DockSide) -> string {
+        root.edges[root.slot(side)].active
+    }
+
+    // A side's pane, tabs included.
+    public pure function pane-x(side: DockSide) -> length {
+        !root.on(side) ? 0 : side == DockSide.left ? 0 : side == DockSide.right ? root.x1 + root.hit : root.x0
+    }
+    public pure function pane-y(side: DockSide) -> length {
+        !root.on(side) ? 0 : side == DockSide.bottom ? root.y1 + root.hit : 0
+    }
+    public pure function pane-width(side: DockSide) -> length {
+        !root.on(side) ? 0 : side == DockSide.left || side == DockSide.right ? root.reach(side) : root.x1 - root.x0
+    }
+    public pure function pane-height(side: DockSide) -> length {
+        !root.on(side) ? 0 : side == DockSide.left || side == DockSide.right ? root.height : root.reach(side)
+    }
+
+    // The room under a side's tabs, where the owner draws the shown panel's body.
+    public pure function body-x(side: DockSide) -> length {
+        root.pane-x(side)
+    }
+    public pure function body-y(side: DockSide) -> length {
+        root.pane-y(side) + (root.on(side) ? root.strip : 0)
+    }
+    public pure function body-width(side: DockSide) -> length {
+        root.pane-width(side)
+    }
+    public pure function body-height(side: DockSide) -> length {
+        max(0, root.pane-height(side) - (root.on(side) ? root.strip : 0))
+    }
+
+    // Zone `index` (left, right, top, bottom, float) in the dock's coordinates.
+    pure function zone-x(index: int) -> length {
+        index == 0 ? 8px : index == 1 ? root.width - 8px - root.width * 0.2 : index == 4 ? root.width * 0.3 : root.width * 0.22
+    }
+    pure function zone-y(index: int) -> length {
+        index == 3 ? root.height - 8px - root.height * 0.25 : index == 4 ? root.height * 0.3 : 8px
+    }
+    pure function zone-width(index: int) -> length {
+        index <= 1 ? root.width * 0.2 : index == 4 ? root.width * 0.4 : root.width * 0.56
+    }
+    pure function zone-height(index: int) -> length {
+        index <= 1 ? root.height - 16px : index == 4 ? root.height * 0.4 : root.height * 0.25
+    }
+    pure function under(index: int) -> bool {
+        root.local-x >= root.zone-x(index) && root.local-x < root.zone-x(index) + root.zone-width(index) && root.local-y >= root.zone-y(index) && root.local-y < root.zone-y(index) + root.zone-height(index)
+    }
+
+    function begin(tab: DockTab, x: length, y: length, tab-x: length, tab-y: length) {
+        root.held = tab;
+        root.grip-x = x - tab-x;
+        root.grip-y = y - tab-y;
+        root.pointer-x = x;
+        root.pointer-y = y;
+    }
+    function follow(x: length, y: length) {
+        root.pointer-x = x;
+        root.pointer-y = y;
+        root.dragging = true;
+    }
+    // gpui hands the drop to the top zone under the pointer.
+    function drop() {
+        let id = root.held.id;
+        root.dragging = false;
+        if root.under(4) {
+            Docks.float-panel(root.name, id, root.pointer-x, root.pointer-y);
+        } else if root.under(3) {
+            Docks.dock-panel(root.name, id, DockSide.bottom);
+        } else if root.under(2) {
+            Docks.dock-panel(root.name, id, DockSide.top);
+        } else if root.under(1) {
+            Docks.dock-panel(root.name, id, DockSide.right);
+        } else if root.under(0) {
+            Docks.dock-panel(root.name, id, DockSide.left);
+        }
+    }
+
+    // A side's handle at `along` (window coordinates): the span from that edge of the dock.
+    function resize(side: DockSide, along: length) {
+        let local = side == DockSide.left || side == DockSide.right ? along - root.absolute-position.x : along - root.absolute-position.y;
+        let span = side == DockSide.left ? local : side == DockSide.right ? root.width - local : side == DockSide.top ? local : root.height - local;
+        Docks.resize(root.name, side, span, side == DockSide.left || side == DockSide.right ? root.width : root.height);
+    }
+
+    for side in [DockSide.left, DockSide.right, DockSide.top, DockSide.bottom]: Rectangle {
+        visible: root.on(side);
+
+        DockPane {
+            x: root.pane-x(side);
+            y: root.pane-y(side);
+            width: root.pane-width(side);
+            height: root.pane-height(side);
+            dock: root.name;
+            side: side;
+            drag-started(tab, x, y, tab-x, tab-y) => {
+                root.begin(tab, x, y, tab-x, tab-y);
+            }
+            drag-moved(x, y) => {
+                root.follow(x, y);
+            }
+            drag-ended => {
+                root.drop();
+            }
+        }
+
+        ResizeHandle {
+            orientation: side == DockSide.left || side == DockSide.right ? Orientation.horizontal : Orientation.vertical;
+            x: side == DockSide.left ? root.reach(side) : side == DockSide.right ? root.x1 : root.x0;
+            y: side == DockSide.top ? root.reach(side) : side == DockSide.bottom ? root.y1 : 0;
+            width: side == DockSide.left || side == DockSide.right ? root.hit : root.x1 - root.x0;
+            height: side == DockSide.left || side == DockSide.right ? root.height : root.hit;
+            moved(along) => {
+                root.resize(side, along);
+            }
+        }
+    }
+
+    @children
+
+    if root.dragging: Rectangle {
+        z: 1;
+        for index in 5: DockZone {
+            x: root.zone-x(index);
+            y: root.zone-y(index);
+            width: root.zone-width(index);
+            height: root.zone-height(index);
+            lit: root.under(index);
+        }
+    }
+
+    // gpui draws the dragged tab's ghost where the tab was, then with the pointer.
+    if root.dragging: DragGhost {
+        z: 3;
+        x: root.local-x - root.grip-x;
+        y: root.local-y - root.grip-y;
+        title: root.held.title;
+        icon: root.held.icon;
+    }
+}

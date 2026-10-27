@@ -1,0 +1,103 @@
+// The models behind `Dock` and `PaneGroup`, kept in Rust (`ely_slint::dock`, `ely_slint::panes`)
+// and handed over once:
+//
+//     let host = ely_slint::wire_workspace!(app);
+//     host.update(|systems| {
+//         systems.docks.insert("main".into(), dock);
+//         systems.groups.insert("editor".into(), PaneGroup::new());
+//     });
+//
+// The host exports `Docks`, `PaneGroups`, `DockSide`, `DockTab`, `DockEdge`, `DockFloatSpot`,
+// `PaneSpan`, `PaneCell`, `PaneDivider`, `Icons` and `IconEntry` from its root `.slint` file. Each component
+// names its model with `name`. The lists are the same models for as long as the window lives, so
+// a press or a drag under way survives every change. Unwired, every list is empty and a dock
+// shows only its center, a pane group nothing.
+
+// A window edge a dock sits on.
+export enum DockSide { left, right, top, bottom }
+
+// One tab on a dock's side.
+export struct DockTab {
+    id: string,
+    title: string,
+    icon: image,
+    selected: bool,
+}
+
+// A dock side: the panel it shows (empty: the side is not drawn) and how far it reaches in.
+export struct DockEdge {
+    active: string,
+    size: length,
+}
+
+// A floating panel and its corner.
+export struct DockFloatSpot {
+    id: string,
+    title: string,
+    x: length,
+    y: length,
+}
+
+export global Docks {
+    // The four sides, in `DockSide` order.
+    pure callback edges(dock: string) -> [DockEdge];
+    // The tabs docked on `side`, in the order the panels were added.
+    pure callback tabs(dock: string, side: DockSide) -> [DockTab];
+    // The floating panels, in the order they were added.
+    pure callback floating(dock: string) -> [DockFloatSpot];
+    // A tab was clicked.
+    callback activate(dock: string, id: string);
+    // A tab was dropped on a side's zone.
+    callback dock-panel(dock: string, id: string, side: DockSide);
+    // A tab was dropped on the float zone at (`x`, `y`), window coordinates.
+    callback float-panel(dock: string, id: string, x: length, y: length);
+    // A floating panel's title bar was dragged; its corner is kept without drawing again.
+    callback floated(dock: string, id: string, x: length, y: length);
+    // A side's handle was dragged `span` from that edge of a dock `extent` across that way.
+    callback resize(dock: string, side: DockSide, span: length, extent: length);
+}
+
+// A length that follows the group's size: `scale` × its width (or height) + `offset`.
+export struct PaneSpan {
+    scale: float,
+    offset: length,
+}
+
+// Where a pane is drawn in its group, header included, as its four edges.
+export struct PaneCell {
+    id: int,
+    focused: bool,
+    left: PaneSpan,
+    right: PaneSpan,
+    top: PaneSpan,
+    bottom: PaneSpan,
+}
+
+// A split's divider: whether its split is horizontal (side by side, so the divider is a
+// vertical line) and its hit box's edges. Slint's `Orientation` has no public Rust type, hence
+// the bool.
+export struct PaneDivider {
+    horizontal: bool,
+    left: PaneSpan,
+    right: PaneSpan,
+    top: PaneSpan,
+    bottom: PaneSpan,
+}
+
+// Rust lays the tree out once for every size: each edge is a share of the group plus fixed
+// pixels (the 6 px handles), so the boxes follow the group's size with no round trip.
+export global PaneGroups {
+    // The panes in tree order.
+    pure callback cells(group: string) -> [PaneCell];
+    // Every split's dividers.
+    pure callback dividers(group: string) -> [PaneDivider];
+    // A header button: open a pane beside `pane`, to its right (`horizontal`) or below it.
+    callback split(group: string, pane: int, horizontal: bool);
+    callback close(group: string, pane: int);
+    // A press anywhere on the pane.
+    callback focus(group: string, pane: int);
+    // Divider `index` (in `dividers` order) began a drag in a group `width` × `height`; then it
+    // is `delta` from where the drag first moved.
+    callback grab(group: string, index: int, width: length, height: length);
+    callback drag(group: string, delta: length);
+}
