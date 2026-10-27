@@ -1,0 +1,16 @@
+// Port of ely-core/src/data_display/stars.rs (`star`): a five-point star filling its box,
+// outlined with Lucide's stroke (a twelfth of the side), filled too when `filled`. Its points are
+// the star's, worked out once on a 24-unit square: tips 10 units out, notches half that.
+
+export component StarShape inherits Path {
+    in property <bool> filled;
+    in property <color> color;
+
+    viewbox-width: 24;
+    viewbox-height: 24;
+    stroke: root.color;
+    stroke-width: min(self.width, self.height) / 12;
+    fill: root.filled ? root.color : transparent;
+    commands: "M 12 2 L 14.938926 7.954915 L 21.510565 8.90983 L 16.755283 13.545085 L 17.877853 20.09017 L 12 17 L 6.122147 20.09017 L 7.244717 13.545085 L 2.489435 8.90983 L 9.061074 7.954915 Z";
+    accessible-role: none;
+}

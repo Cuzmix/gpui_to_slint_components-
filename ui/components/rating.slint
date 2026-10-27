@@ -1,0 +1,117 @@
+// Port of ely-core/src/forms/rating.rs (`Rating`): stars from one to `max`. Hovering previews;
+// pressing a star rates it, and pressing the current rating clears it. Left or Down takes one
+// away, Right or Up adds one, Home clears and End fills. A press does not take focus.
+//
+// Like Switch (G48), `value` is `in-out`: a press or key sets it, then reports it.
+
+import { Theme, IconSize, Radius } from "../theme/theme.slint";
+import { StarShape } from "star.slint";
+
+export component Rating {
+    // Stars filled, 0 to `max`.
+    in-out property <int> value;
+    // How many stars; at least one.
+    in property <int> max: 5;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    // Dims it and takes no press.
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: keys.has-focus;
+    // The star hovered, previewed in place of the value; 0 for none.
+    out property <int> hovered;
+
+    // The stars after a press or key.
+    callback value-changed(value: int);
+
+    private property <int> stars: Math.max(1, root.max);
+    private property <int> shown: root.hovered > 0 ? root.hovered : min(root.value, root.stars);
+
+    function rate(next: int) {
+        root.value = next;
+        root.value-changed(next);
+    }
+
+    forward-focus: keys;
+    width: row.preferred-width + 2px;
+    height: row.preferred-height + 2px;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: root.value;
+    accessible-value-minimum: 0;
+    accessible-value-maximum: root.stars;
+    accessible-value-step: 1;
+    accessible-enabled: root.enabled;
+    accessible-action-increment => {
+        if root.enabled && root.value < root.stars {
+            root.rate(root.value + 1);
+        }
+    }
+    accessible-action-decrement => {
+        if root.enabled && root.value > 0 {
+            root.rate(root.value - 1);
+        }
+    }
+
+    // Leaving the row ends the preview.
+    row-touch := TouchArea {
+        changed has-hover => {
+            if !self.has-hover {
+                root.hovered = 0;
+            }
+        }
+
+        Rectangle {
+            border-radius: Theme.radius(Radius.sm);
+            border-width: 1px;
+            border-color: keys.has-focus ? Theme.colors.focus : transparent;
+            opacity: root.enabled ? 1 : 0.5;
+
+            row := HorizontalLayout {
+                x: 1px;
+                y: 1px;
+                // Inside the 1 px border: 2 px in, 2 px apart.
+                padding: 2px;
+                spacing: 2px;
+
+                for n in root.stars: Rectangle {
+                    width: Theme.icon-size(IconSize.lg);
+                    height: self.width;
+
+                    StarShape {
+                        filled: n + 1 <= root.shown;
+                        color: n + 1 <= root.shown ? Theme.colors.accent : Theme.colors.border-strong;
+                    }
+
+                    TouchArea {
+                        enabled: root.enabled;
+                        mouse-cursor: MouseCursor.pointer;
+                        changed has-hover => {
+                            if self.has-hover {
+                                root.hovered = n + 1;
+                            }
+                        }
+                        clicked => {
+                            root.rate(n + 1 == root.value ? 0 : n + 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    keys := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            let next = event.text == Key.LeftArrow || event.text == Key.DownArrow ? Math.max(root.value - 1, 0) : event.text == Key.RightArrow || event.text == Key.UpArrow ? min(root.value + 1, root.stars) : event.text == Key.Home ? 0 : event.text == Key.End ? root.stars : -1;
+            if next < 0 {
+                return reject;
+            }
+            if next != root.value {
+                root.rate(next);
+            }
+            accept
+        }
+    }
+}
