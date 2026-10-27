@@ -1,0 +1,90 @@
+// Port of ely-core/src/layout/viewport.rs (`Viewport`, `Transform`).
+// Pan with a left drag or the wheel; zoom with ⌘ (macOS) or Ctrl and the wheel, about the
+// pointer. The content places itself with the transform, `local = content × scale + offset`:
+//     vp := Viewport {
+//         Rectangle { x: vp.apply-x(60px); y: vp.apply-y(50px); width: 140px * vp.scale; }
+//     }
+
+import { Theme, PlatformStyle } from "../theme/theme.slint";
+
+export component Viewport inherits Rectangle {
+    // The least and the most zoom. gpui panics on an empty range; here the least is kept above
+    // 0 and the most at or above the least.
+    in property <float> zoom-min: 0.1;
+    in property <float> zoom-max: 8;
+    // Where the content's origin lands, and viewport pixels per content pixel.
+    in-out property <length> offset-x: 0;
+    in-out property <length> offset-y: 0;
+    in-out property <float> scale: 1;
+
+    private property <float> least: max(0.0001, root.zoom-min);
+    private property <float> most: max(root.least, root.zoom-max);
+    private property <bool> grabbed: false;
+    private property <length> grab-x;
+    private property <length> grab-y;
+    private property <length> start-x;
+    private property <length> start-y;
+
+    // A content point in viewport space.
+    public pure function apply-x(x: length) -> length {
+        x * root.scale + root.offset-x
+    }
+    public pure function apply-y(y: length) -> length {
+        y * root.scale + root.offset-y
+    }
+
+    // A viewport point in content space.
+    public pure function invert-x(x: length) -> length {
+        (x - root.offset-x) / root.scale
+    }
+    public pure function invert-y(y: length) -> length {
+        (y - root.offset-y) / root.scale
+    }
+
+    // Scales by `factor`, clamped, keeping (`x`, `y`) still on screen.
+    public function zoom-at(x: length, y: length, factor: float) {
+        let next = clamp(root.scale * factor, root.least, root.most);
+        let ratio = next / root.scale;
+        root.offset-x = x - (x - root.offset-x) * ratio;
+        root.offset-y = y - (y - root.offset-y) * ratio;
+        root.scale = next;
+    }
+
+    clip: true;
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left {
+                if event.kind == PointerEventKind.down {
+                    root.grabbed = true;
+                    root.grab-x = self.mouse-x;
+                    root.grab-y = self.mouse-y;
+                    root.start-x = root.offset-x;
+                    root.start-y = root.offset-y;
+                } else if event.kind == PointerEventKind.up {
+                    root.grabbed = false;
+                }
+            }
+        }
+        moved => {
+            if root.grabbed && self.pressed {
+                root.offset-x = root.start-x + (self.mouse-x - root.grab-x);
+                root.offset-y = root.start-y + (self.mouse-y - root.grab-y);
+            }
+        }
+        scroll-event(event) => {
+            // gpui's secondary modifier (⌘ on macOS, Ctrl elsewhere) or Ctrl. Slint reports ⌘
+            // as control on macOS, and Ctrl there as meta.
+            let zoom = event.modifiers.control || (Theme.platform == PlatformStyle.mac && event.modifiers.meta);
+            if zoom {
+                root.zoom-at(self.mouse-x, self.mouse-y, Math.exp(-(event.delta-y / 1px) * 0.01));
+            } else {
+                root.offset-x += event.delta-x;
+                root.offset-y += event.delta-y;
+            }
+            accept
+        }
+
+        @children
+    }
+}

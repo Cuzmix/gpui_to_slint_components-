@@ -64,6 +64,8 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Page, PageHeader, PageContent | layout/page.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/shells.rs` | | ✓ |
 | AppShell, AppShellBar, AppShellMain, AppShellContent | layout/page.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
 | MasterDetail | layout/page.rs | ✓ | ✓ (SplitPane) | n/a | ✓ (SplitPane) | n/a | ✓ | ✓ (no node) | ✓ `tests/shells.rs` | | ✓ |
+| Viewport (Transform) | layout/viewport.rs | ✓ | n/a | ✓ ⌘/Ctrl zoom | ✓ drag pan, wheel pan, zoom about pointer | n/a | ✓ | ✓ (no node) | ✓ `tests/viewport.rs` | G31 | ✓ |
+| FloatingPanel | layout/floating.rs | ✓ | ✓ moved | n/a | ✓ bar drag, kept in window | n/a | ✓ | ✓ text role | ✓ `tests/viewport.rs` | G12 | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

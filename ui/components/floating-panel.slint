@@ -1,0 +1,134 @@
+// Port of ely-core/src/layout/floating.rs (`FloatingPanel`).
+// A panel that floats above the page; drag its title bar to move it. Its corner is kept so
+// that at least one large control's height (32 px) of it stays in the window. gpui raises it
+// over everything from anywhere; in Slint, put it last in the window (it fills its parent and
+// reads the parent as the window, gap G12).
+
+import {
+    Theme,
+    ControlSize,
+    Elevation,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { TypeText } from "type-text.slint";
+
+export component FloatingPanel {
+    in property <string> title;
+    // The top-left corner in window coordinates. A new value replaces a dragged one.
+    in property <length> start-x;
+    in property <length> start-y;
+    // The panel's size; zero takes the content's.
+    in property <length> panel-width: 0;
+    in property <length> panel-height: 0;
+    // Where the corner is now, kept in the window.
+    out property <length> at-x: root.keep-x(root.dragged ? root.moved-x : root.start-x);
+    out property <length> at-y: root.keep-y(root.dragged ? root.moved-y : root.start-y);
+    // Each new corner while dragging.
+    callback moved(x: length, y: length);
+
+    private property <length> keep: Theme.control-height(ControlSize.lg);
+    private property <bool> dragged: false;
+    private property <length> moved-x;
+    private property <length> moved-y;
+    private property <length> carry-x;
+    private property <length> carry-y;
+    private property <length> anchor-x;
+    private property <length> anchor-y;
+    private property <bool> anchored: false;
+
+    pure function keep-x(x: length) -> length {
+        clamp(x, root.keep - root.width, root.width - root.keep)
+    }
+    pure function keep-y(y: length) -> length {
+        clamp(y, 0, root.height - root.keep)
+    }
+
+    changed start-x => {
+        root.dragged = false;
+    }
+    changed start-y => {
+        root.dragged = false;
+    }
+
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    panel := Elevated {
+        x: root.at-x;
+        y: root.at-y;
+        width: root.panel-width > 0 ? root.panel-width : column.preferred-width;
+        height: root.panel-height > 0 ? root.panel-height : column.preferred-height;
+        elevation: Elevation.floating;
+        border-radius: Theme.radius(Radius.lg);
+        border-width: 1px;
+        border-color: Theme.colors.border;
+        background: Theme.colors.overlay;
+        clip: true;
+
+        // Presses on the panel stay on it.
+        TouchArea { }
+
+        column := VerticalLayout {
+            padding: 1px;
+            alignment: start;
+            bar := TouchArea {
+                height: Theme.control-height(ControlSize.md);
+                mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.carry-x = root.at-x;
+                        root.carry-y = root.at-y;
+                        root.anchored = false;
+                    }
+                }
+                moved => {
+                    if self.pressed {
+                        let px = self.absolute-position.x + self.mouse-x;
+                        let py = self.absolute-position.y + self.mouse-y;
+                        if !root.anchored {
+                            root.anchor-x = px;
+                            root.anchor-y = py;
+                            root.anchored = true;
+                        }
+                        let nx = root.keep-x(root.carry-x + px - root.anchor-x);
+                        let ny = root.keep-y(root.carry-y + py - root.anchor-y);
+                        root.moved(nx, ny);
+                        root.moved-x = nx;
+                        root.moved-y = ny;
+                        root.dragged = true;
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    padding-bottom: 1px;
+                    TypeText {
+                        text: root.title;
+                        font-size: Theme.text-size(TextSize.sm);
+                        font-weight: 600;
+                        color: Theme.colors.fg-muted;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    x: 0;
+                    y: parent.height - 1px;
+                    width: parent.width;
+                    height: 1px;
+                    background: Theme.colors.border;
+                }
+            }
+
+            VerticalLayout {
+                padding: 12px;
+                @children
+            }
+        }
+    }
+}
