@@ -1,0 +1,184 @@
+// Port of ely-core/src/forms/date/relative.rs (`RelativeRange`, `RelativeDatePicker`): a select of
+// spans named from today, each row noting the days it covers ("Sep 19 – 25, 2026").
+//
+// Needs `wire_dates!`, `wire_options!` and an `OptionLayer`, as Select does. Like Select (G48)
+// `range` is `in-out`: a pick sets it, then reports it with its first and last day.
+
+import { ControlSize } from "../theme/theme.slint";
+import { Select } from "select.slint";
+import { Choice } from "options.slint";
+import { CivilDate, Dates, DateMath, DateWords } from "dates.slint";
+
+// A span named from today; `none` is no choice.
+export enum RelativeRange {
+    none,
+    // Today alone.
+    today,
+    // Yesterday alone.
+    yesterday,
+    // The last seven days, today included.
+    last-7-days,
+    // The last thirty days, today included.
+    last-30-days,
+    // This month, first day to last.
+    this-month,
+    // All of last month.
+    last-month,
+    // This quarter, all three months.
+    this-quarter,
+    // This year, January to December.
+    this-year,
+}
+
+// A first and a last day.
+export struct DateSpan {
+    first: CivilDate,
+    last: CivilDate,
+}
+
+export global RelativeRanges {
+    // Every span, in menu order, and the key each choice carries.
+    out property <[RelativeRange]> all: [
+        RelativeRange.today,
+        RelativeRange.yesterday,
+        RelativeRange.last-7-days,
+        RelativeRange.last-30-days,
+        RelativeRange.this-month,
+        RelativeRange.last-month,
+        RelativeRange.this-quarter,
+        RelativeRange.this-year,
+    ];
+    out property <[string]> keys: [
+        "today",
+        "yesterday",
+        "last-7-days",
+        "last-30-days",
+        "this-month",
+        "last-month",
+        "this-quarter",
+        "this-year"
+    ];
+    out property <[string]> labels: [
+        @tr("Today"),
+        @tr("Yesterday"),
+        @tr("Last 7 days"),
+        @tr("Last 30 days"),
+        @tr("This month"),
+        @tr("Last month"),
+        @tr("This quarter"),
+        @tr("This year"),
+    ];
+
+    // The range's place in `all`; -1 for none.
+    public pure function index-of(range: RelativeRange) -> int {
+        range == RelativeRange.today ? 0 : range == RelativeRange.yesterday ? 1 : range == RelativeRange.last-7-days ? 2 : range == RelativeRange.last-30-days ? 3 : range == RelativeRange.this-month ? 4 : range == RelativeRange.last-month ? 5 : range == RelativeRange.this-quarter ? 6 : range == RelativeRange.this-year ? 7 : -1
+    }
+
+    // The place in `all` of the span whose key is `key`; -1 for none.
+    public pure function index-of-key(key: string) -> int {
+        key == "today" ? 0 : key == "yesterday" ? 1 : key == "last-7-days" ? 2 : key == "last-30-days" ? 3 : key == "this-month" ? 4 : key == "last-month" ? 5 : key == "this-quarter" ? 6 : key == "this-year" ? 7 : -1
+    }
+
+    // The key the span's choice carries; empty for none.
+    public pure function key-of(range: RelativeRange) -> string {
+        RelativeRanges.index-of(range) >= 0 ? RelativeRanges.keys[RelativeRanges.index-of(range)] : ""
+    }
+
+    // The last day of `date`'s month.
+    public pure function last-of-month(date: CivilDate) -> CivilDate {
+        Dates.shift(DateMath.first-of-month(date), -1, 1)
+    }
+
+    // The first and last day `range` covers, counted from `today`.
+    public pure function span(range: RelativeRange, today: CivilDate) -> DateSpan {
+        if range == RelativeRange.today {
+            return { first: today, last: today };
+        }
+        if range == RelativeRange.yesterday {
+            return { first: Dates.shift(today, -1, 0), last: Dates.shift(today, -1, 0) };
+        }
+        if range == RelativeRange.last-7-days {
+            return { first: Dates.shift(today, -6, 0), last: today };
+        }
+        if range == RelativeRange.last-30-days {
+            return { first: Dates.shift(today, -29, 0), last: today };
+        }
+        if range == RelativeRange.this-month {
+            return { first: DateMath.first-of-month(today), last: RelativeRanges.last-of-month(today) };
+        }
+        if range == RelativeRange.last-month {
+            let last = Dates.shift(DateMath.first-of-month(today), -1, 0);
+            return { first: DateMath.first-of-month(last), last: last };
+        }
+        if range == RelativeRange.this-quarter {
+            let start = { year: today.year, month: floor((today.month - 1) / 3) * 3 + 1, day: 1 };
+            return { first: start, last: RelativeRanges.last-of-month(Dates.shift(start, 0, 2)) };
+        }
+        if range == RelativeRange.this-year {
+            return { first: { year: today.year, month: 1, day: 1 }, last: { year: today.year, month: 12, day: 31 } };
+        }
+        { }
+    }
+
+    // The menu's row for the span at `ix`, noting its days.
+    public pure function choice(ix: int, today: CivilDate) -> Choice {
+        let span = RelativeRanges.span(RelativeRanges.all[ix], today);
+        {
+            value: RelativeRanges.keys[ix],
+            label: RelativeRanges.labels[ix],
+            note: DateWords.span(span.first, span.last)
+        }
+    }
+}
+
+export component RelativeDatePicker {
+    // Names its list; unique among the fields that show lists.
+    in property <string> owner: "relative-date";
+    in-out property <RelativeRange> range;
+    // The date treated as today.
+    in property <CivilDate> today: Dates.today;
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> open: select.open;
+    out property <bool> has-focus: select.has-focus;
+
+    // The span chosen, and its first and last day.
+    callback range-changed(range: RelativeRange, first: CivilDate, last: CivilDate);
+
+    // The chosen key, kept in step with `range` both ways.
+    private property <string> key: RelativeRanges.key-of(root.range);
+
+    changed range => {
+        root.key = RelativeRanges.key-of(root.range);
+    }
+
+    forward-focus: select;
+    horizontal-stretch: 1;
+    min-width: select.min-width;
+    preferred-width: select.preferred-width;
+    height: select.height;
+
+    select := Select {
+        width: root.width;
+        owner: root.owner;
+        choices: [
+            RelativeRanges.choice(0, root.today),
+            RelativeRanges.choice(1, root.today),
+            RelativeRanges.choice(2, root.today),
+            RelativeRanges.choice(3, root.today),
+            RelativeRanges.choice(4, root.today),
+            RelativeRanges.choice(5, root.today),
+            RelativeRanges.choice(6, root.today),
+            RelativeRanges.choice(7, root.today),
+        ];
+        selected <=> root.key;
+        placeholder: @tr("Any time");
+        size: root.size;
+        selection-changed(key) => {
+            let ix = RelativeRanges.index-of-key(key);
+            let span = RelativeRanges.span(RelativeRanges.all[ix], root.today);
+            root.range = RelativeRanges.all[ix];
+            root.range-changed(root.range, span.first, span.last);
+        }
+    }
+}
