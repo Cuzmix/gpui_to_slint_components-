@@ -1,0 +1,143 @@
+// Port of ely-core/src/forms/switch.rs (`Switch`): an on-off switch with an optional label. A
+// press on the row, or Enter or Space while it has focus, flips it; the thumb slides over with a
+// small overshoot.
+//
+// Like ToggleButton (gap G48) the state is `in-out`: a press sets it, then reports it.
+
+import { Theme, Elevation, TextSize } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { TypeText } from "type-text.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// The track and thumb alone. After a change the thumb springs across and both fills mix over
+// motion-base.
+export component SwitchMark {
+    in property <bool> on;
+    in property <bool> focused;
+    in property <bool> enabled: true;
+
+    private property <duration> changed-at;
+    private property <bool> moving;
+    private property <float> t: root.moving ? clamp((animation-tick() - root.changed-at) / Theme.motion-base, 0, 1) : 1;
+    // The thumb's place, 0 off to 1 on, overshooting a little on the way.
+    private property <float> place: root.on ? Theme.spring(root.t) : 1 - Theme.spring(root.t);
+    // Inside the 1 px border and 2 px padding.
+    private property <length> knob: root.height - 6px;
+
+    changed on => {
+        root.changed-at = animation-tick();
+        root.moving = true;
+        settle.running = true;
+        settle.restart();
+    }
+
+    // Stops the tick once the motion has run.
+    settle := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.moving = false;
+        }
+    }
+
+    width: Theme.switch-track-width;
+    height: Theme.switch-track-height;
+    opacity: root.enabled ? 1 : 0.5;
+    accessible-role: none;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        border-width: 1px;
+        border-color: root.focused ? Theme.colors.focus : transparent;
+        background: root.on ? Theme.mix(Theme.colors.border-strong, Theme.colors.accent, root.t) : Theme.mix(Theme.colors.accent, Theme.colors.border-strong, root.t);
+    }
+
+    Elevated {
+        elevation: Elevation.raised;
+        x: 3px + (root.width - root.height) * root.place;
+        y: 3px;
+        width: root.knob;
+        height: root.knob;
+        border-radius: self.height / 2;
+        background: root.on ? Theme.mix(Theme.colors.fg-muted, Theme.colors.on-accent, root.t) : Theme.mix(Theme.colors.on-accent, Theme.colors.fg-muted, root.t);
+    }
+}
+
+export component Switch {
+    in-out property <bool> on;
+    // Text beside it.
+    in property <string> label;
+    // Names it for assistive technology, drawing nothing.
+    in property <string> name;
+    // Dims it and takes no press.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: keys.has-focus;
+
+    // Runs with the new state on each press.
+    callback toggled(on: bool);
+
+    function press() {
+        root.on = !root.on;
+        root.toggled(root.on);
+    }
+
+    forward-focus: keys;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+    accessible-role: switch;
+    accessible-checkable: true;
+    accessible-checked: root.on;
+    accessible-label: root.label != "" ? root.label : root.name;
+    accessible-description: root.enabled ? "" : root.unavailable-text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.press();
+        }
+    }
+
+    row := HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+
+            SwitchMark {
+                on: root.on;
+                focused: keys.has-focus;
+                enabled: root.enabled;
+            }
+        }
+
+        if root.label != "": TypeText {
+            horizontal-stretch: 1;
+            min-width: 0;
+            text: root.label;
+            font-size: Theme.text-size(TextSize.base);
+            color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+            vertical-alignment: center;
+        }
+    }
+
+    // A press never takes focus, as gpui prevents default on mouse down.
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.press();
+        }
+    }
+
+    keys := ClickKeys {
+        enabled: root.enabled;
+        activated => {
+            root.press();
+        }
+    }
+}
