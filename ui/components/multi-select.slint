@@ -1,0 +1,193 @@
+// Port of ely-core/src/forms/multi.rs (`MultiSelect`): a select for several values; the chosen
+// ones sit in the field as removable chips. A mouse click toggles the list; Down, Up, Enter or
+// Space open it; while open Up, Down, Home and End walk it, Enter or Space toggle the row and
+// keep it open, Escape, a press outside or leaving the field closes it. Backspace drops the
+// last value chosen.
+//
+// List edits run in Rust (`Choices`, `wire_options!`, with `wire_toggles!`); the list needs an
+// `OptionLayer` (options.slint). Like Select (G48), `selected` is `in-out`.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+import { Tag } from "badge.slint";
+import { Choice, Choices, OptionAnchor } from "options.slint";
+import { Toggles } from "button-group.slint";
+import { ListKeys } from "select.slint";
+
+export component MultiSelect {
+    // Names the field's list; unique among the fields that show lists.
+    in property <string> owner: "multi-select";
+    in property <[Choice]> choices;
+    // The values chosen, in the order they were chosen.
+    in-out property <[string]> selected;
+    in property <string> placeholder: @tr("Choose…");
+    // The name assistive technology reads; the placeholder when empty.
+    in property <string> label;
+    // Its least height.
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> open;
+    out property <int> highlighted;
+
+    // The values chosen after each change.
+    callback selection-changed(selected: [string]);
+
+    private property <[Choice]> chips: Choices.among(root.choices, root.selected);
+    // The first chosen row that is enabled, else the first enabled row.
+    private property <int> start: root.first-chosen >= 0 ? root.first-chosen : Choices.step(root.choices, root.choices.length - 1, 1);
+    private property <int> first-chosen: root.chips.length > 0 ? Choices.index-of(root.choices, root.chips[0].value) : -1;
+
+    function show(open: bool, at: int) {
+        root.open = open && root.choices.length > 0;
+        root.highlighted = at;
+    }
+
+    function commit(next: [string]) {
+        root.selected = next;
+        root.selection-changed(next);
+    }
+
+    function toggle(ix: int) {
+        if root.choices[ix].disabled {
+            return;
+        }
+        root.show(true, ix);
+        root.commit(Choices.toggled(root.choices, root.selected, root.choices[ix].value, !Toggles.contains(root.selected, root.choices[ix].value)));
+    }
+
+    changed has-focus => {
+        if !root.has-focus {
+            root.open = false;
+        }
+    }
+
+    forward-focus: keys;
+    horizontal-stretch: 1;
+    min-width: 0;
+    preferred-width: flow.preferred-width + 2px;
+    height: max(Theme.control-height(root.size), flow.preferred-height + 2px);
+    accessible-role: combobox;
+    accessible-label: root.label != "" ? root.label : root.placeholder;
+    accessible-value: Choices.joined(root.chips);
+    accessible-expandable: true;
+    accessible-expanded: root.open;
+    accessible-action-default => {
+        root.show(!root.open, root.start);
+    }
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+        background: Theme.colors.surface;
+    }
+
+    // A press focuses; a click toggles the list.
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                keys.focus();
+            }
+        }
+        clicked => {
+            root.show(!root.open, root.start);
+        }
+    }
+
+    keys := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if event.text == Key.Backspace && root.selected.length > 0 {
+                root.commit(Choices.without(root.selected, root.selected.length - 1));
+                return accept;
+            }
+            let move = ListKeys.moved(event, root.choices, root.open, root.highlighted, root.start);
+            if !move.taken {
+                return reject;
+            }
+            if move.pick {
+                root.toggle(move.highlighted);
+            } else {
+                root.show(move.open, move.highlighted);
+            }
+            accept
+        }
+    }
+
+    flow := FlexboxLayout {
+        x: 1px;
+        y: 1px;
+        width: root.width - 2px;
+        height: root.height - 2px;
+        // 4 px before, the control padding after, 2 px above and below, inside the border.
+        padding-left: 4px;
+        padding-right: Theme.control-padding(root.size);
+        padding-top: 2px;
+        padding-bottom: 2px;
+        spacing: 4px;
+        flex-wrap: wrap;
+        cross-axis-alignment: center;
+
+        for chip in root.chips: Tag {
+            text: chip.label;
+            removable: true;
+            remove => {
+                root.commit(Choices.toggled(root.choices, root.selected, chip.value, false));
+            }
+        }
+
+        if root.chips.length == 0: HorizontalLayout {
+            padding-left: 8px;
+
+            TypeText {
+                text: root.placeholder;
+                color: Theme.colors.fg-subtle;
+                font-size: Theme.text-size(TextSize.base);
+                vertical-alignment: center;
+                wrap: no-wrap;
+            }
+        }
+
+        // Pushed to the line's end, as `ml_auto`.
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            alignment: end;
+
+            VerticalLayout {
+                alignment: center;
+
+                Icon {
+                    source: Icons.chevrons-up-down;
+                    size: IconSize.xs;
+                    color: Theme.colors.fg-subtle;
+                }
+            }
+        }
+    }
+
+    OptionAnchor {
+        owner: root.owner;
+        open: root.open;
+        rows: root.choices;
+        highlighted: root.highlighted;
+        checks: true;
+        checked: root.selected;
+        dismissable: true;
+        picked(ix) => {
+            root.toggle(ix);
+        }
+        dismissed => {
+            root.open = false;
+        }
+    }
+}

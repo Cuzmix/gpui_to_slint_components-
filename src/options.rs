@@ -74,6 +74,12 @@ macro_rules! wire_options {
                 .collect();
             ::slint::ModelRc::new(::slint::VecModel::from(kept))
         });
+        $app.global::<Choices>().on_among(|rows, values| {
+            let values: Vec<::slint::SharedString> = values.iter().collect();
+            let kept: Vec<Choice> = rows.iter().filter(|row| values.contains(&row.value)).collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(kept))
+        });
+        $app.global::<Choices>().on_joined(|rows| rows.iter().map(|row| row.label.to_string()).collect::<Vec<_>>().join(", ").into());
         $app.global::<Choices>().on_index_of(|rows, value| rows.iter().position(|row| row.value == value).map_or(-1, |ix| ix as i32));
         $app.global::<Choices>().on_toggled(|choices, selected, value, on| {
             let values: Vec<::slint::SharedString> = choices.iter().map(|row| row.value).collect();
