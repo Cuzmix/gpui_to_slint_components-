@@ -222,6 +222,13 @@ fn settle(window: &slint::Window, buttons: winit::window::WindowButtons) {
     window.with_winit_window(|w| {
         w.set_resizable(false);
         w.set_enabled_buttons(buttons);
+    });
+    center(window);
+}
+
+/// Centers a shown window on its display.
+pub fn center(window: &slint::Window) {
+    window.with_winit_window(|w| {
         if let Some(display) = w.current_monitor() {
             let (at, room, size) = (display.position(), display.size(), w.outer_size());
             let x = at.x + (room.width as i32 - size.width as i32) / 2;
@@ -229,6 +236,78 @@ fn settle(window: &slint::Window, buttons: winit::window::WindowButtons) {
             w.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
         }
     });
+}
+
+/// A display corner for a mini window.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Corner {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+/// Shows a `MiniWindow` as gpui's `MiniWindow::open` does: at a corner of the primary display,
+/// 24 px in from the sides and 48 px from the top, or centered; neither resizable nor
+/// minimizable.
+pub fn open_mini(window: &slint::Window, title: &str, corner: Option<Corner>) -> Result<(), slint::PlatformError> {
+    window.show()?;
+    window.with_winit_window(|w| {
+        w.set_resizable(false);
+        w.set_enabled_buttons(winit::window::WindowButtons::CLOSE);
+        let Some(corner) = corner else { return };
+        let Some(display) = w.primary_monitor().or_else(|| w.current_monitor()) else {
+            log::error!("mini window: no display");
+            return;
+        };
+        let (at, room, size) = (display.position(), display.size(), w.outer_size());
+        let margin = (24.0 * display.scale_factor()).round() as i32;
+        let (left, top) = (at.x + margin, at.y + margin * 2);
+        let right = at.x + room.width as i32 - margin - size.width as i32;
+        let bottom = at.y + room.height as i32 - margin - size.height as i32;
+        let (x, y) = match corner {
+            Corner::TopLeft => (left, top),
+            Corner::TopRight => (right, top),
+            Corner::BottomLeft => (left, bottom),
+            Corner::BottomRight => (right, bottom),
+        };
+        w.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+    });
+    if corner.is_none() {
+        center(window);
+    }
+    log::info!("mini window: opened {title} at {corner:?}");
+    Ok(())
+}
+
+/// Connects a `MiniWindow`'s `MiniWindowActs` and `WindowChrome`: expand closes it and brings
+/// back `$opener` (an `Option` of a component's `Weak`); close hides it. `MiniWindowActs`,
+/// `WindowChrome` and `ResizeEdge` must be in scope.
+#[macro_export]
+macro_rules! wire_mini_window {
+    ($mini:expr, $opener:expr) => {{
+        use ::slint::winit_030::WinitWindowAccessor;
+
+        let host = $crate::wire_window!($mini);
+        let opener = $opener;
+        let acts = $mini.global::<MiniWindowActs>();
+        acts.set_returns(opener.is_some());
+        let weak = $mini.as_weak();
+        acts.on_expand(move || {
+            if let Some(mini) = weak.upgrade() {
+                if let Err(error) = mini.window().hide() {
+                    $crate::log::error!("mini window: {error}");
+                }
+            }
+            match opener.as_ref().and_then(|o| o.upgrade()) {
+                Some(back) => {
+                    back.window().with_winit_window(|w| w.focus_window());
+                }
+                None => $crate::log::warn!("mini window: no window to return to"),
+            }
+        });
+        host
+    }};
 }
 
 /// Connects a window component's `WindowChrome` to its window. Returns the `Rc<WindowHost>`,

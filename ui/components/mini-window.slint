@@ -1,0 +1,109 @@
+// Port of ely-core/src/shell/windows.rs (`MiniWindow`, `Corner`): a small window above all others
+// around a view (the children). While hovered, a bar over its top shows the title, which drags
+// the window, an expand button that closes it and returns to the window that opened it, and a
+// close button.
+//
+// The host places and wires it (Rust):
+//
+//     let mini = Timer::new()?;
+//     ely_slint::wire_mini_window!(mini, Some(main.as_weak()));
+//     ely_slint::window::open_mini(mini.window(), "Timer", Some(Corner::BottomRight))?;
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { WindowChrome } from "window-chrome.slint";
+import { WindowDragArea } from "window-controls.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+
+// What the bar does beyond the window's own acts, wired by `wire_mini_window!`.
+export global MiniWindowActs {
+    // There is a window to return to; shows the expand button.
+    in-out property <bool> returns;
+    // Closes the mini window and brings back the one that opened it.
+    callback expand();
+}
+
+export component MiniWindow inherits Window {
+    // The title on its bar.
+    in property <string> heading;
+    // Its fixed size.
+    in property <length> window-width: 240px;
+    in property <length> window-height: 120px;
+    // The bar shows: the pointer is over the window.
+    out property <bool> bar-shown: hover.has-hover;
+
+    title: root.heading;
+    no-frame: true;
+    always-on-top: true;
+    background: Theme.colors.bg;
+    preferred-width: root.window-width;
+    preferred-height: root.window-height;
+    min-width: root.window-width;
+    max-width: root.window-width;
+    min-height: root.window-height;
+    max-height: root.window-height;
+    default-font-family: Theme.font-family;
+
+    hover := TouchArea {
+        Rectangle {
+            @children
+        }
+
+        Rectangle {
+            y: 0;
+            height: Theme.control-height(ControlSize.lg);
+            visible: hover.has-hover;
+            background: Theme.opacity(Theme.colors.overlay, 0.92);
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                padding-bottom: 1px;
+                spacing: 4px;
+                // Only the title drags: Windows takes the region as caption.
+                WindowDragArea {
+                    horizontal-stretch: 1;
+                    TypeText {
+                        x: 0;
+                        width: parent.width;
+                        height: parent.height;
+                        text: root.heading;
+                        font-size: Theme.text-size(TextSize.xs);
+                        color: Theme.colors.fg-muted;
+                        vertical-alignment: center;
+                    }
+                }
+
+                if MiniWindowActs.returns: VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: Icons.maximize-2;
+                        icon-name: "maximize-2";
+                        size: ControlSize.sm;
+                        clicked => {
+                            MiniWindowActs.expand();
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: Icons.x;
+                        icon-name: "x";
+                        size: ControlSize.sm;
+                        clicked => {
+                            WindowChrome.close();
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                background: Theme.colors.border;
+            }
+        }
+    }
+}

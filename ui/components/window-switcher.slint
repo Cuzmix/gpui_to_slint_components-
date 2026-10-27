@@ -1,0 +1,175 @@
+// Port of ely-core/src/shell/switcher.rs (`WindowSwitcher`) and the list side of windows.rs
+// (`WindowManager::windows`, `focus`): managed windows over a scrim. Down or Tab steps on, Up or
+// Shift+Tab back (wrapping); Enter switches on release; Escape or a press on the scrim closes.
+//
+// The window list lives in Rust (`ely_slint::windows::WindowManager`); each window that shows a
+// switcher wires `ManagedWindows` to it (Rust):
+//
+//     ely_slint::wire_managed_windows!(app);
+//
+// Show it while open, as the last child of the window, and let `close` drop it:
+//
+//     if root.switching: WindowSwitcher { close => { root.switching = false; } }
+//
+// It takes focus when it shows; Slint does not hand focus back on its own (G19), so the owner
+// focuses what it wants in `close`.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+    Elevation,
+} from "../theme/theme.slint";
+import { Backdrop, Place } from "backdrop.slint";
+import { Elevated } from "elevated.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Caption } from "caption.slint";
+import { TypeText } from "type-text.slint";
+
+// The managed windows' titles, oldest first, from the host.
+export global ManagedWindows {
+    in-out property <[string]> titles;
+    // Asks the host to refresh `titles`, dropping windows that closed.
+    callback list();
+    // Brings the window at `index` of `titles` to the front.
+    callback focus(index: int);
+}
+
+export component WindowSwitcher inherits Backdrop {
+    // It closed: by Escape, the scrim, or a switch.
+    callback close();
+
+    private property <int> count: ManagedWindows.titles.length;
+    private property <int> chosen;
+    private property <int> selected: Math.min(root.chosen, Math.max(0, root.count - 1));
+    private property <bool> risen;
+    private property <float> rise: root.risen ? 1 : 0;
+    animate rise {
+        duration: Theme.motion-base;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+
+    init => {
+        ManagedWindows.list();
+        root.risen = true;
+        keys.focus();
+    }
+
+    place: Place.center;
+    dismiss => {
+        root.close();
+    }
+
+    function step(by: int) {
+        if root.count > 0 {
+            root.chosen = Math.mod(root.selected + by + root.count, root.count);
+        }
+    }
+    function switch-to(index: int) {
+        root.close();
+        ManagedWindows.focus(index);
+    }
+
+    // gpui's `mt(NUDGE × (1 − t))` in the centered scrim: the panel starts 2 px lower.
+    VerticalLayout {
+        padding-top: Theme.nudge * (1 - root.rise);
+        Elevated {
+            elevation: Elevation.modal;
+            width: Theme.sheet-size;
+            border-radius: Theme.radius(Radius.xl);
+            background: Theme.colors.overlay;
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            opacity: root.rise;
+            accessible-role: AccessibleRole.list;
+            accessible-label: @tr("Windows");
+
+            keys := FocusScope {
+                key-pressed(event) => {
+                    if event.text == Key.DownArrow || (event.text == Key.Tab && !event.modifiers.shift) {
+                        root.step(1);
+                        return accept;
+                    }
+                    if event.text == Key.UpArrow || event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift) {
+                        root.step(-1);
+                        return accept;
+                    }
+                    if event.text == Key.Escape {
+                        root.close();
+                        return accept;
+                    }
+                    if event.text == Key.Return && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta {
+                        return accept;
+                    }
+                    reject
+                }
+                key-released(event) => {
+                    if event.text == Key.Return && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta {
+                        if root.count > 0 {
+                            root.switch-to(root.selected);
+                        }
+                        return accept;
+                    }
+                    reject
+                }
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 2px;
+                    for title[ix] in ManagedWindows.titles: Rectangle {
+                        height: Theme.control-height(ControlSize.lg);
+                        border-radius: Theme.radius(Radius.md);
+                        background: ix == root.selected ? Theme.colors.hover : transparent;
+                        accessible-role: AccessibleRole.list-item;
+                        accessible-label: title;
+                        accessible-item-selectable: true;
+                        accessible-item-selected: ix == root.selected;
+                        accessible-item-index: ix;
+                        accessible-item-count: root.count;
+                        accessible-action-default => {
+                            root.switch-to(ix);
+                        }
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.switch-to(ix);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            VerticalLayout {
+                                alignment: center;
+                                Icon {
+                                    source: Icons.app-window;
+                                    size: IconSize.sm;
+                                    color: Theme.colors.fg-muted;
+                                }
+                            }
+
+                            TypeText {
+                                text: title;
+                                font-size: Theme.text-size(TextSize.base);
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                accessible-role: none;
+                            }
+                        }
+                    }
+                    if root.count == 0: VerticalLayout {
+                        padding: 12px;
+                        Caption {
+                            text: @tr("No managed windows are open.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

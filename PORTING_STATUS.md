@@ -84,6 +84,9 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | UpdateBanner / UpdateDialog (UpdateState) | shell/update.rs | ✓ | ✓ download, restart, later | n/a | n/a | ✓ progress glide | ✓ | ✓ buttons | ✓ `tests/dialogs.rs` | | ✓ |
 | OfflineIndicator (Connectivity, ConnectivityDot) | shell/status.rs | ✓ | ✓ changed-state | n/a | n/a | ✓ enter, hold fade, breathing dot | ✓ | ✓ text | ✓ `tests/status.rs` | | ✓ |
 | ZoomControl (ZoomStep, ZoomSteps) | shell/status.rs | ✓ | ✓ zoom (owned), set-zoom (window) | n/a | ✓ reset hover | ✓ rolling percent | ✓ | ✓ buttons, reset named by percent | ✓ `tests/status.rs` | G40 | ✓ |
+| WindowManager (Rust, `wire_managed_windows!`) | shell/windows.rs | ✓ | ✓ open, list, focus | n/a | n/a | n/a | n/a | n/a | ✓ `tests/switcher.rs`, `src/windows.rs` | G44 G45 | ✓ |
+| WindowSwitcher (ManagedWindows) | shell/switcher.rs | ✓ | ✓ close, focus | ✓ arrows, Tab, Shift+Tab, Enter on release, Escape | ✓ scrim, rows | ✓ rise in | ✓ | ✓ list, selectable items | ✓ `tests/switcher.rs` | G19 G45 | ✓ |
+| MiniWindow (Corner, `open_mini`, `wire_mini_window!`) | shell/windows.rs | ✓ | ✓ expand, close | n/a | ✓ bar on hover, title drags | n/a | ✓ | ✓ buttons | ✓ `tests/switcher.rs` | G44 G45 | ✓ |
 | Toolbar / ToolbarGroup / ToolbarSeparator | shell/bars.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/bars.rs` | | ✓ |
 | StatusBar / StatusBarSide / StatusBarItem | shell/bars.rs, status.rs | ✓ | ✓ clicked | n/a | ✓ hover, tooltip | n/a | ✓ | ✓ clickable items are buttons | ✓ `tests/bars.rs` | | ✓ |
 | ActivityBar (ActivityItem) | shell/activity.rs | ✓ | ✓ select | n/a | ✓ hover, tooltip | ✓ mark grows in | ✓ | ✓ tab role, selected | ✓ `tests/bars.rs` | | ✓ |

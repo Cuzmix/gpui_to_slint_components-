@@ -3,7 +3,6 @@
 mod common;
 use common::*;
 use i_slint_backend_testing::ElementHandle;
-use slint::ComponentHandle;
 
 slint::slint! {
     import { ProgressBar, ProgressRing } from "ui/index.slint";
