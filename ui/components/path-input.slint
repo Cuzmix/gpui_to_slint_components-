@@ -1,0 +1,103 @@
+// Port of ely-core/src/forms/path.rs (`PathInput`, `choose`): a path field with Browse, which
+// opens the system's file dialog.
+//
+// `.slint` cannot open a dialog (gap G56): Browse asks the `Paths` global, and the host answers
+// through `wire_paths!` with the dialog it uses:
+//     ely_slint::wire_paths!(app, |request, answer| answer.send(my_dialog(&request)));
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { Input } from "input.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { Icons } from "../icons/icons.slint";
+
+// What a field asks the file dialog for.
+export struct PathRequest {
+    // Names the asking field; the answer goes back to it.
+    owner: string,
+    // Folders instead of files.
+    directories: bool,
+    multiple: bool,
+    // The dialog's confirm button.
+    prompt: string,
+}
+
+// Hands file dialogs to the host (`ely_slint::paths`).
+export global Paths {
+    callback choose(request: PathRequest);
+    // The last answer: whose it is, and the paths chosen; counted so the owner sees each one.
+    in-out property <string> answered-owner;
+    in-out property <[string]> answered;
+    in-out property <int> answers;
+}
+
+export component PathInput {
+    in-out property <string> text;
+    // Names the field's dialog; unique among the fields that open one.
+    in property <string> owner: "path";
+    // Chooses folders instead of files.
+    in property <bool> directories;
+    // Whether a chosen path fills the field; false hands it to `chosen` only (ely's `on_choose`).
+    in property <bool> fill: true;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+    in property <string> browse-text: @tr("Browse…");
+    in property <string> prompt-text: @tr("Choose");
+
+    out property <bool> has-focus: field.has-focus;
+
+    callback edited(text: string);
+    callback accepted();
+    // A path came back from the dialog.
+    callback chosen(path: string);
+
+    private property <int> answers: Paths.answers;
+
+    changed answers => {
+        if Paths.answered-owner != root.owner || Paths.answered.length == 0 {
+            return;
+        }
+        if root.fill {
+            root.text = Paths.answered[0];
+        }
+        root.chosen(Paths.answered[0]);
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := Input {
+        width: root.width;
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: root.label;
+        size: root.size;
+        enabled: root.enabled;
+        prefix-icon: root.directories ? Icons.folder : Icons.file;
+        edited(text) => {
+            root.edited(text);
+        }
+        accepted => {
+            root.accepted();
+        }
+
+        Button {
+            text: root.browse-text;
+            size: ControlSize.sm;
+            variant: ButtonVariant.ghost;
+            enabled: root.enabled;
+            clicked => {
+                Paths.choose({
+                    owner: root.owner,
+                    directories: root.directories,
+                    multiple: false,
+                    prompt: root.prompt-text,
+                });
+            }
+        }
+    }
+}

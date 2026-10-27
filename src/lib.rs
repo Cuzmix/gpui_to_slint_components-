@@ -17,6 +17,7 @@ pub mod numbers;
 pub mod open;
 pub mod options;
 pub mod panes;
+pub mod paths;
 pub mod text;
 pub mod toggles;
 pub mod window;
