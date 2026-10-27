@@ -1,0 +1,268 @@
+// Port of ely-core/src/forms/slider.rs (`fraction`, `value_at`, `keyed`, `Track`): the track,
+// fill and thumbs that Slider and RangeSlider share.
+//
+// A press on the track jumps the nearer thumb there and focuses it; dragging a thumb, or the
+// track after a press, moves it along. Each thumb is its own tab stop: arrows step, Page Up and
+// Page Down jump ten steps, Home and End go to the ends. Every change goes to `commit`, which the
+// owner turns into its values. Values are `float`s (G55).
+
+import { Theme, Elevation } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+
+// What a key does to a value: the value it moves to, or not taken.
+export struct SliderKey {
+    taken: bool,
+    value: float,
+}
+
+export global SliderMath {
+    // `value` as a fraction of `minimum` to `maximum`.
+    public pure function fraction(value: float, minimum: float, maximum: float) -> float {
+        clamp((value - minimum) / (maximum - minimum), 0, 1)
+    }
+
+    // The value at `fraction` of `minimum` to `maximum`, on the `step` grid.
+    public pure function value-at(fraction: float, minimum: float, maximum: float, step: float) -> float {
+        let raw = minimum + clamp(fraction, 0, 1) * (maximum - minimum);
+        clamp(minimum + round((raw - minimum) / step) * step, minimum, maximum)
+    }
+
+    // Where a key moves `value`: arrows step, Page keys jump ten, Home and End go to the ends.
+    public pure function keyed(event: KeyEvent, value: float, minimum: float, maximum: float, step: float) -> SliderKey {
+        let next = event.text == Key.LeftArrow || event.text == Key.DownArrow ? value - step : event.text == Key.RightArrow || event.text == Key.UpArrow ? value + step : event.text == Key.PageDown ? value - step * 10 : event.text == Key.PageUp ? value + step * 10 : event.text == Key.Home ? minimum : event.text == Key.End ? maximum : 0;
+        let taken = event.text == Key.LeftArrow || event.text == Key.DownArrow || event.text == Key.RightArrow || event.text == Key.UpArrow || event.text == Key.PageDown || event.text == Key.PageUp || event.text == Key.Home || event.text == Key.End;
+        { taken: taken, value: clamp(next, minimum, maximum) }
+    }
+}
+
+// A round thumb: surface fill, raised shadow, a 1 px border in the focus color while focused.
+component SliderThumb {
+    in property <float> value;
+    in property <float> minimum;
+    in property <float> maximum;
+    // The range the slider spans, for its keys.
+    in property <float> lowest;
+    in property <float> highest;
+    in property <float> step;
+    in property <string> label;
+    in property <string> description;
+    in property <bool> enabled;
+
+    out property <bool> has-focus: keys.has-focus;
+
+    callback moved(value: float);
+
+    function step-by(by: float) {
+        if root.enabled {
+            root.moved(clamp(root.value + by, root.lowest, root.highest));
+        }
+    }
+
+    forward-focus: keys;
+    width: Theme.slider-thumb;
+    height: Theme.slider-thumb;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-description: root.description;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-enabled: root.enabled;
+    accessible-action-increment => {
+        root.step-by(root.step);
+    }
+    accessible-action-decrement => {
+        root.step-by(-root.step);
+    }
+
+    Elevated {
+        elevation: Elevation.raised;
+        border-radius: self.height / 2;
+        background: Theme.colors.surface;
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+    }
+
+    keys := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            let key = SliderMath.keyed(event, root.value, root.lowest, root.highest, root.step);
+            if !key.taken {
+                return reject;
+            }
+            root.moved(key.value);
+            accept
+        }
+    }
+}
+
+export component SliderTrack {
+    // Two thumbs, `low` and `high`; else one, at `high`.
+    in property <bool> range;
+    in property <float> low;
+    in property <float> high;
+    in property <float> minimum;
+    in property <float> maximum;
+    in property <float> step;
+    // Runs bottom to top; the parent gives it a height.
+    in property <bool> vertical;
+    in property <bool> enabled;
+    // Each thumb's name for assistive technology.
+    in property <string> low-label;
+    in property <string> high-label;
+    in property <string> unavailable-text;
+
+    out property <bool> has-focus: low-thumb.has-focus || high-thumb.has-focus;
+
+    // Thumb `index` (0 the low thumb, 1 the high or only one) moved to `value`.
+    callback commit(index: int, value: float);
+
+    private property <length> thumb: Theme.slider-thumb;
+    private property <length> line: Theme.slider-track;
+    // The track between the thumbs' half widths at each end.
+    private property <length> inner-x: root.vertical ? 0 : root.thumb / 2;
+    private property <length> inner-y: root.vertical ? root.thumb / 2 : 0;
+    private property <length> inner-width: root.vertical ? root.thumb : root.width - root.thumb;
+    private property <length> inner-height: root.vertical ? root.height - root.thumb : root.thumb;
+    private property <float> start: root.range ? SliderMath.fraction(root.low, root.minimum, root.maximum) : 0;
+    private property <float> end: SliderMath.fraction(root.high, root.minimum, root.maximum);
+    // The thumb the last track press grabbed, and the thumb a drag moves (-1: none).
+    private property <int> grabbed;
+    private property <int> dragging: -1;
+
+    // How far along the track a point is, from its start: left, or bottom when vertical.
+    function along(x: length, y: length) -> float {
+        root.vertical ? (root.inner-y + root.inner-height - y) / root.inner-height : (x - root.inner-x) / root.inner-width
+    }
+
+    // Where thumb `at` (a fraction) sits.
+    function thumb-x(at: float) -> length {
+        root.vertical ? 0 : root.inner-x + at * root.inner-width - root.thumb / 2
+    }
+    function thumb-y(at: float) -> length {
+        root.vertical ? root.inner-y + (1 - at) * root.inner-height - root.thumb / 2 : 0
+    }
+
+    // The thumb under a point, the high one first since it is drawn above; -1 for none.
+    function thumb-under(x: length, y: length) -> int {
+        let hx = root.thumb-x(root.end);
+        let hy = root.thumb-y(root.end);
+        if x >= hx && x < hx + root.thumb && y >= hy && y < hy + root.thumb {
+            return 1;
+        }
+        let lx = root.thumb-x(root.start);
+        let ly = root.thumb-y(root.start);
+        root.range && x >= lx && x < lx + root.thumb && y >= ly && y < ly + root.thumb ? 0 : -1
+    }
+
+    function focus-thumb(index: int) {
+        if index == 0 {
+            low-thumb.focus();
+        } else {
+            high-thumb.focus();
+        }
+    }
+
+    function press(x: length, y: length) {
+        let under = root.thumb-under(x, y);
+        let inside = x >= root.inner-x && x < root.inner-x + root.inner-width && y >= root.inner-y && y < root.inner-y + root.inner-height;
+        if under >= 0 {
+            root.focus-thumb(under);
+        }
+        if inside {
+            let next = SliderMath.value-at(root.along(x, y), root.minimum, root.maximum, root.step);
+            root.grabbed = root.range && abs(next - root.high) < abs(next - root.low) ? 1 : root.range ? 0 : 1;
+            root.focus-thumb(root.grabbed);
+            root.commit(root.grabbed, next);
+        }
+        root.dragging = under >= 0 ? under : inside ? root.grabbed : -1;
+    }
+
+    // Focusing the slider focuses its high (or only) thumb.
+    forward-focus: high-thumb;
+    horizontal-stretch: root.vertical ? 0 : 1;
+    vertical-stretch: root.vertical ? 1 : 0;
+    min-width: root.thumb;
+    min-height: root.thumb;
+    preferred-width: root.thumb;
+    preferred-height: root.thumb;
+    max-width: root.vertical ? root.thumb : 100000px;
+    max-height: root.vertical ? 100000px : root.thumb;
+    opacity: root.enabled ? 1 : 0.5;
+
+    // The rail, then the fill between the thumbs (or from the start).
+    Rectangle {
+        x: root.vertical ? (root.thumb - root.line) / 2 : root.inner-x;
+        y: root.vertical ? root.inner-y : (root.thumb - root.line) / 2;
+        width: root.vertical ? root.line : root.inner-width;
+        height: root.vertical ? root.inner-height : root.line;
+        border-radius: root.line / 2;
+        background: Theme.colors.border;
+    }
+
+    Rectangle {
+        x: root.vertical ? (root.thumb - root.line) / 2 : root.inner-x + root.start * root.inner-width;
+        y: root.vertical ? root.inner-y + (1 - root.end) * root.inner-height : (root.thumb - root.line) / 2;
+        width: root.vertical ? root.line : (root.end - root.start) * root.inner-width;
+        height: root.vertical ? (root.end - root.start) * root.inner-height : root.line;
+        border-radius: root.line / 2;
+        background: Theme.colors.accent;
+    }
+
+    low-thumb := SliderThumb {
+        x: root.thumb-x(root.start);
+        y: root.thumb-y(root.start);
+        visible: root.range;
+        value: root.low;
+        minimum: root.minimum;
+        maximum: root.high;
+        lowest: root.minimum;
+        highest: root.maximum;
+        step: root.step;
+        label: root.low-label;
+        description: root.enabled ? "" : root.unavailable-text;
+        enabled: root.enabled && root.range;
+        moved(value) => {
+            root.commit(0, value);
+        }
+    }
+
+    high-thumb := SliderThumb {
+        x: root.thumb-x(root.end);
+        y: root.thumb-y(root.end);
+        value: root.high;
+        minimum: root.range ? root.low : root.minimum;
+        maximum: root.maximum;
+        lowest: root.minimum;
+        highest: root.maximum;
+        step: root.step;
+        label: root.high-label;
+        description: root.enabled ? "" : root.unavailable-text;
+        enabled: root.enabled;
+        moved(value) => {
+            root.commit(1, value);
+        }
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.thumb-under(self.mouse-x, self.mouse-y) >= 0 ? MouseCursor.pointer : MouseCursor.default;
+        pointer-event(event) => {
+            if event.button != PointerEventButton.left {
+                return;
+            }
+            if event.kind == PointerEventKind.down {
+                root.press(self.mouse-x, self.mouse-y);
+            } else if event.kind == PointerEventKind.up {
+                root.dragging = -1;
+            }
+        }
+        moved => {
+            if self.pressed && root.dragging >= 0 {
+                root.commit(root.dragging, SliderMath.value-at(root.along(self.mouse-x, self.mouse-y), root.minimum, root.maximum, root.step));
+            }
+        }
+    }
+}

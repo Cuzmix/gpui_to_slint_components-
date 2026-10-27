@@ -1,0 +1,55 @@
+// Port of ely-core/src/forms/slider.rs (`Slider`): a value along a track. Drag the thumb, press
+// the track, or use the arrow keys.
+//
+// Like Switch (G48), `value` is `in-out`: a drag, press or key sets it, then reports it.
+
+import { SliderTrack } from "slider-track.slint";
+
+export component Slider {
+    in-out property <float> value;
+    // Its least and greatest value, and the grain a drag snaps to and a key moves.
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    // Runs bottom to top; the parent gives it a height.
+    in property <bool> vertical;
+    // Dims it and takes no drag.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: track.has-focus;
+
+    // Each new value.
+    callback value-changed(value: float);
+
+    forward-focus: track;
+    horizontal-stretch: track.horizontal-stretch;
+    vertical-stretch: track.vertical-stretch;
+    min-width: track.min-width;
+    min-height: track.min-height;
+    preferred-width: track.preferred-width;
+    preferred-height: track.preferred-height;
+    max-width: track.max-width;
+    max-height: track.max-height;
+
+    track := SliderTrack {
+        width: root.width;
+        height: root.height;
+        high: root.value;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: root.step;
+        vertical: root.vertical;
+        enabled: root.enabled;
+        high-label: root.label;
+        unavailable-text: root.unavailable-text;
+        commit(index, next) => {
+            if next != root.value {
+                root.value = next;
+                root.value-changed(next);
+            }
+        }
+    }
+}

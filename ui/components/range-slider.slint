@@ -1,0 +1,62 @@
+// Port of ely-core/src/forms/slider.rs (`RangeSlider`): two thumbs that bound a span. Neither
+// passes the other. A press on the track moves the nearer thumb.
+//
+// Like Slider (G48), `low` and `high` are `in-out`: a change sets them, then reports both.
+
+import { SliderTrack } from "slider-track.slint";
+
+export component RangeSlider {
+    in-out property <float> low;
+    in-out property <float> high;
+    // Its least and greatest value, and the grain a drag snaps to and a key moves.
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    // The name assistive technology reads, each thumb saying which end it holds.
+    in property <string> label;
+    // Runs bottom to top; the parent gives it a height.
+    in property <bool> vertical;
+    // Dims it and takes no drag.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: track.has-focus;
+
+    // Each new span.
+    callback range-changed(low: float, high: float);
+
+    forward-focus: track;
+    horizontal-stretch: track.horizontal-stretch;
+    vertical-stretch: track.vertical-stretch;
+    min-width: track.min-width;
+    min-height: track.min-height;
+    preferred-width: track.preferred-width;
+    preferred-height: track.preferred-height;
+    max-width: track.max-width;
+    max-height: track.max-height;
+
+    track := SliderTrack {
+        width: root.width;
+        height: root.height;
+        range: true;
+        low: root.low;
+        high: root.high;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: root.step;
+        vertical: root.vertical;
+        enabled: root.enabled;
+        low-label: root.label == "" ? "" : @tr("{}, from", root.label);
+        high-label: root.label == "" ? "" : @tr("{}, to", root.label);
+        unavailable-text: root.unavailable-text;
+        commit(index, next) => {
+            let low = index == 0 ? min(next, root.high) : root.low;
+            let high = index == 0 ? root.high : max(next, root.low);
+            if low != root.low || high != root.high {
+                root.low = low;
+                root.high = high;
+                root.range-changed(low, high);
+            }
+        }
+    }
+}
