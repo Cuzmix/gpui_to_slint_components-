@@ -76,6 +76,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | TitleBar (TitleBarTitle) | shell/chrome.rs | ✓ | ✓ close-requested, routed system close | n/a | ✓ drag, slots take presses | n/a | ✓ | ✓ title text | ✓ `tests/title_bar.rs` | G39 G41 | ✓ |
 | WindowResizeBorder (ResizeBorder) | shell/frame.rs | ✓ | ✓ start-resize | n/a | ✓ edge cursors | n/a | ✓ | n/a | ✓ `tests/title_bar.rs` | G37 | ✓ |
 | Vibrancy | shell/vibrancy.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | n/a (a fill) | | ✓ |
+| ColumnShell / ShellColumn (ShellColumnHeader, ShellColumnTitle, ShellColumnBody) | shell/columns.rs | ✓ | ✓ resized, close-requested | n/a | ✓ border drags from the drawn width, header drags the window | n/a | ✓ | ✓ title text | ✓ `tests/column_shell.rs`, `src/columns.rs` | G39 G42 | ✓ |
 
 Gallery: pages 1–3 (Foundations, Typography, Layout) mirror the story app; `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
 

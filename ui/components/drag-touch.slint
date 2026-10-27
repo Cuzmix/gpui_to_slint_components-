@@ -14,8 +14,9 @@ export component DragTouch inherits TouchArea {
     // The left button was let go without a drag.
     callback tapped();
 
-    private property <length> down-x;
-    private property <length> down-y;
+    // Where the left press went down, in window coordinates.
+    out property <length> down-x;
+    out property <length> down-y;
 
     pointer-event(event) => {
         if event.button != PointerEventButton.left {

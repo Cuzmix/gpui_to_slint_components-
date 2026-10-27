@@ -25,6 +25,7 @@ Source: `ely-core/src/shell/` (`chrome.rs`, `frame.rs`, `closing.rs`, `columns.r
 ## ColumnShell / ShellColumn
 - Columns side by side, full height, ground `bg` (or `glass`). Set widths are flex bases, a column without one fills. Each border lies toward the filling column; a column after it borders its left, others their right (the last none). A resizable column draws its border with a 6 px handle; others a 1 px `border` line.
 - Header: the title bar's height, 8 px gap; the first header pads 78 px for the system's lights (not full screen), else 12 px; 12 px right unless Windows controls end it flush. Drawn controls lead the first (Mac) or end the last (others). The header items (leading, title, actions) are at least 32 px wide and scroll sideways when short; the title (sm, medium, `fg_muted`, ellipsized) or a spacer drags the window.
+- Slint: the owner's `columns` stay constant and `widths` carry the set widths by index (G42); headers and bodies are the owner's `ShellColumnHeader` and `ShellColumnBody` at `shell.frames[ix]`.
 - Resize: a press on the handle remembers x; the first sideways move sets off from max(drawn width, owner's width) and the owner's width; each move clamps to [min, max] (towards the filling column grows); a move back to the start gives the owner's width; `resized(width)` only when it differs. `min > max` panics in gpui (logged and ignored here).
 
 ## Toolbar / StatusBar / ActivityBar / TabBar

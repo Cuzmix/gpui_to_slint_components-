@@ -564,3 +564,40 @@ macro_rules! wire_workspace {
         host
     }};
 }
+
+/// Wires `ColumnShells` to [`columns::place`](crate::columns::place). The host's root `.slint`
+/// file exports `ColumnShells`, `ShellColumnSpec`, `ShellRoom` and `ShellColumnFrame`.
+#[macro_export]
+macro_rules! wire_column_shell {
+    ($app:expr) => {{
+        use ::slint::Model;
+        use $crate::columns::{self, Column, Room, Side};
+        $app.global::<ColumnShells>().on_layout(|specs, widths, width, height, room| {
+            let specs: Vec<Column> = specs
+                .iter()
+                .enumerate()
+                .map(|(ix, spec)| Column {
+                    width: (!spec.fills).then(|| widths.row_data(ix).unwrap_or(0.0)),
+                    resizable: spec.resizable,
+                    min: spec.min,
+                    max: spec.max,
+                })
+                .collect();
+            let room = Room { first_pad: room.first_pad, lead: room.lead, trail: room.trail, flush: room.flush };
+            let frames: Vec<ShellColumnFrame> = columns::place(&specs, width, room)
+                .into_iter()
+                .map(|placed| ShellColumnFrame {
+                    x: placed.x,
+                    width: placed.width,
+                    height,
+                    border_left: placed.side == Some(Side::Left),
+                    bordered: placed.side.is_some(),
+                    resizes: placed.resizes,
+                    items_x: placed.items_x,
+                    items_width: placed.items_width,
+                })
+                .collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(frames))
+        });
+    }};
+}

@@ -29,6 +29,10 @@ export component ResizeHandle inherits Rectangle {
     // The line at rest: `border`, or transparent for an edge whose box draws its own border
     // (`resize_edge`).
     in property <color> line: Theme.colors.border;
+    // Where the line sits across the grab: 0 at its start, 0.5 in its middle, 1 at its end.
+    in property <float> line-at: 0.5;
+    // Where the press went down along the split, in window coordinates.
+    out property <length> press-along: root.across ? touch.down-x : touch.down-y;
     // The grab is held.
     out property <bool> pressed: touch.pressed;
     out property <bool> has-hover: touch.has-hover;
@@ -49,8 +53,8 @@ export component ResizeHandle inherits Rectangle {
     preferred-height: root.across ? 0 : Theme.handle-hit;
 
     Rectangle {
-        x: root.across ? (parent.width - 1px) / 2 : 0;
-        y: root.across ? 0 : (parent.height - 1px) / 2;
+        x: root.across ? (parent.width - 1px) * root.line-at : 0;
+        y: root.across ? 0 : (parent.height - 1px) * root.line-at;
         width: root.across ? 1px : parent.width;
         height: root.across ? parent.height : 1px;
         background: touch.has-hover ? Theme.colors.focus : root.line;

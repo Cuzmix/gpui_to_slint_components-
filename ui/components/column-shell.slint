@@ -1,0 +1,257 @@
+// Port of ely-core/src/shell/columns.rs (`ColumnShell`, `ShellColumn`): columns to the window's
+// top, each under a header at the title bar's height that drags the window. The window controls
+// lead the first header (macOS's manner) or end the last.
+//
+// The shell lays the columns out (Rust: `ely_slint::columns`, wired by `wire_column_shell!`),
+// draws their ground, borders, resize handles and the controls; the owner places each column's
+// header items and body where the shell says, as gpui's columns carry them (gap G42):
+//     shell := ColumnShell {
+//         columns: [{ }, { fills: true }];
+//         widths: [240px];
+//         ShellColumnHeader {
+//             column: shell.frames[1];
+//             IconButton { icon: Icons.info; }
+//             ShellColumnTitle { text: "Inbox"; }
+//             IconButton { icon: Icons.panel-right; }
+//         }
+//         ShellColumnBody { column: shell.frames[1]; Paragraph { text: "…"; } }
+//     }
+// A header's items sit 8 px apart; the title (or an empty one as a spacer) fills between the
+// leading items and the actions and drags the window.
+
+import { Theme, PlatformStyle, ControlSize } from "../theme/theme.slint";
+import { WindowChrome, ChromeStyle } from "window-chrome.slint";
+import { WindowDragArea, WindowControls } from "window-controls.slint";
+import { ResizeHandle } from "split.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { TextSize } from "../theme/theme.slint";
+
+// One column as the owner sets it. Its width is apart, in the shell's `widths`, as the one
+// part that changes.
+export struct ShellColumnSpec {
+    // Fills the width the others leave.
+    fills: bool,
+    // Its border, the one toward the filling column, drags its width within `min` and `max`.
+    resizable: bool,
+    min: length,
+    max: length,
+}
+
+// What the shell's chrome takes in its headers.
+export struct ShellRoom {
+    first-pad: length,
+    lead: length,
+    trail: length,
+    flush: bool,
+}
+
+// Where a column lies, from the shell's left, and the room its header leaves for items.
+export struct ShellColumnFrame {
+    x: length,
+    width: length,
+    // The shell's height.
+    height: length,
+    // Its border lies on its left (a column after the filling one), else on its right.
+    border-left: bool,
+    // It has a border, drawn as a line or, when it resizes, by its handle.
+    bordered: bool,
+    resizes: bool,
+    // The header items' room, from the column's left.
+    items-x: length,
+    items-width: length,
+}
+
+export global ColumnShells {
+    // The columns laid out across `width`.
+    pure callback layout(columns: [ShellColumnSpec], widths: [length], width: length, height: length, room: ShellRoom) -> [ShellColumnFrame];
+}
+
+// A column's header items (`ShellColumn::leading`, `title`, `action`): one row 8 px apart, at
+// least one control wide, scrolling sideways when short. Presses on it never drag the window,
+// except on the title.
+export component ShellColumnHeader {
+    // The column's frame: `shell.frames[ix]`.
+    in property <ShellColumnFrame> column;
+
+    x: root.column.x + root.column.items-x;
+    y: 0;
+    width: root.column.items-width;
+    height: Theme.titlebar-height;
+
+    // Windows takes a drag region under controls as caption: the row takes its presses.
+    TouchArea { }
+
+    Flickable {
+        content-width: max(self.width, row.min-width);
+        content-height: self.height;
+        row := HorizontalLayout {
+            spacing: 8px;
+            @children
+        }
+    }
+}
+
+// A header's title, or a spacer without text: it fills between the leading items and the
+// actions, drags the window, and adds no width.
+export component ShellColumnTitle inherits WindowDragArea {
+    in property <string> text;
+
+    horizontal-stretch: 1;
+    min-width: 0;
+    preferred-width: 0;
+
+    Ellipsis {
+        x: 0;
+        y: (parent.height - self.height) / 2;
+        width: min(self.preferred-width, parent.width);
+        text: root.text;
+        font-size: Theme.text-size(TextSize.sm);
+        font-weight: 500;
+        color: Theme.colors.fg-muted;
+    }
+}
+
+// A column's body, under its header, across its width inside its border.
+export component ShellColumnBody {
+    in property <ShellColumnFrame> column;
+
+    private property <length> line: root.column.bordered && !root.column.resizes ? 1px : 0;
+
+    x: root.column.x + (root.column.border-left ? root.line : 0);
+    y: Theme.titlebar-height;
+    width: root.column.width - root.line;
+    height: max(0, root.column.height - Theme.titlebar-height);
+
+    VerticalLayout {
+        alignment: start;
+        @children
+    }
+}
+
+// Columns to the window's top (`ColumnShell`).
+export component ColumnShell inherits Rectangle {
+    // The columns, left to right; one fills. Keep it constant: the shell repeats over it, and
+    // a changed array would rebuild a border under the drag.
+    in property <[ShellColumnSpec]> columns;
+    // Each column's set width, by index: a flex basis that yields when the shell runs short.
+    // Ignored for the filling column; one missing counts as 0.
+    in property <[length]> widths;
+    // Whose controls to draw; `system` leaves macOS's lights to the system and the first header
+    // room for them.
+    in property <ChromeStyle> platform: ChromeStyle.system;
+    // True: Close runs `close-requested`; without a forced platform, system closes too.
+    in property <bool> handles-close;
+    // Grounds the columns in the palette's glass, so a blurred window shows through them.
+    in property <bool> glass;
+    // Each column's place, for its header and body.
+    out property <[ShellColumnFrame]> frames: ColumnShells.layout(root.columns, root.widths, root.width, root.height, root.room);
+
+    // Close was pressed (or the system asked) and `handles-close` is set.
+    callback close-requested();
+    // A border drag set column `index` to `width`; the owner keeps it.
+    callback resized(index: int, width: length);
+
+    private property <bool> system: root.platform == ChromeStyle.system && WindowChrome.system-lights;
+    private property <PlatformStyle> style: root.system ? PlatformStyle.mac : root.platform == ChromeStyle.mac ? PlatformStyle.mac : root.platform == ChromeStyle.windows ? PlatformStyle.windows : root.platform == ChromeStyle.linux ? PlatformStyle.linux : Theme.platform;
+    private property <length> controls: root.style == PlatformStyle.mac ? 3 * Theme.traffic-light + 2 * 8px : root.style == PlatformStyle.windows ? 3 * Theme.caption-button-width : Theme.control-height(ControlSize.sm) * (1 + (WindowChrome.offers-minimize ? 1 : 0) + (WindowChrome.offers-maximize ? 1 : 0)) + 8px * ((WindowChrome.offers-minimize ? 1 : 0) + (WindowChrome.offers-maximize ? 1 : 0));
+    private property <ShellRoom> room: {
+        first-pad: root.system && !WindowChrome.fullscreen ? Theme.traffic-light-inset : 12px,
+        lead: !root.system && root.style == PlatformStyle.mac ? root.controls : 0,
+        trail: !root.system && root.style != PlatformStyle.mac ? root.controls : 0,
+        flush: root.style == PlatformStyle.windows,
+    };
+    private property <bool> routes: root.platform == ChromeStyle.system && root.handles-close;
+    private property <int> asked: WindowChrome.close-asked;
+    // A border drag: the width it sets off from and the owner's then, once it moved sideways.
+    private property <bool> set-off;
+    private property <length> start;
+    private property <length> kept;
+
+    changed routes => {
+        WindowChrome.close-routed = root.routes;
+    }
+    changed asked => {
+        if root.routes {
+            root.close-requested();
+        }
+    }
+    init => {
+        if root.routes {
+            WindowChrome.close-routed = true;
+        }
+    }
+
+    background: root.glass ? Theme.colors.glass : Theme.colors.bg;
+
+    for spec[ix] in root.columns: Rectangle {
+        private property <ShellColumnFrame> frame: root.frames[ix];
+        private property <length> owned: root.widths[ix];
+        x: self.frame.x;
+        width: self.frame.width;
+
+        // Each header drags the window where its items leave it.
+        WindowDragArea {
+            y: 0;
+            height: Theme.titlebar-height;
+        }
+
+        if self.frame.bordered && !self.frame.resizes: Rectangle {
+            x: frame.border-left ? 0 : parent.width - 1px;
+            width: 1px;
+            background: Theme.colors.border;
+        }
+
+        // A resizing column's handle draws its border, over its header so a press there drags
+        // the border, not the window.
+        // Shown, not `if`: a new frame on every move must not rebuild the handle under the drag.
+        ResizeHandle {
+            visible: frame.resizes;
+            x: frame.border-left ? 0 : parent.width - self.width;
+            y: 0;
+            height: parent.height;
+            line-at: frame.border-left ? 0 : 1;
+            grabbed => {
+                root.set-off = false;
+            }
+            moved(along) => {
+                let moved = along - self.press-along;
+                if !root.set-off {
+                    if moved == 0 {
+                        return;
+                    }
+                    // A header's parts may hold a column wider, a short shell squeeze it.
+                    root.start = max(frame.width, owned);
+                    root.kept = owned;
+                    root.set-off = true;
+                }
+                let next = moved == 0 ? root.kept : frame.border-left ? max(spec.min, min(spec.max, root.start - moved)) : max(spec.min, min(spec.max, root.start + moved));
+                if next != owned {
+                    root.resized(ix, next);
+                }
+            }
+        }
+    }
+
+    @children
+
+    if root.room.lead > 0 && root.frames.length > 0: WindowControls {
+        x: root.room.first-pad;
+        y: (Theme.titlebar-height - self.preferred-height) / 2;
+        platform: root.style;
+        handles-close: root.handles-close;
+        close-requested => {
+            root.close-requested();
+        }
+    }
+
+    if root.room.trail > 0 && root.frames.length > 0: WindowControls {
+        private property <ShellColumnFrame> last: root.frames[root.frames.length - 1];
+        x: self.last.x + self.last.width - (root.room.flush ? 0 : 12px) - self.preferred-width;
+        y: (Theme.titlebar-height - self.preferred-height) / 2;
+        platform: root.style;
+        handles-close: root.handles-close;
+        close-requested => {
+            root.close-requested();
+        }
+    }
+}
