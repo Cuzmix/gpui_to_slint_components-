@@ -1,0 +1,280 @@
+// Port of ely-core/src/forms/picks.rs (`finder`, `grid`): the searchable glyph grid IconPicker
+// and EmojiPicker share. A search field over a scrolling grid of glyphs, `columns` across, rows
+// a large control high; groups may wear titles. Down in the field moves into the grid; Enter
+// there, or Enter or Space in the grid, picks the cursor's glyph. The arrows walk the grid,
+// keeping the column and scrolling the cursor into view. A new search puts the cursor first and
+// scrolls to the top.
+//
+// Finding and laying out glyphs runs in Rust (`wire_glyphs!`); the field needs `wire_fields!`.
+// Slint has no grid role (gap G60): the grid is a table of list items, its value the cursor's.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { InputFrame, InputText } from "input.slint";
+import { Icon } from "icon.slint";
+import { Icons, IconEntry } from "../icons/icons.slint";
+import { Emoji } from "emoji.slint";
+import { TypeText } from "type-text.slint";
+import { TooltipController } from "tooltip.slint";
+import { KeyStrokes } from "keystroke.slint";
+
+// A row of a glyph grid: a group's title, or the glyphs from `start` up to `end`.
+export struct GlyphRow {
+    title: string,
+    start: int,
+    end: int,
+}
+
+// What a grid shows: its rows, each glyph's name, and the emoji (or, for icons, where each sits
+// in `Icons.all`).
+export struct GlyphLayout {
+    rows: [GlyphRow],
+    names: [string],
+    glyphs: [string],
+    at: [int],
+}
+
+// What the glyph grids need from Rust (`ely_slint::glyphs`).
+export global Glyphs {
+    // The icons whose name, with spaces for dashes, holds the search `text`.
+    pure callback icon-layout(icons: [IconEntry], text: string) -> GlyphLayout;
+    // The emoji whose name or shortcode holds `text`; grouped under titles while it is empty.
+    pure callback emoji-layout(text: string) -> GlyphLayout;
+    // The glyph an arrow ("left", "right", "up", "down") moves to from `at`; -1 for none.
+    pure callback step(rows: [GlyphRow], at: int, key: string) -> int;
+    // The row holding glyph `at`; -1 for none.
+    pure callback row-of(rows: [GlyphRow], at: int) -> int;
+    // Where `item` sits in `items`; -1 for nowhere.
+    pure callback index-of(items: [string], item: string) -> int;
+    // Logs a pick.
+    callback picked(what: string, name: string);
+}
+
+// One glyph's cell.
+component GlyphCell inherits Rectangle {
+    in property <string> name;
+    in property <image> icon;
+    in property <string> glyph;
+    in property <bool> selected;
+    in property <bool> ringed;
+
+    callback clicked();
+
+    border-radius: Theme.radius(Radius.md);
+    border-width: 1px;
+    border-color: root.ringed ? Theme.colors.focus : root.selected ? Theme.colors.accent : transparent;
+    background: touch.has-hover ? Theme.colors.hover : root.selected ? Theme.colors.active : transparent;
+    accessible-role: list-item;
+    accessible-label: root.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    if root.glyph == "": Icon {
+        source: root.icon;
+        size: IconSize.md;
+        color: Theme.colors.fg;
+    }
+
+    if root.glyph != "": Emoji {
+        glyph: root.glyph;
+        size: TextSize.lg;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.name;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+}
+
+export component GlyphGrid inherits VerticalLayout {
+    // Rows, names and glyphs, laid out for `text`.
+    in property <GlyphLayout> layout;
+    // Draws icons from `Icons.all` rather than emoji.
+    in property <bool> icons;
+    // The chosen glyph's place in `layout`; -1 for none.
+    in property <int> selected: -1;
+    in property <string> placeholder;
+    // Shown when nothing matches.
+    in property <string> none;
+    in property <int> columns: 8;
+
+    // The search text.
+    in-out property <string> text;
+    out property <int> cursor: Math.min(root.kept, root.count - 1);
+    out property <bool> grid-focused: cells.has-focus;
+
+    // The glyph at `index` was picked.
+    callback picked(index: int);
+
+    private property <length> cell: Theme.control-height(ControlSize.lg);
+    private property <int> count: root.layout.names.length;
+    private property <int> kept;
+
+    function pick(ix: int) {
+        root.kept = ix;
+        root.picked(ix);
+    }
+
+    // Brings the cursor's row into view.
+    function reveal(ix: int) {
+        let row = Glyphs.row-of(root.layout.rows, ix);
+        if row < 0 {
+            return;
+        }
+        let top = row * root.cell;
+        if top < -flick.content-y {
+            flick.content-y = -top;
+        } else if top + root.cell > -flick.content-y + flick.height {
+            flick.content-y = flick.height - top - root.cell;
+        }
+    }
+
+    changed text => {
+        root.kept = 0;
+        flick.content-y = 0;
+    }
+
+    forward-focus: field;
+    spacing: 8px;
+    min-width: root.cell * root.columns;
+    max-width: self.min-width;
+
+    InputFrame {
+        size: ControlSize.md;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        Icon {
+            source: Icons.search;
+            size: IconSize.sm;
+            color: Theme.colors.fg-subtle;
+        }
+
+        field := InputText {
+            text <=> root.text;
+            placeholder: root.placeholder;
+            label: root.placeholder;
+            size: ControlSize.md;
+            key-pressed(event) => {
+                if event.text == Key.DownArrow && root.count > 0 {
+                    cells.focus();
+                    return accept;
+                }
+                if event.text == Key.Return && root.count > 0 {
+                    root.pick(root.cursor);
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+
+    if root.count == 0: Rectangle {
+        height: Theme.list-max-height;
+
+        TypeText {
+            y: 24px;
+            width: parent.width;
+            text: root.none;
+            color: Theme.colors.fg-subtle;
+            horizontal-alignment: center;
+        }
+    }
+
+    cells := FocusScope {
+        visible: root.count > 0;
+        height: root.count > 0 ? Theme.list-max-height : 0;
+        accessible-role: table;
+        accessible-label: root.placeholder;
+        accessible-value: root.count > 0 ? root.layout.names[root.cursor] : "";
+        key-pressed(event) => {
+            if root.count == 0 {
+                return reject;
+            }
+            let key = KeyStrokes.key-name(event.text);
+            if key == "enter" || key == "space" {
+                root.pick(root.cursor);
+                return accept;
+            }
+            let to = Glyphs.step(root.layout.rows, root.cursor, key);
+            if to < 0 {
+                return reject;
+            }
+            root.kept = to;
+            root.reveal(to);
+            accept
+        }
+
+        flick := Flickable {
+            content-height: root.layout.rows.length * root.cell;
+
+            for row[r] in root.layout.rows: Rectangle {
+                y: r * root.cell;
+                height: root.cell;
+
+                if row.title != "": TypeText {
+                    x: 0;
+                    y: 0;
+                    width: parent.width;
+                    height: parent.height - 4px;
+                    text: row.title;
+                    font-size: Theme.text-size(TextSize.xs);
+                    color: Theme.colors.fg-subtle;
+                    vertical-alignment: bottom;
+                    wrap: no-wrap;
+                }
+
+                // Only rows in view hold cells.
+                if row.title == "" && (r + 1) * root.cell > -flick.content-y && r * root.cell < -flick.content-y + flick.height: Rectangle {
+                    for i in row.end - row.start: GlyphCell {
+                        x: i * root.cell;
+                        width: root.cell;
+                        height: root.cell;
+                        name: root.layout.names[row.start + i];
+                        icon: root.icons ? Icons.all[root.layout.at[row.start + i]].image : @image-url("");
+                        glyph: root.icons ? "" : root.layout.glyphs[row.start + i];
+                        selected: root.selected == row.start + i;
+                        ringed: cells.has-focus && root.cursor == row.start + i;
+                        clicked => {
+                            cells.focus();
+                            root.pick(row.start + i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,39 @@
+// Port of ely-core/src/forms/glyphs.rs (`EmojiPicker`): a searchable grid of emoji, eight
+// across, under their Unicode groups until a search finds those whose name or shortcode holds it.
+//
+// The grid needs `wire_glyphs!` and `wire_fields!`. Like Select (G48), `selected` is `in-out`:
+// a pick sets it, then reports it.
+
+import { GlyphGrid, Glyphs } from "glyph-grid.slint";
+
+export component EmojiPicker {
+    // Names it in the log.
+    in property <string> owner: "emoji";
+    // The emoji chosen ("✨"); empty for none.
+    in-out property <string> selected;
+
+    // The search text.
+    out property <string> text: grid.text;
+    out property <int> cursor: grid.cursor;
+
+    // The emoji picked.
+    callback selection-changed(emoji: string);
+
+    forward-focus: grid;
+    min-width: grid.min-width;
+    max-width: grid.max-width;
+    min-height: grid.min-height;
+    max-height: grid.max-height;
+
+    grid := GlyphGrid {
+        layout: Glyphs.emoji-layout(self.text);
+        selected: Glyphs.index-of(self.layout.glyphs, root.selected);
+        placeholder: @tr("Search emoji");
+        none: @tr("No emoji match");
+        picked(ix) => {
+            root.selected = self.layout.glyphs[ix];
+            Glyphs.picked("emoji picker \"" + root.owner + "\"", self.layout.names[ix]);
+            root.selection-changed(root.selected);
+        }
+    }
+}

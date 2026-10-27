@@ -12,7 +12,9 @@ include = ["src/**", "ui/**", "build.rs", "README.md", "LICENSE"]
 anyhow = "1"
 slint = { version = "=1.18.1", features = ["unstable-winit-030"] }
 emojis = "0.9"
+fontique = "0.11"
 iso_currency = "0.7"
+isocountry = "0.3"
 jiff = "0.2"
 log = "0.4"
 regex = "1"

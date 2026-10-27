@@ -1,0 +1,13 @@
+// Port of ely-core/src/forms/catalogs.rs (`Combobox::currencies`): a Combobox over
+// ISO 4217 currencies in use, without funds, metals or retired codes.
+//
+// The list comes from `Catalogs` (`wire_catalogs!`); the rest is Combobox's, wired as it
+// needs. gpui builds it as a Combobox constructor; here it inherits Combobox.
+
+import { Combobox } from "combobox.slint";
+import { Catalogs } from "catalogs.slint";
+
+export component CurrencySelect inherits Combobox {
+    owner: "currency";
+    choices: Catalogs.currencies;
+}

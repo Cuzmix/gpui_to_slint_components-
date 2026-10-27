@@ -184,6 +184,9 @@ export component Input {
     in property <color> prefix-color: Theme.colors.fg-subtle;
     // The face the text is set in.
     in property <string> font-family: Theme.font-family;
+    // Colors spans of one line of text (TextField's `highlights`, gap G53).
+    in property <styled-text> highlights;
+    in property <bool> highlighting;
 
     out property <bool> has-focus: field.has-focus;
     out property <color> current-border: frame.current-border;
@@ -232,6 +235,8 @@ export component Input {
             size: root.size;
             least: root.least;
             font-family: root.font-family;
+            highlights: root.highlights;
+            highlighting: root.highlighting;
             edited(text) => {
                 root.edited(text);
             }

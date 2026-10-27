@@ -5,6 +5,8 @@
 //! and this crate computes them. Nothing here holds UI state.
 
 pub mod cascade;
+pub mod catalogs;
+pub mod code;
 pub mod colors;
 pub mod columns;
 pub mod cron;
@@ -17,8 +19,10 @@ pub mod fields;
 pub mod files;
 pub mod focus;
 pub mod format;
+pub mod glyphs;
 pub mod highlight;
 pub mod keys;
+pub mod languages;
 pub mod layout;
 pub mod mentions;
 pub mod numbers;
@@ -26,6 +30,8 @@ pub mod open;
 pub mod options;
 pub mod panes;
 pub mod paths;
+pub mod signature;
+pub mod syntax;
 pub mod text;
 pub mod toggles;
 pub mod window;

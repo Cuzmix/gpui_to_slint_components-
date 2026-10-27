@@ -1088,10 +1088,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "emojis",
+ "fontique",
  "futures",
  "i-slint-backend-testing",
  "image",
  "iso_currency",
+ "isocountry",
  "jiff",
  "log",
  "objc2 0.6.5",
@@ -2363,6 +2365,16 @@ dependencies = [
  "iso_country",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "isocountry"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ea1dc4bf0fb4904ba83ffdb98af3d9c325274e92e6e295e4151e86c96363e04"
+dependencies = [
+ "serde",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

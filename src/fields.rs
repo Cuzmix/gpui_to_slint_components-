@@ -205,6 +205,17 @@ macro_rules! wire_fields {
             $crate::highlight::regex_colors(&pattern, &palette, plain)
         });
         $app.global::<TextFields>().on_regex_error(|pattern| $crate::highlight::regex_error(&pattern).unwrap_or_default().into());
+        $app.global::<TextFields>().on_code_colors(|source, palette, plain| {
+            use ::slint::Model;
+            let palette: Vec<::slint::Color> = palette.iter().collect();
+            $crate::code::colored(&source, &$crate::code::code_tones(&source, &$crate::code::GENERIC), &palette, plain)
+        });
+        $app.global::<TextFields>().on_json_colors(|source, palette, plain| {
+            use ::slint::Model;
+            let palette: Vec<::slint::Color> = palette.iter().collect();
+            $crate::code::colored(&source, &$crate::code::json_tones(&source), &palette, plain)
+        });
+        $app.global::<TextFields>().on_json_error(|source| $crate::code::json_error(&source).unwrap_or_default().into());
     }};
 }
 

@@ -1,0 +1,14 @@
+// Port of ely-core/src/forms/catalogs.rs: the lists LanguageSelect, CountrySelect,
+// CurrencySelect and FontPicker show, filled once by the host:
+//     ely_slint::wire_catalogs!(app);
+// Languages are ISO 639-1 under their own names, countries ISO 3166-1 with flags, currencies
+// ISO 4217 in use, and font families those Slint's text stack finds (gap G65).
+
+import { Choice } from "options.slint";
+
+export global Catalogs {
+    in-out property <[Choice]> languages;
+    in-out property <[Choice]> countries;
+    in-out property <[Choice]> currencies;
+    in-out property <[Choice]> fonts;
+}

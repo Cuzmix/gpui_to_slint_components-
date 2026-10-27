@@ -1,0 +1,51 @@
+// Port of ely-core/src/forms/catalogs.rs (`FontPicker`): the system's font families in a
+// Combobox, and, once one is chosen, a line set in it.
+//
+// The families come from `Catalogs` (`wire_catalogs!`, gap G65); the rest is Combobox's, wired
+// as it needs. Like Combobox (G48), `family` is `in-out`.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { Combobox } from "combobox.slint";
+import { Catalogs } from "catalogs.slint";
+import { TypeText } from "type-text.slint";
+
+export component FontPicker inherits VerticalLayout {
+    // Names its list; unique among the fields that show lists.
+    in property <string> owner: "font";
+    // The family chosen; empty for none.
+    in-out property <string> family;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> enabled: true;
+
+    out property <bool> open: combo.open;
+    out property <bool> has-focus: combo.has-focus;
+    // The words in the field.
+    out property <string> text: combo.text;
+
+    // The family, once one is chosen.
+    callback family-changed(family: string);
+
+    forward-focus: combo;
+    spacing: 8px;
+    horizontal-stretch: 1;
+
+    combo := Combobox {
+        owner: root.owner;
+        choices: Catalogs.fonts;
+        selected <=> root.family;
+        placeholder: root.placeholder;
+        label: root.label;
+        enabled: root.enabled;
+        selection-changed(family) => {
+            root.family-changed(family);
+        }
+    }
+
+    if root.family != "": TypeText {
+        text: @tr("The quick brown fox jumps over the lazy dog.");
+        font-family: root.family;
+        font-size: Theme.text-size(TextSize.lg);
+        color: Theme.colors.fg-muted;
+    }
+}

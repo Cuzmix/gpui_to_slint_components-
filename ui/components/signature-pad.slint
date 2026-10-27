@@ -1,0 +1,192 @@
+// Port of ely-core/src/forms/signature.rs (`SignaturePad`): a pad to sign with the pointer. A
+// press starts a stroke; a drag (past gpui's 2 px start) draws it, kept inside the pad; it lands
+// when the pen lifts, inside or out. Clear wipes them all.
+//
+// Growing a stroke and bending it into a path run in Rust; the host wires `Signatures` once:
+//     ely_slint::wire_signatures!(app);
+// Like Select (G48), `strokes` is `in-out`: a stroke or Clear sets it, then reports it.
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { Button } from "button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { TypeText } from "type-text.slint";
+
+// A point of a stroke, from the pad's top left corner.
+export struct PenPoint {
+    x: length,
+    y: length,
+}
+
+// What SignaturePad needs from Rust (`ely_slint::signature`).
+export global Signatures {
+    // `stroke` with (`x`, `y`) added, kept inside a pad `width` by `height`, unless the pen has
+    // not moved.
+    pure callback reach(stroke: [PenPoint], x: length, y: length, width: length, height: length) -> [PenPoint];
+    // `strokes` with `stroke` after them.
+    pure callback with-stroke(strokes: [[PenPoint]], stroke: [PenPoint]) -> [[PenPoint]];
+    // Path commands bending a line through the stroke's midpoints; empty under two points.
+    pure callback ink(stroke: [PenPoint]) -> string;
+}
+
+// One stroke: its line, and a dot at each end.
+component Ink {
+    in property <[PenPoint]> stroke;
+    in property <length> pen;
+    in property <color> color;
+
+    if root.stroke.length >= 2: Path {
+        width: root.width;
+        height: root.height;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        commands: Signatures.ink(root.stroke);
+        stroke: root.color;
+        stroke-width: root.pen;
+        fill: transparent;
+    }
+
+    if root.stroke.length >= 1: Rectangle {
+        x: root.stroke[0].x - root.pen / 2;
+        y: root.stroke[0].y - root.pen / 2;
+        width: root.pen;
+        height: root.pen;
+        border-radius: root.pen / 2;
+        background: root.color;
+    }
+
+    if root.stroke.length >= 1: Rectangle {
+        x: root.stroke[root.stroke.length - 1].x - root.pen / 2;
+        y: root.stroke[root.stroke.length - 1].y - root.pen / 2;
+        width: root.pen;
+        height: root.pen;
+        border-radius: root.pen / 2;
+        background: root.color;
+    }
+}
+
+export component SignaturePad inherits VerticalLayout {
+    in-out property <[[PenPoint]]> strokes;
+
+    // The stroke under the pen.
+    out property <[PenPoint]> drawing;
+
+    // Every stroke, once the pen lifts or Clear wipes them.
+    callback strokes-changed(strokes: [[PenPoint]]);
+
+    private property <bool> empty: root.strokes.length == 0;
+    private property <bool> dragging;
+
+    function set(next: [[PenPoint]]) {
+        root.strokes = next;
+        root.strokes-changed(next);
+    }
+
+    spacing: 4px;
+    horizontal-stretch: 1;
+
+    pad := Rectangle {
+        height: Theme.signature-height;
+        border-radius: Theme.radius(Radius.lg);
+        border-width: 1px;
+        border-color: Theme.colors.border-strong;
+        background: Theme.colors.surface;
+
+        // The signing line: 24 px in from each side, 32 px up, dashed.
+        line := HorizontalLayout {
+            x: 24px;
+            y: parent.height - 32px - self.height;
+            width: parent.width - 48px;
+            padding-bottom: 4px;
+            spacing: 8px;
+            alignment: start;
+
+            TypeText {
+                text: "×";
+                font-size: Theme.text-size(TextSize.sm);
+                color: Theme.colors.fg-subtle;
+                vertical-alignment: bottom;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+
+            if root.empty: TypeText {
+                text: @tr("Sign here");
+                font-size: Theme.text-size(TextSize.sm);
+                color: Theme.colors.fg-subtle;
+                vertical-alignment: bottom;
+                wrap: no-wrap;
+            }
+        }
+
+        // Slint draws no dashed border: 2 px dashes with 1 px gaps (gap G34).
+        for i in Math.max(0, floor(line.width / 3px)): Rectangle {
+            x: line.x + i * 3px;
+            y: line.y + line.height - 1px;
+            width: 2px;
+            height: 1px;
+            background: Theme.colors.border-strong;
+        }
+
+        for stroke in root.strokes: Ink {
+            width: parent.width;
+            height: parent.height;
+            stroke: stroke;
+            pen: Theme.signature-ink;
+            color: Theme.colors.fg;
+        }
+
+        Ink {
+            width: parent.width;
+            height: parent.height;
+            stroke: root.drawing;
+            pen: Theme.signature-ink;
+            color: Theme.colors.fg;
+        }
+
+        TouchArea {
+            mouse-cursor: MouseCursor.crosshair;
+            pointer-event(event) => {
+                if event.button != PointerEventButton.left {
+                    return;
+                }
+                if event.kind == PointerEventKind.down {
+                    root.dragging = false;
+                    root.drawing = Signatures.reach([], self.mouse-x, self.mouse-y, self.width, self.height);
+                } else if event.kind == PointerEventKind.up && root.drawing.length > 0 {
+                    let stroke = Signatures.reach(root.drawing, self.mouse-x, self.mouse-y, self.width, self.height);
+                    root.drawing = [];
+                    root.set(Signatures.with-stroke(root.strokes, stroke));
+                }
+            }
+            moved => {
+                if !self.pressed || root.drawing.length == 0 {
+                    return;
+                }
+                if !root.dragging {
+                    let dx = (self.mouse-x - self.pressed-x) / 1px;
+                    let dy = (self.mouse-y - self.pressed-y) / 1px;
+                    root.dragging = sqrt(dx * dx + dy * dy) > 2;
+                }
+                if root.dragging {
+                    root.drawing = Signatures.reach(root.drawing, self.mouse-x, self.mouse-y, self.width, self.height);
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+
+        Button {
+            text: @tr("Clear");
+            size: ControlSize.sm;
+            variant: ButtonVariant.ghost;
+            enabled: !root.empty;
+            clicked => {
+                root.set([]);
+            }
+        }
+    }
+}

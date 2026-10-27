@@ -1,0 +1,13 @@
+// Port of ely-core/src/forms/catalogs.rs (`Combobox::countries`): a Combobox over
+// ISO 3166-1 countries and territories, flagged, with their codes.
+//
+// The list comes from `Catalogs` (`wire_catalogs!`); the rest is Combobox's, wired as it
+// needs. gpui builds it as a Combobox constructor; here it inherits Combobox.
+
+import { Combobox } from "combobox.slint";
+import { Catalogs } from "catalogs.slint";
+
+export component CountrySelect inherits Combobox {
+    owner: "country";
+    choices: Catalogs.countries;
+}

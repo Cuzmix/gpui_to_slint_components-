@@ -1,0 +1,13 @@
+// Port of ely-core/src/forms/catalogs.rs (`Combobox::languages`): a Combobox over
+// ISO 639-1 languages under their own names; a name in either tongue or the code finds one.
+//
+// The list comes from `Catalogs` (`wire_catalogs!`); the rest is Combobox's, wired as it
+// needs. gpui builds it as a Combobox constructor; here it inherits Combobox.
+
+import { Combobox } from "combobox.slint";
+import { Catalogs } from "catalogs.slint";
+
+export component LanguageSelect inherits Combobox {
+    owner: "language";
+    choices: Catalogs.languages;
+}

@@ -40,6 +40,13 @@ export global TextFields {
     // (RegexInput).
     pure callback regex-colors(pattern: string, palette: [color], plain: color) -> styled-text;
     pure callback regex-error(pattern: string) -> string;
+    // Code colored as most languages read it (CodeInput), and JSON (JsonInput); `palette` holds
+    // the comment, string, number, keyword, constant, function, type, variable, punctuation,
+    // operator and property colors, the rest `plain`.
+    pure callback code-colors(source: string, palette: [color], plain: color) -> styled-text;
+    pure callback json-colors(source: string, palette: [color], plain: color) -> styled-text;
+    // The first parse error of non-blank JSON; empty when it reads.
+    pure callback json-error(source: string) -> string;
 }
 
 export component TextField {

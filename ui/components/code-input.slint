@@ -1,0 +1,79 @@
+// Port of ely-core/src/forms/code.rs (`CodeInput`, `JsonInput`, `code_highlights`,
+// `json_highlights`): code fields in the mono face, colored as you type (gap G53).
+//
+// CodeInput is one line, colored the way most languages read. JsonInput takes several lines,
+// checks the JSON as you type, and shows the first parse error under a danger frame. Coloring
+// and checking run in Rust (`TextFields`, `wire_fields!`).
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { Input } from "input.slint";
+import { TextFields } from "text-field.slint";
+import { TypeText } from "type-text.slint";
+
+// The syntax palette in the order `TextFields.code-colors` reads it.
+global CodeTones {
+    out property <[color]> palette: [
+        Theme.colors.syntax.comment,
+        Theme.colors.syntax.string,
+        Theme.colors.syntax.number,
+        Theme.colors.syntax.keyword,
+        Theme.colors.syntax.constant,
+        Theme.colors.syntax.function,
+        Theme.colors.syntax.type-name,
+        Theme.colors.syntax.variable,
+        Theme.colors.syntax.punctuation,
+        Theme.colors.syntax.operator,
+        Theme.colors.syntax.property,
+    ];
+}
+
+export component CodeInput inherits Input {
+    font-family: Theme.mono-family;
+    highlighting: true;
+    highlights: TextFields.code-colors(self.text, CodeTones.palette, self.enabled ? Theme.colors.fg : Theme.colors.fg-disabled);
+}
+
+export component JsonInput inherits VerticalLayout {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    // The lines it shows: at least `rows-min`, growing to `rows-max`; one line unless set, as
+    // the owner's text state decides in gpui.
+    in property <int> rows-min: 0;
+    in property <int> rows-max: root.rows-min;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // The first parse error; empty while the JSON reads or the field is blank.
+    out property <string> error: TextFields.json-error(root.text);
+
+    callback edited(text: string);
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    spacing: 4px;
+
+    field := Input {
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: root.label;
+        description: root.error;
+        rows-min: root.rows-min;
+        rows-max: root.rows-max;
+        enabled: root.enabled;
+        invalid: root.error != "";
+        font-family: Theme.mono-family;
+        highlighting: true;
+        highlights: TextFields.json-colors(root.text, CodeTones.palette, root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled);
+        edited(text) => {
+            root.edited(text);
+        }
+    }
+
+    if root.error != "": TypeText {
+        text: root.error;
+        color: Theme.colors.danger;
+        font-size: Theme.text-size(TextSize.xs);
+        wrap: word-wrap;
+    }
+}
