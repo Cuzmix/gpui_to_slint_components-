@@ -1,0 +1,138 @@
+// Port of ely-core/src/shell/activity.rs (`ActivityBar`, `ActivityItem`; NavigationRail is the
+// same rail): an icon rail at a window's edge, main items at the top, footer items at the foot.
+
+import { Theme, IconSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { TooltipController } from "tooltip.slint";
+import { CountBadge } from "badge.slint";
+
+// One destination on an activity bar.
+export struct ActivityItem {
+    id: string,
+    icon: image,
+    // For tips and screen readers.
+    label: string,
+    // A count; zero hides it.
+    badge: int,
+}
+
+// One item: 48 px square, its icon `fg_subtle` (`fg` chosen or hovered), the chosen one marked
+// by a 2 px bar on its left that grows in.
+component ActivityEntry inherits Rectangle {
+    in property <ActivityItem> item;
+    in property <bool> selected;
+
+    callback picked();
+
+    width: Theme.rail-width;
+    height: Theme.rail-width;
+    accessible-role: AccessibleRole.tab;
+    accessible-label: root.item.label;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => {
+        root.picked();
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.item.label;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.picked();
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    Icon {
+        source: root.item.icon;
+        size: IconSize.lg;
+        color: root.selected || touch.has-hover ? Theme.colors.fg : Theme.colors.fg-subtle;
+    }
+
+    // gpui's mark grows from nothing to the large icon's height over BASE, each time it shows.
+    if root.selected: Rectangle {
+        private property <bool> grown;
+        x: 0;
+        y: (parent.height - self.height) / 2;
+        width: 2px;
+        height: self.grown ? Theme.icon-size(IconSize.lg) : 0;
+        background: Theme.colors.fg;
+        animate height {
+            duration: Theme.motion-base;
+            easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+        }
+        init => {
+            self.grown = true;
+        }
+    }
+
+    if root.item.badge > 0: CountBadge {
+        x: parent.width - 4px - self.preferred-width;
+        y: 4px;
+        count: root.item.badge;
+    }
+}
+
+// An icon rail (`ActivityBar`): 48 px wide on `surface`, a hairline on its right, 4 px in at the
+// top and foot.
+export component ActivityBar inherits Rectangle {
+    in property <[ActivityItem]> items;
+    // At the foot.
+    in property <[ActivityItem]> footer;
+    // The chosen item's id.
+    in property <string> selected;
+
+    // An item was pressed.
+    callback select(id: string);
+
+    width: Theme.rail-width;
+    background: Theme.colors.surface;
+    accessible-role: AccessibleRole.tab-list;
+
+    VerticalLayout {
+        padding-top: 4px;
+        padding-bottom: 4px;
+        alignment: space-between;
+        VerticalLayout {
+            for item in root.items: ActivityEntry {
+                item: item;
+                selected: root.selected == item.id;
+                picked => {
+                    root.select(item.id);
+                }
+            }
+        }
+
+        VerticalLayout {
+            for item in root.footer: ActivityEntry {
+                item: item;
+                selected: root.selected == item.id;
+                picked => {
+                    root.select(item.id);
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.colors.border;
+    }
+}

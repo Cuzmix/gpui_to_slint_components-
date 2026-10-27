@@ -1,0 +1,168 @@
+// Port of ely-core/src/shell/bars.rs: `Toolbar`, `ToolbarGroup`, `ToolbarSeparator`,
+// `StatusBar`, `StatusBarItem`.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { TooltipController } from "tooltip.slint";
+
+// A row of tools, grouped and divided (`Toolbar`): 32 px, 4 px in from each side, 4 px apart.
+export component Toolbar inherits HorizontalLayout {
+    height: Theme.control-height(ControlSize.lg);
+    padding-left: 4px;
+    padding-right: 4px;
+    spacing: 4px;
+    alignment: start;
+}
+
+// Tools that belong together, 2 px apart.
+export component ToolbarGroup inherits HorizontalLayout {
+    spacing: 2px;
+    horizontal-stretch: 0;
+}
+
+// The hairline between toolbar groups: 16 px tall, 4 px clear on each side.
+export component ToolbarSeparator {
+    width: 9px;
+    horizontal-stretch: 0;
+    accessible-role: none;
+
+    Rectangle {
+        x: 4px;
+        y: (parent.height - self.height) / 2;
+        width: 1px;
+        height: Theme.icon-size(IconSize.md);
+        background: Theme.colors.border;
+    }
+}
+
+// A thin bar along a window's foot (`StatusBar`): 24 px on `bg` with a hairline above, small
+// muted type; a `StatusBarSide` at each end, 8 px apart at the least.
+//     StatusBar {
+//         StatusBarSide { StatusBarItem { label: "main"; } }
+//         StatusBarSide { end: true; StatusBarItem { label: "UTF-8"; } }
+//     }
+export component StatusBar inherits Rectangle {
+    height: Theme.control-height(ControlSize.sm);
+    background: Theme.colors.bg;
+
+    HorizontalLayout {
+        padding-left: 4px;
+        padding-right: 4px;
+        padding-top: 1px;
+        spacing: 8px;
+        alignment: space-between;
+        @children
+    }
+
+    Rectangle {
+        y: 0;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
+
+// One end of a status bar: its items 2 px apart, shrinking and clipping when the bar is narrow.
+export component StatusBarSide inherits Rectangle {
+    // The right end: items end-aligned.
+    in property <bool> end;
+
+    min-width: 0;
+    preferred-width: row.preferred-width;
+    clip: true;
+
+    row := HorizontalLayout {
+        spacing: 2px;
+        alignment: root.end ? LayoutAlignment.end : LayoutAlignment.start;
+        @children
+    }
+}
+
+// One status (`StatusBarItem`): leading children, an icon, a label, or any of them, and a tip
+// on hover. Clickable, it is a button named by its label, tip or icon, lit on hover.
+export component StatusBarItem inherits Rectangle {
+    in property <image> icon;
+    in property <bool> has-icon;
+    // The icon's name, the accessible name when there is no label or tip.
+    in property <string> icon-name;
+    in property <string> label;
+    in property <string> tooltip;
+    // Makes it a button that runs `clicked`.
+    in property <bool> clickable;
+
+    callback clicked();
+
+    border-radius: Theme.radius(Radius.sm);
+    background: root.clickable && touch.has-hover ? Theme.colors.hover : transparent;
+    min-width: 0;
+    preferred-width: row.preferred-width;
+    accessible-role: none;
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.tooltip;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.clickable ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            if root.clickable {
+                root.clicked();
+            }
+        }
+        pointer-event(event) => {
+            if root.tooltip != "" {
+                tip.pointer-event(event, self.mouse-x, self.mouse-y);
+            }
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    // A clickable item is a button named by its label, tip or icon.
+    if root.clickable: Rectangle {
+        accessible-role: button;
+        accessible-label: root.label != "" ? root.label : root.tooltip != "" ? root.tooltip : root.icon-name;
+        accessible-action-default => {
+            root.clicked();
+        }
+    }
+
+    row := HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
+        @children
+        if root.has-icon: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                size: IconSize.xs;
+                color: Theme.colors.fg-muted;
+            }
+        }
+        if root.label != "": VerticalLayout {
+            alignment: center;
+            min-width: 0;
+            Ellipsis {
+                text: root.label;
+                font-size: Theme.text-size(TextSize.xs);
+                color: Theme.colors.fg-muted;
+            }
+        }
+    }
+}

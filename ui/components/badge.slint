@@ -1,0 +1,245 @@
+// Port of ely-core/src/data_display/badge.rs (`Tone`, `Badge`, `CountBadge`, `DotBadge`, `Tag`).
+// Chapter 12's badges, ported early for the activity bar.
+
+import {
+    Theme,
+    ControlSize,
+    TextSize,
+    IconSize,
+    Radius,
+} from "../theme/theme.slint";
+import { Severity, Severities } from "severity.slint";
+import { AnimatedNumber } from "animated-number.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+
+// How a badge or a tag is tinted: quiet, the accent, or a severity.
+export enum Tone { neutral, accent, info, success, warning, danger }
+
+export global Tones {
+    // The fill.
+    public pure function fill(tone: Tone) -> color {
+        tone == Tone.neutral ? Theme.colors.hover : tone == Tone.accent ? Theme.colors.accent : Severities.subtle(root.severity(tone))
+    }
+    // The text on the fill.
+    public pure function text(tone: Tone) -> color {
+        tone == Tone.neutral ? Theme.colors.fg-muted : tone == Tone.accent ? Theme.colors.on-accent : Severities.color(root.severity(tone))
+    }
+    // The color a dot of this tone takes.
+    public pure function dot(tone: Tone) -> color {
+        tone == Tone.neutral ? Theme.colors.fg-subtle : tone == Tone.accent ? Theme.colors.accent : root.text(tone)
+    }
+    pure function severity(tone: Tone) -> Severity {
+        tone == Tone.success ? Severity.success : tone == Tone.warning ? Severity.warning : tone == Tone.danger ? Severity.danger : Severity.info
+    }
+}
+
+// A small label for a status or a kind, tinted by its tone, with a dot when it marks a state.
+export component Badge inherits Rectangle {
+    in property <string> text;
+    in property <Tone> tone: Tone.neutral;
+    // Leads with a dot of the tone's color, as a status does.
+    in property <bool> dot;
+
+    height: Theme.control-height(ControlSize.sm) * 0.75;
+    border-radius: Theme.radius(Radius.sm);
+    background: Tones.fill(root.tone);
+    horizontal-stretch: 0;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
+        if root.dot: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: Theme.status-dot;
+                height: Theme.status-dot;
+                border-radius: self.height / 2;
+                background: root.tone == Tone.accent ? Theme.colors.on-accent : Tones.dot(root.tone);
+            }
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.text-size(TextSize.xs);
+            font-weight: 500;
+            color: Tones.text(root.tone);
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+}
+
+// The count pill: accent, at least as wide as tall, its digits rolling; past `max` it reads
+// "{max}+".
+component CountPill inherits Rectangle {
+    in property <int> count;
+    in property <int> max;
+
+    private property <length> side: Theme.control-height(ControlSize.sm) * 0.67;
+
+    height: self.side;
+    min-width: self.side;
+    border-radius: self.side / 2;
+    background: Tones.fill(Tone.accent);
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.count > root.max ? "\{root.max}+" : "\{root.count}";
+
+    HorizontalLayout {
+        padding-left: 4px;
+        padding-right: 4px;
+        alignment: center;
+        if root.count > root.max: Text {
+            text: "\{root.max}+";
+            font-size: Theme.text-size(TextSize.xs);
+            font-weight: 500;
+            color: Tones.text(Tone.accent);
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+        if root.count <= root.max: VerticalLayout {
+            alignment: center;
+            AnimatedNumber {
+                value: root.count;
+                size: TextSize.xs;
+                color: Tones.text(Tone.accent);
+            }
+        }
+    }
+}
+
+// A number in a pill, for unread items or a queue (`CountBadge`). Zero hides it. With `over`,
+// it pins to the top-right corner of its children, 4 px past their edge.
+export component CountBadge {
+    in property <int> count;
+    // The largest count shown as is; gpui panics below one, so it counts as one here.
+    in property <int> max: 99;
+    // Sits on the children's top-right corner.
+    in property <bool> over;
+
+    private property <bool> shown: root.count > 0;
+
+    min-width: root.over ? kids.min-width : root.shown ? pill.min-width : 0;
+    preferred-width: root.over ? kids.preferred-width : root.shown ? pill.preferred-width : 0;
+    min-height: root.over ? kids.min-height : root.shown ? pill.height : 0;
+    preferred-height: root.over ? kids.preferred-height : root.shown ? pill.height : 0;
+
+    kids := VerticalLayout {
+        @children
+    }
+
+    pill := CountPill {
+        x: root.over ? root.width + 4px - self.width : 0;
+        y: root.over ? -4px : 0;
+        width: self.preferred-width;
+        visible: root.shown;
+        count: root.count;
+        max: Math.max(1, root.max);
+    }
+}
+
+// A small dot that says something is new or live (`DotBadge`): with a 1 px ring of the ground.
+// With `over`, it pins to its children's top-right corner.
+export component DotBadge {
+    in property <Tone> tone: Tone.accent;
+    in property <bool> over;
+
+    private property <length> side: Theme.status-dot * 1.34;
+
+    min-width: root.over ? kids.min-width : root.side;
+    preferred-width: root.over ? kids.preferred-width : root.side;
+    min-height: root.over ? kids.min-height : root.side;
+    preferred-height: root.over ? kids.preferred-height : root.side;
+
+    kids := VerticalLayout {
+        @children
+    }
+
+    Rectangle {
+        x: root.over ? root.width + 4px - self.width : 0;
+        y: root.over ? -4px : 0;
+        width: root.side;
+        height: root.side;
+        border-radius: self.height / 2;
+        border-width: 1px;
+        border-color: Theme.colors.bg;
+        background: Tones.dot(root.tone);
+    }
+}
+
+// A short label for a kind, a topic or a filter (`Tag`): an optional icon, the label, and an x
+// when it can be removed. Never wider than its container; a long label ends in an ellipsis.
+export component Tag inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <Tone> tone: Tone.neutral;
+    // Shows the x.
+    in property <bool> removable;
+
+    // The x was pressed.
+    callback remove();
+
+    private property <color> ink: root.tone == Tone.neutral ? Theme.colors.fg : Tones.text(root.tone);
+
+    height: Theme.control-height(ControlSize.sm);
+    border-radius: Theme.radius(Radius.sm);
+    background: Tones.fill(root.tone);
+    horizontal-stretch: 0;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: root.removable ? 4px : 8px;
+        spacing: 4px;
+        if root.has-icon: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                size: IconSize.xs;
+                color: root.ink;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0;
+            Ellipsis {
+                text: root.text;
+                font-size: Theme.text-size(TextSize.sm);
+                color: root.ink;
+            }
+        }
+
+        if root.removable: VerticalLayout {
+            alignment: center;
+            x-box := Rectangle {
+                width: Theme.icon-size(IconSize.xs);
+                height: Theme.icon-size(IconSize.xs);
+                border-radius: Theme.radius(Radius.sm);
+                background: x-touch.has-hover ? Theme.colors.active : transparent;
+                accessible-role: button;
+                accessible-label: @tr("Remove {}", root.text);
+                accessible-action-default => {
+                    root.remove();
+                }
+                Icon {
+                    source: Icons.x;
+                    size: IconSize.xs;
+                    color: Theme.colors.fg-muted;
+                }
+
+                x-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.remove();
+                    }
+                }
+            }
+        }
+    }
+}

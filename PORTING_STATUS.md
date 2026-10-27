@@ -77,6 +77,11 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | WindowResizeBorder (ResizeBorder) | shell/frame.rs | ✓ | ✓ start-resize | n/a | ✓ edge cursors | n/a | ✓ | n/a | ✓ `tests/title_bar.rs` | G37 | ✓ |
 | Vibrancy | shell/vibrancy.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | n/a (a fill) | | ✓ |
 | ColumnShell / ShellColumn (ShellColumnHeader, ShellColumnTitle, ShellColumnBody) | shell/columns.rs | ✓ | ✓ resized, close-requested | n/a | ✓ border drags from the drawn width, header drags the window | n/a | ✓ | ✓ title text | ✓ `tests/column_shell.rs`, `src/columns.rs` | G39 G42 | ✓ |
+| Toolbar / ToolbarGroup / ToolbarSeparator | shell/bars.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/bars.rs` | | ✓ |
+| StatusBar / StatusBarSide / StatusBarItem | shell/bars.rs, status.rs | ✓ | ✓ clicked | n/a | ✓ hover, tooltip | n/a | ✓ | ✓ clickable items are buttons | ✓ `tests/bars.rs` | | ✓ |
+| ActivityBar (ActivityItem) | shell/activity.rs | ✓ | ✓ select | n/a | ✓ hover, tooltip | ✓ mark grows in | ✓ | ✓ tab role, selected | ✓ `tests/bars.rs` | | ✓ |
+| TabBar (WindowTab) | shell/tabs.rs | ✓ | ✓ select, close, add, reorder | n/a | ✓ drag to reorder, ghost | ✓ rise in | ✓ | ✓ tab-list, tabs selectable | ✓ `tests/bars.rs` | G12 | ✓ |
+| Badge / CountBadge / DotBadge / Tag (Tone) | data_display/badge.rs (chapter 12, early) | ✓ | ✓ remove | n/a | ✓ x hover | ✓ count rolls | ✓ | ✓ text, remove button | ✓ `tests/bars.rs` | | ✓ |
 
 Gallery: pages 1–3 (Foundations, Typography, Layout) mirror the story app; `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
 

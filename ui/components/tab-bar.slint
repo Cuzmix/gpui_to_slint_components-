@@ -1,0 +1,245 @@
+// Port of ely-core/src/shell/tabs.rs (`TabBar`, `WindowTab`): browser-style tabs across the top
+// of a window. Give it a model the host edits in place (a `VecModel`): each tab rises in when it
+// is added, as gpui keys the entrance by the tab's id, and a model rebuilt whole would replay it
+// for every tab.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+} from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { DragGhost } from "drag-ghost.slint";
+import { DragTouch } from "drag-touch.slint";
+
+// One window-level tab.
+export struct WindowTab {
+    id: string,
+    title: string,
+    // An icon before the title; none when empty.
+    icon: image,
+}
+
+component Tab inherits Rectangle {
+    in property <WindowTab> tab;
+    in property <bool> selected;
+    in property <bool> closable;
+    in property <bool> draggable;
+    // A drag of this bar's lies over it.
+    in property <bool> drag-over;
+
+    callback picked();
+    callback closed();
+    callback drag-started(x: length, y: length);
+    callback drag-moved(x: length, y: length);
+    callback drag-ended();
+
+    private property <bool> risen;
+
+    height: Theme.control-height(ControlSize.md);
+    border-radius: Theme.radius(Radius.md);
+    border-width: 1px;
+    border-color: root.drag-over ? Theme.colors.focus : root.selected ? Theme.colors.border : transparent;
+    background: root.selected ? Theme.colors.surface : touch.has-hover ? Theme.colors.hover : transparent;
+    accessible-role: AccessibleRole.tab;
+    accessible-label: root.tab.title;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => {
+        root.picked();
+    }
+
+    // Each tab rises in over BASE when it first shows.
+    opacity: root.risen ? 1 : 0;
+    animate opacity {
+        duration: Theme.motion-base;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+    init => {
+        root.risen = true;
+    }
+
+    touch := DragTouch {
+        mouse-cursor: pointer;
+        enabled: true;
+        tapped => {
+            root.picked();
+        }
+        drag-started => {
+            if root.draggable {
+                root.drag-started(self.down-x, self.down-y);
+            }
+        }
+        drag-moved(x, y) => {
+            if root.draggable {
+                root.drag-moved(x, y);
+            }
+        }
+        drag-ended => {
+            if root.draggable {
+                root.drag-ended();
+            }
+        }
+    }
+
+    row := HorizontalLayout {
+        y: root.risen ? 0 : Theme.nudge;
+        animate y {
+            duration: Theme.motion-base;
+            easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+        }
+        padding-left: 12px;
+        padding-right: 4px;
+        spacing: 8px;
+        if root.tab.icon.width > 0: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.tab.icon;
+                size: IconSize.sm;
+                color: root.selected ? Theme.colors.fg : Theme.colors.fg-subtle;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0;
+            Ellipsis {
+                text: root.tab.title;
+                font-size: Theme.text-size(TextSize.sm);
+                font-weight: root.selected ? 500 : 400;
+                color: root.selected ? Theme.colors.fg : Theme.colors.fg-muted;
+            }
+        }
+        // The close button keeps its room; it shows on the chosen tab and on hover.
+        if root.closable: VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.x;
+                icon-name: @tr("Close {}", root.tab.title);
+                size: ControlSize.sm;
+                opacity: root.selected || touch.has-hover || self.has-hover ? 1 : 0;
+                clicked => {
+                    root.closed();
+                }
+            }
+        }
+    }
+}
+
+// Window tabs (`TabBar`), 4 px apart, each between 96 and 200 px, sharing the width evenly.
+export component TabBar {
+    in property <[WindowTab]> tabs;
+    // The chosen tab's id.
+    in property <string> selected;
+    // Shows a close button on the chosen tab and on hover (gpui's `on_close`).
+    in property <bool> closable;
+    // Shows a new-tab button after the tabs (gpui's `on_add`).
+    in property <bool> addable;
+    // Lets tabs drag onto one another (gpui's `on_reorder`).
+    in property <bool> reorderable;
+
+    callback select(id: string);
+    callback close(id: string);
+    callback add();
+    // A tab dragged from `from` was dropped on the tab at `to`.
+    callback reorder(from: int, to: int);
+
+    private property <bool> dragging;
+    private property <int> from;
+    private property <WindowTab> held;
+    private property <length> grip-x;
+    private property <length> grip-y;
+    private property <length> pointer-x;
+    private property <length> pointer-y;
+    private property <length> local-x: root.pointer-x - root.absolute-position.x;
+    private property <length> local-y: root.pointer-y - root.absolute-position.y;
+    // Each tab's width: an even share of the room the gaps and the new-tab button leave,
+    // between 96 and 200 px (gpui's flex_1 between min and max widths).
+    private property <length> each: max(Theme.tab-min-width, min(Theme.tab-max-width, (root.width - 4px * (root.tabs.length - 1) - (root.addable ? 4px + Theme.control-height(ControlSize.sm) : 0)) / max(1, root.tabs.length)));
+    // The tab the drag lies over, or -1.
+    private property <int> target: -1;
+
+    // The bar's own size does not come from its tabs, whose widths come from the bar's: it would
+    // like every tab at its widest, and gives way to nothing.
+    min-width: 0;
+    preferred-width: Theme.tab-max-width * root.tabs.length + 4px * Math.max(0, root.tabs.length - 1) + (root.addable ? 4px + Theme.control-height(ControlSize.sm) : 0);
+    min-height: Theme.control-height(ControlSize.md);
+    preferred-height: Theme.control-height(ControlSize.md);
+    accessible-role: AccessibleRole.tab-list;
+
+    HorizontalLayout {
+        spacing: 4px;
+        alignment: start;
+        for tab[ix] in root.tabs: Tab {
+            width: root.each;
+            tab: tab;
+            selected: root.selected == tab.id;
+            closable: root.closable;
+            draggable: root.reorderable;
+            drag-over: root.dragging && root.local-x >= self.x && root.local-x < self.x + self.width && root.local-y >= self.y && root.local-y < self.y + self.height;
+            changed drag-over => {
+                if self.drag-over {
+                    root.target = ix;
+                } else if root.target == ix {
+                    root.target = -1;
+                }
+            }
+            picked => {
+                root.select(tab.id);
+            }
+            closed => {
+                root.close(tab.id);
+            }
+            drag-started(x, y) => {
+                root.from = ix;
+                root.held = tab;
+                root.grip-x = x - self.absolute-position.x;
+                root.grip-y = y - self.absolute-position.y;
+                root.pointer-x = x;
+                root.pointer-y = y;
+                root.dragging = true;
+            }
+            drag-moved(x, y) => {
+                root.pointer-x = x;
+                root.pointer-y = y;
+            }
+            drag-ended => {
+                root.dragging = false;
+                root.drop();
+            }
+        }
+
+        if root.addable: VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.plus;
+                icon-name: @tr("New tab");
+                size: ControlSize.sm;
+                clicked => {
+                    root.add();
+                }
+            }
+        }
+    }
+
+    // The tab under the pointer takes the drop, unless it is the one dragged.
+    function drop() {
+        if root.target >= 0 && root.target != root.from {
+            root.reorder(root.from, root.target);
+        }
+        root.target = -1;
+    }
+
+    // gpui draws the ghost with the pointer, where the tab was grabbed (G12: inside the bar).
+    if root.dragging: DragGhost {
+        x: root.local-x - root.grip-x;
+        y: root.local-y - root.grip-y;
+        title: root.held.title;
+        icon: root.held.icon;
+    }
+}
