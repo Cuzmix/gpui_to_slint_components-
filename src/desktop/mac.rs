@@ -1,15 +1,18 @@
-//! AppKit through objc2: the menu bar's status item and the Dock badge (ely-desktop/src/platform/mac.rs).
+//! AppKit through objc2: the menu bar's status item and the Dock badge (ely-desktop/src/platform/mac.rs),
+//! and the share picker (ely-core/src/platform/mac.rs).
+
+use std::ffi::c_void;
 
 use anyhow::Context as _;
 use objc2::{
     DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, rc::Retained,
-    runtime::NSObject, sel,
+    runtime::{AnyObject, NSObject}, sel,
 };
 use objc2_app_kit::{
-    NSApplication, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
-    NSVariableStatusItemLength,
+    NSApplication, NSImage, NSMenu, NSMenuItem, NSSharingServicePicker, NSStatusBar, NSStatusItem,
+    NSVariableStatusItemLength, NSView,
 };
-use objc2_foundation::NSString;
+use objc2_foundation::{NSArray, NSPoint, NSRect, NSRectEdge, NSSize, NSString, NSURL};
 
 /// AppKit's menus and the Dock live on the main thread, where Slint's event loop runs.
 fn main_thread(what: &str) -> MainThreadMarker {
@@ -133,4 +136,32 @@ pub(crate) fn dock_badge() -> Option<String> {
         .dockTile()
         .badgeLabel();
     label.map(|label| label.to_string())
+}
+
+/// A shown share picker, kept until the next share.
+pub(crate) struct Picker {
+    _shown: Retained<NSSharingServicePicker>,
+}
+
+/// Shows AppKit's share picker under `rect` of the view at `view`, in its points from the bottom.
+pub(crate) fn share(text: Option<&str>, url: Option<&str>, view: *mut c_void, rect: [f64; 4]) -> anyhow::Result<Picker> {
+    let mtm = main_thread("sharing");
+    let mut items: Vec<Retained<AnyObject>> = Vec::new();
+    if let Some(text) = text {
+        items.push(Retained::into_super(Retained::into_super(NSString::from_str(text))));
+    }
+    if let Some(url) = url {
+        let link = NSURL::URLWithString(&NSString::from_str(url)).with_context(|| format!("share url {url} does not parse"))?;
+        items.push(Retained::into_super(Retained::into_super(link)));
+    }
+    let items = NSArray::from_retained_slice(&items);
+    // SAFETY: the items are strings and URLs, objects a share picker takes.
+    let picker = unsafe { NSSharingServicePicker::initWithItems(mtm.alloc(), &items) };
+    // SAFETY: winit's window handle holds the window's live content view.
+    let view = unsafe { &*view.cast::<NSView>() };
+    let [x, y, width, height] = rect;
+    let rect = NSRect::new(NSPoint::new(x, y), NSSize::new(width, height));
+    picker.showRelativeToRect_ofView_preferredEdge(rect, view, NSRectEdge::MinY);
+    log::info!("share button: picker shown for {} items", items.len());
+    Ok(Picker { _shown: picker })
 }

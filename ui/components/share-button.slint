@@ -1,0 +1,31 @@
+// Port of ely-core/src/buttons/share.rs (`ShareButton`): opens the system's share picker beside
+// itself, for its text, its link, or both. Elsewhere it shows disabled.
+//
+// The picker is the host's: with the `desktop` feature, `ely_slint::wire_sharing!(app)` wires
+// the `Sharing` global (macOS). Unwired, every ShareButton shows disabled.
+
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+
+export global Sharing {
+    // This build can show the picker.
+    in-out property <bool> available;
+    // Show the picker for `text` and `url` (either may be empty) under the box at x, y, width,
+    // height in the window.
+    callback share(text: string, url: string, x: length, y: length, width: length, height: length);
+}
+
+export component ShareButton inherits IconButton {
+    // Text to share.
+    in property <string> text;
+    // An address to share.
+    in property <string> url;
+
+    icon: Icons.share-2;
+    icon-name: "share-2";
+    tooltip: Sharing.available ? @tr("Share") : @tr("Sharing needs macOS in this build");
+    enabled: Sharing.available && (root.text != "" || root.url != "");
+    clicked => {
+        Sharing.share(root.text, root.url, self.absolute-position.x, self.absolute-position.y, self.width, self.height);
+    }
+}

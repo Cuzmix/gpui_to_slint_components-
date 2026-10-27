@@ -1,5 +1,5 @@
-//! Desktop integrations (ely-desktop/src/native.rs): the tray icon and the Dock badge. Behind the
-//! `desktop` feature.
+//! Desktop integrations (ely-desktop/src/native.rs): the tray icon and the Dock badge, and the
+//! share picker (ely-core's `ShareButton`). Behind the `desktop` feature.
 //!
 //! A tray hands each pick to the app on Slint's event loop (`slint::invoke_from_event_loop`), as
 //! gpui hands it to the app's run loop; make the tray on the event loop's thread.
@@ -172,6 +172,70 @@ pub fn dock_badge() -> anyhow::Result<Option<String>> {
     return Ok(mac::dock_badge());
     #[cfg(not(target_os = "macos"))]
     anyhow::bail!("dock badges need macOS in this build")
+}
+
+/// Whether this build can show the system's share picker.
+pub const SHARING: bool = cfg!(target_os = "macos");
+
+#[cfg(target_os = "macos")]
+thread_local! {
+    // The picker on screen, kept until the next share.
+    static PICKER: RefCell<Option<mac::Picker>> = const { RefCell::new(None) };
+}
+
+/// Shows the system's share picker for `text` and `url` under `rect` (logical x, y, width,
+/// height from the window's top left) of `window`.
+///
+/// Platforms: macOS.
+pub fn share(window: &slint::Window, text: Option<&str>, url: Option<&str>, rect: [f32; 4]) -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        use slint::winit_030::WinitWindowAccessor;
+        use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+        let height = window.size().to_logical(window.scale_factor()).height;
+        let view = window
+            .with_winit_window(|winit| match winit.window_handle().map(|handle| handle.as_raw()) {
+                Ok(RawWindowHandle::AppKit(appkit)) => Ok(appkit.ns_view.as_ptr()),
+                Ok(_) => Err(anyhow::anyhow!("share needs an AppKit window")),
+                Err(error) => Err(anyhow::anyhow!("window has no native handle: {error:?}")),
+            })
+            .ok_or_else(|| anyhow::anyhow!("share needs a winit window"))??;
+        // AppKit's view counts y from its bottom.
+        let [x, y, width, tall] = rect.map(f64::from);
+        let picker = mac::share(text, url, view, [x, f64::from(height) - y - tall, width, tall])?;
+        PICKER.with(|slot| *slot.borrow_mut() = Some(picker));
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, text, url, rect);
+        anyhow::bail!("sharing needs macOS in this build")
+    }
+}
+
+/// Wires `Sharing`, which every ShareButton asks: available on macOS, where a press shows the
+/// system's share picker under the button. The host's root `.slint` file exports `Sharing`.
+///
+/// ```ignore
+/// ely_slint::wire_sharing!(app);
+/// ```
+#[macro_export]
+macro_rules! wire_sharing {
+    ($app:expr) => {{
+        let sharing = $app.global::<Sharing>();
+        sharing.set_available($crate::desktop::SHARING);
+        let weak = $app.as_weak();
+        sharing.on_share(move |text, url, x, y, width, height| {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            let (text, url) = ((!text.is_empty()).then_some(text.as_str()), (!url.is_empty()).then_some(url.as_str()));
+            if let Err(error) = $crate::desktop::share(app.window(), text, url, [x, y, width, height]) {
+                $crate::log::error!("share button: {error:#}");
+            }
+        });
+    }};
 }
 
 /// Points the process at a private session bus.

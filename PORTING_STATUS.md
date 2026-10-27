@@ -42,6 +42,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | FloatingActionButton | buttons/fab.rs | ✓ | ✓ | ✓ Enter/Space, Tab stop | ✓ hover lift, tooltip | ✓ 320 ms rise | ✓ | ✓ button named | ✓ `tests/fab.rs` | G49 | ✓ |
 | SegmentedControl (Segment) | buttons/segmented.rs | ✓ | ✓ selection-changed | ✓ Enter/Space, every segment a Tab stop, focus scrolls into view | ✓ compact tooltip, sideways scroll | ✓ 320 ms spring thumb | ✓ | ✓ radio button, checked | ✓ `tests/segmented.rs` | | ✓ |
 | ConfirmButton (ConfirmMode) | buttons/confirm.rs | ✓ | ✓ confirmed | ✓ keys press twice | ✓ hold 1.2 s, release cancels | ✓ hold fill, check turns in | ✓ | ✓ button named by its label | ✓ `tests/confirm.rs` | G26 G36 | ✓ |
+| ShareButton (Sharing, `wire_sharing!`) | buttons/share.rs | ✓ | ✓ share (host) | ✓ (IconButton) | ✓ (IconButton) | n/a | ✓ (IconButton) | ✓ named Share, or why not | ✓ `tests/share.rs` | G50 | ✓ |
 | CopyableText | typography/copy.rs | ✓ | n/a | ✓ (CopyButton) | ✓ | ✓ | ✓ | ✓ | ✓ `tests/copy_select.rs` | G20 | ✓ |
 | SelectableText | typography/select.rs | ✓ | n/a | ✓ copy, select all | ✓ press, shift, drag | n/a | ✓ selection fill | ✓ text node | ✓ `tests/copy_select.rs` | G27 | ✓ |
 | Emoji | typography/emoji.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/copy_select.rs` | | ✓ |
