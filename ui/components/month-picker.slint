@@ -1,0 +1,43 @@
+// Port of ely-core/src/forms/date/period.rs (`MonthPicker`): a year's months as a grid of three
+// columns. The arrows (or Page Up and Page Down) turn the year.
+//
+// The value is a year and a month 1–12; a month of 0 is none. Like Select (G48) both are
+// `in-out`: a pick sets them, then reports them.
+
+import { PeriodPicker } from "period-grid.slint";
+import { CivilDate, Dates, DateWords } from "dates.slint";
+
+export component MonthPicker {
+    in-out property <int> year;
+    in-out property <int> month;
+    // The date treated as now.
+    in property <CivilDate> today: Dates.today;
+
+    out property <bool> open: picker.open;
+    out property <bool> has-focus: picker.has-focus;
+
+    callback month-changed(year: int, month: int);
+
+    forward-focus: picker;
+    horizontal-stretch: 1;
+    min-width: picker.min-width;
+    preferred-width: picker.preferred-width;
+    height: picker.height;
+
+    picker := PeriodPicker {
+        width: root.width;
+        shown: root.month > 0 ? DateWords.month({ year: root.year, month: root.month, day: 1 }) : "";
+        placeholder: @tr("Pick a month");
+        seed: root.month > 0 ? root.year : root.today.year;
+        title: self.page;
+        cells: DateWords.months;
+        chosen: root.month > 0 && root.year == self.page ? root.month - 1 : -1;
+        now: root.today.year == self.page ? root.today.month - 1 : -1;
+        columns: 3;
+        picked(page, ix) => {
+            root.year = page;
+            root.month = ix + 1;
+            root.month-changed(root.year, root.month);
+        }
+    }
+}

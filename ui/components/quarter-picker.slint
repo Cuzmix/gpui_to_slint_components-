@@ -1,0 +1,43 @@
+// Port of ely-core/src/forms/date/period.rs (`QuarterPicker`): a year's four quarters in a row.
+// The arrows (or Page Up and Page Down) turn the year.
+//
+// The value is a year and a quarter 1–4; a quarter of 0 is none. Like Select (G48) both are
+// `in-out`: a pick sets them, then reports them.
+
+import { PeriodPicker } from "period-grid.slint";
+import { CivilDate, Dates } from "dates.slint";
+
+export component QuarterPicker {
+    in-out property <int> year;
+    in-out property <int> quarter;
+    // The date treated as now.
+    in property <CivilDate> today: Dates.today;
+
+    out property <bool> open: picker.open;
+    out property <bool> has-focus: picker.has-focus;
+
+    callback quarter-changed(year: int, quarter: int);
+
+    forward-focus: picker;
+    horizontal-stretch: 1;
+    min-width: picker.min-width;
+    preferred-width: picker.preferred-width;
+    height: picker.height;
+
+    picker := PeriodPicker {
+        width: root.width;
+        shown: root.quarter > 0 ? @tr("Q{0} {1}", root.quarter, root.year) : "";
+        placeholder: @tr("Pick a quarter");
+        seed: root.quarter > 0 ? root.year : root.today.year;
+        title: self.page;
+        cells: [@tr("Q1"), @tr("Q2"), @tr("Q3"), @tr("Q4")];
+        chosen: root.quarter > 0 && root.year == self.page ? root.quarter - 1 : -1;
+        now: root.today.year == self.page ? floor((root.today.month - 1) / 3) : -1;
+        columns: 4;
+        picked(page, ix) => {
+            root.year = page;
+            root.quarter = ix + 1;
+            root.quarter-changed(root.year, root.quarter);
+        }
+    }
+}

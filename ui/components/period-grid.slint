@@ -1,0 +1,252 @@
+// Port of ely-core/src/forms/date/period.rs (`period_grid`, `period_picker`): a page of periods
+// (months, quarters, years) under a header with arrows, and the picker field that opens it.
+// Arrows move a cursor, Page Up and Page Down turn the page, Enter or Space pick, Escape closes.
+//
+// The picker keeps its page while closed and re-seeds it when the seed changes; the cursor
+// starts on the chosen cell each time it opens.
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+
+export component PeriodGrid {
+    in property <string> title;
+    // The cells' labels; empty, `count` cells numbered from `numbers-from` (years).
+    in property <[string]> cells;
+    in property <int> count: root.cells.length;
+    in property <int> numbers-from;
+    // The chosen cell and the one holding now; -1 for none.
+    in property <int> chosen: -1;
+    in property <int> now: -1;
+    in property <int> columns: 3;
+
+    out property <bool> has-focus: keys.has-focus;
+    out property <int> cursor;
+
+    // The page turned by `by` (-1 back, 1 on); a cell picked; Escape.
+    callback turned(by: int);
+    callback picked(index: int);
+    callback escape();
+
+    private property <length> cell-height: Theme.control-height(ControlSize.md);
+    private property <length> cell-width: (root.width - 16px - 4px * (root.columns - 1)) / root.columns;
+    private property <int> at: min(root.cursor, root.count - 1);
+
+    pure function label(ix: int) -> string {
+        root.cells.length > 0 ? root.cells[ix] : root.numbers-from + ix
+    }
+
+    init => {
+        root.cursor = max(root.chosen, 0);
+    }
+    changed chosen => {
+        root.cursor = max(root.chosen, 0);
+    }
+
+    forward-focus: keys;
+    width: Theme.control-height(ControlSize.md) * 8;
+    height: column.preferred-height;
+    accessible-role: table;
+    accessible-label: root.title;
+    accessible-value: root.at >= 0 ? root.label(root.at) : "";
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            let step = event.text == Key.LeftArrow ? -1 : event.text == Key.RightArrow ? 1 : event.text == Key.UpArrow ? -root.columns : event.text == Key.DownArrow ? root.columns : 0;
+            if step != 0 {
+                root.cursor = clamp(root.at + step, 0, root.count - 1);
+                return accept;
+            }
+            if event.text == Key.PageUp || event.text == Key.PageDown {
+                root.turned(event.text == Key.PageUp ? -1 : 1);
+                return accept;
+            }
+            if event.text == Key.Return || event.text == " " {
+                root.picked(root.at);
+                return accept;
+            }
+            if event.text == Key.Escape {
+                root.escape();
+                return accept;
+            }
+            reject
+        }
+    }
+
+    column := VerticalLayout {
+        padding: 8px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            cross-axis-alignment: center;
+
+            TypeText {
+                horizontal-stretch: 1;
+                text: root.title;
+                font-size: Theme.text-size(TextSize.base);
+                font-weight: 600;
+                color: Theme.colors.fg;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+
+            HorizontalLayout {
+                spacing: 2px;
+
+                IconButton {
+                    icon: Icons.chevron-left;
+                    size: ControlSize.sm;
+                    variant: ButtonVariant.ghost;
+                    tooltip: @tr("Previous page");
+                    clicked => {
+                        root.turned(-1);
+                    }
+                }
+
+                IconButton {
+                    icon: Icons.chevron-right;
+                    size: ControlSize.sm;
+                    variant: ButtonVariant.ghost;
+                    tooltip: @tr("Next page");
+                    clicked => {
+                        root.turned(1);
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: ceil(root.count / root.columns) * (root.cell-height + 4px) - 4px;
+
+            for ix in root.count: Rectangle {
+                property <bool> chosen: ix == root.chosen;
+
+                x: mod(ix, root.columns) * (root.cell-width + 4px);
+                y: floor(ix / root.columns) * (root.cell-height + 4px);
+                width: root.cell-width;
+                height: root.cell-height;
+                border-radius: Theme.radius(Radius.md);
+                border-width: 1px;
+                border-color: keys.has-focus && ix == root.at ? Theme.colors.focus : ix == root.now && !self.chosen ? Theme.colors.border-strong : transparent;
+                background: self.chosen ? Theme.colors.accent : touch.has-hover ? Theme.colors.hover : transparent;
+                accessible-role: list-item;
+                accessible-label: root.label(ix);
+                accessible-item-selectable: true;
+                accessible-item-selected: self.chosen;
+                accessible-action-default => {
+                    root.picked(ix);
+                }
+
+                Text {
+                    text: root.label(ix);
+                    font-family: Theme.font-family;
+                    font-size: Theme.text-size(TextSize.sm);
+                    color: parent.chosen ? Theme.colors.on-accent : Theme.colors.fg;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+
+                touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                            keys.focus();
+                        }
+                    }
+                    clicked => {
+                        root.picked(ix);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The field and popup that month, quarter and year pickers share. The owner fills the page from
+// `page`: its title, cells, and which is chosen and which is now.
+export component PeriodPicker {
+    in property <string> shown;
+    in property <string> placeholder;
+    // The page it opens on (a year, or a twelve-year page's first), and how far a turn moves it.
+    in property <int> seed;
+    in property <int> step: 1;
+    in property <string> title;
+    in property <[string]> cells;
+    in property <int> count: root.cells.length;
+    in property <int> numbers-from;
+    in property <int> chosen: -1;
+    in property <int> now: -1;
+    in property <int> columns: 3;
+
+    out property <int> page;
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+
+    // Cell `index` of page `page` was picked.
+    callback picked(page: int, index: int);
+
+    init => {
+        root.page = root.seed;
+    }
+    changed seed => {
+        root.page = root.seed;
+    }
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.calendar;
+        shown: root.shown;
+        placeholder: root.placeholder;
+        open: popup.is-open;
+        toggled(open) => {
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            grid.focus();
+        }
+
+        grid := PeriodGrid {
+            title: root.title;
+            cells: root.cells;
+            count: root.count;
+            numbers-from: root.numbers-from;
+            chosen: root.chosen;
+            now: root.now;
+            columns: root.columns;
+            turned(by) => {
+                root.page += by * root.step;
+            }
+            picked(ix) => {
+                root.picked(root.page, ix);
+                root.close();
+            }
+            escape => {
+                root.close();
+            }
+        }
+    }
+}

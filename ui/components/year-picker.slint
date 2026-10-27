@@ -1,0 +1,52 @@
+// Port of ely-core/src/forms/date/period.rs (`YearPicker`, `page_of`): twelve years to a page,
+// each page starting on a multiple of twelve. The arrows (or Page Up and Page Down) turn twelve.
+//
+// `chosen` says whether `year` holds a value. Like Select (G48) `year` is `in-out`: a pick sets
+// it, then reports it.
+
+import { PeriodPicker } from "period-grid.slint";
+import { CivilDate, Dates } from "dates.slint";
+
+export global YearPages {
+    // The first year of the twelve-year page holding `year`.
+    public pure function page-of(year: int) -> int {
+        year - mod(mod(year, 12) + 12, 12)
+    }
+}
+
+export component YearPicker {
+    in-out property <int> year;
+    in-out property <bool> chosen;
+    // The year ringed as this one comes from this date.
+    in property <CivilDate> today: Dates.today;
+
+    out property <bool> open: picker.open;
+    out property <bool> has-focus: picker.has-focus;
+
+    callback year-changed(year: int);
+
+    forward-focus: picker;
+    horizontal-stretch: 1;
+    min-width: picker.min-width;
+    preferred-width: picker.preferred-width;
+    height: picker.height;
+
+    picker := PeriodPicker {
+        width: root.width;
+        shown: root.chosen ? root.year : "";
+        placeholder: @tr("Pick a year");
+        seed: YearPages.page-of(root.chosen ? root.year : root.today.year);
+        step: 12;
+        title: @tr("{0} – {1}", self.page, self.page + 11);
+        count: 12;
+        numbers-from: self.page;
+        chosen: root.chosen && root.year >= self.page && root.year < self.page + 12 ? root.year - self.page : -1;
+        now: root.today.year >= self.page && root.today.year < self.page + 12 ? root.today.year - self.page : -1;
+        columns: 3;
+        picked(page, ix) => {
+            root.year = page + ix;
+            root.chosen = true;
+            root.year-changed(root.year);
+        }
+    }
+}
