@@ -1,0 +1,172 @@
+// Port of ely-core/src/forms/check.rs: `CheckState`, `check_mark`, `Checkbox`, `CheckboxGroup`.
+// A box that is on, off or mixed, with an optional label beside it; a press anywhere on the row,
+// or Enter or Space while it has focus, turns it on (from off or mixed) or off.
+//
+// Like ToggleButton (gap G48) the state is `in-out`: a press sets it, then reports it.
+
+import { Theme, IconSize, Radius, TextSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+import { ClickKeys } from "click-keys.slint";
+import { Choice, Choices } from "options.slint";
+import { Toggles } from "button-group.slint";
+
+// A checkbox's state. `mixed` is the dash for a parent whose children disagree.
+export enum CheckState {
+    off,
+    on,
+    mixed,
+}
+
+// The box alone, shared by checkboxes, cards and lists. A change of state replays its motion:
+// the fill eases across over motion-fast, the glyph grows from 0.6 and fades in.
+export component CheckMark {
+    in property <CheckState> state;
+    in property <bool> focused;
+    in property <bool> enabled: true;
+
+    private property <bool> on: root.state != CheckState.off;
+    private property <duration> changed-at;
+    private property <bool> moving;
+    private property <float> t: root.moving ? clamp((animation-tick() - root.changed-at) / Theme.motion-fast, 0, 1) : 1;
+    private property <float> eased: Theme.ease-out-cubic(root.t);
+
+    changed state => {
+        root.changed-at = animation-tick();
+        root.moving = true;
+        settle.running = true;
+        settle.restart();
+    }
+
+    // Stops the tick once the motion has run.
+    settle := Timer {
+        interval: Theme.motion-fast;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.moving = false;
+        }
+    }
+
+    width: Theme.check-size;
+    height: Theme.check-size;
+    opacity: root.enabled ? 1 : 0.5;
+    accessible-role: none;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.sm);
+        border-width: 1px;
+        border-color: root.focused ? Theme.colors.focus : root.on ? Theme.colors.accent : Theme.colors.border-strong;
+        background: root.on ? Theme.mix(Theme.colors.surface, Theme.colors.accent, root.t) : Theme.mix(Theme.colors.accent, Theme.colors.surface, root.t);
+    }
+
+    if root.on: Icon {
+        source: root.state == CheckState.mixed ? Icons.minus : Icons.check;
+        size: IconSize.xs;
+        color: Theme.colors.on-accent.with-alpha(root.eased);
+        scale: 0.6 + 0.4 * root.eased;
+    }
+}
+
+export component Checkbox {
+    in-out property <CheckState> state;
+    // Text beside the box; a press on it toggles too.
+    in property <string> label;
+    // The name assistive technology reads when the box draws no label; nothing is drawn.
+    in property <string> name;
+    // Dims it and takes no press.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: keys.has-focus;
+
+    // Runs with the new value. Mixed and off both turn on.
+    callback toggled(on: bool);
+
+    function press() {
+        let next = root.state != CheckState.on;
+        root.state = next ? CheckState.on : CheckState.off;
+        root.toggled(next);
+    }
+
+    forward-focus: keys;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+    accessible-role: checkbox;
+    accessible-checkable: true;
+    accessible-checked: root.state == CheckState.on;
+    accessible-label: root.label != "" ? root.label : root.name;
+    accessible-description: root.enabled ? "" : root.unavailable-text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.press();
+        }
+    }
+
+    row := HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+
+            CheckMark {
+                state: root.state;
+                focused: keys.has-focus;
+                enabled: root.enabled;
+            }
+        }
+
+        if root.label != "": TypeText {
+            horizontal-stretch: 1;
+            min-width: 0;
+            text: root.label;
+            font-size: Theme.text-size(TextSize.base);
+            color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+            vertical-alignment: center;
+        }
+    }
+
+    // A press never takes focus, as gpui prevents default on mouse down.
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.press();
+        }
+    }
+
+    keys := ClickKeys {
+        enabled: root.enabled;
+        activated => {
+            root.press();
+        }
+    }
+}
+
+// Checkboxes for a list of choices; any number can be on. List edits run in Rust
+// (`Choices.toggled`, `wire_options!`).
+export component CheckboxGroup inherits VerticalLayout {
+    in property <[Choice]> choices;
+    // The values of the boxes that are on.
+    in-out property <[string]> selected;
+
+    // The values on after each press, in choice order.
+    callback selection-changed(selected: [string]);
+
+    spacing: 8px;
+
+    for choice in root.choices: Checkbox {
+        state: Toggles.contains(root.selected, choice.value) ? CheckState.on : CheckState.off;
+        label: choice.label;
+        enabled: !choice.disabled;
+        toggled(on) => {
+            root.selected = Choices.toggled(root.choices, root.selected, choice.value, on);
+            root.selection-changed(root.selected);
+        }
+    }
+}

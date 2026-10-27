@@ -43,6 +43,15 @@ pub fn tag_word(text: &str) -> &str {
     text.trim().trim_end_matches(',').trim()
 }
 
+/// `selected` with `value` turned on or off, in choice order (ely check.rs `toggled`).
+pub fn toggled<V: PartialEq + Clone>(choices: &[V], selected: &[V], value: &V, on: bool) -> Vec<V> {
+    choices
+        .iter()
+        .filter(|candidate| if *candidate == value { on } else { selected.contains(candidate) })
+        .cloned()
+        .collect()
+}
+
 /// Wires the `Choices` global of a component that shows option lists.
 #[macro_export]
 macro_rules! wire_options {
@@ -64,6 +73,11 @@ macro_rules! wire_options {
                 .cloned()
                 .collect();
             ::slint::ModelRc::new(::slint::VecModel::from(kept))
+        });
+        $app.global::<Choices>().on_toggled(|choices, selected, value, on| {
+            let values: Vec<::slint::SharedString> = choices.iter().map(|row| row.value).collect();
+            let selected: Vec<::slint::SharedString> = selected.iter().collect();
+            ::slint::ModelRc::new(::slint::VecModel::from($crate::options::toggled(&values, &selected, &value, on)))
         });
         $app.global::<Choices>().on_label_of(|rows, value| {
             rows.iter().find(|row| row.value == value).map_or(value, |row| row.label)
@@ -93,6 +107,13 @@ macro_rules! wire_options {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn toggling_keeps_choice_order() {
+        let choices = ["a", "b", "c"];
+        assert_eq!(super::toggled(&choices, &["c"], &"a", true), ["a", "c"]);
+        assert_eq!(super::toggled(&choices, &["a", "c"], &"a", false), ["c"]);
+    }
+
     use super::{in_quotes, matching, step, tag_word};
 
     #[test]

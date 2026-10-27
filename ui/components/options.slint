@@ -63,6 +63,8 @@ export global Choices {
     // comma outside quotes.
     pure callback tag-word(text: string) -> string;
     pure callback comma-ends(text: string) -> bool;
+    // `selected` with `value` turned on or off, in the order of `choices` (CheckboxGroup).
+    pure callback toggled(choices: [Choice], selected: [string], value: string, on: bool) -> [string];
 }
 
 // One row: a check column when `checks`, then indent, icon, label and note.
