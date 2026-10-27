@@ -1,0 +1,373 @@
+// Port of ely-core/src/forms/color/picker.rs and fields.rs (`ColorPicker`): a color by
+// saturation and value on a plane, hue and alpha on rails, or typed as hex, RGB or HSV.
+//
+// A press on the plane or a rail jumps there; a drag (past gpui's 2 px start) follows. The
+// picker keeps its own hue, so it holds through grays, and takes a new `value` only when it
+// differs from the last color it reported. The hex field shows the color unless focused; Enter
+// or leaving it reads it, and a misspelling puts the color back.
+//
+// The format list needs `wire_options!` and an `OptionLayer`; the hex field `wire_colors!`; the
+// RGB and HSV numbers `wire_fields!` and `wire_numbers!`. Like Select (G48), `value` is
+// `in-out`: a change sets it, then reports it.
+
+import { Theme, ControlSize, Radius, Elevation } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { Select } from "select.slint";
+import { Input } from "input.slint";
+import { ScrubInput } from "number-input.slint";
+import { ColorSwatch } from "color-swatch.slint";
+import { EyeDropper } from "eye-dropper.slint";
+import { Hsva, Colors, ColorMath, Checker } from "colors.slint";
+
+// How the typed fields spell the color.
+export enum ColorFormat {
+    hex,
+    rgb,
+    hsv,
+}
+
+// A round thumb on the plane or a rail, centered on (`at-x`, `at-y`).
+component PickerThumb inherits Elevated {
+    in property <length> at-x;
+    in property <length> at-y;
+
+    x: root.at-x - self.width / 2;
+    y: root.at-y - self.height / 2;
+    width: Theme.slider-thumb;
+    height: Theme.slider-thumb;
+    elevation: Elevation.raised;
+    border-radius: self.height / 2;
+    border-width: 2px;
+    border-color: Theme.colors.on-media;
+}
+
+// Fills its parent; a press reports where it landed, and a drag where the pointer is, each as
+// fractions of the box from 0 to 1.
+component PickArea inherits TouchArea {
+    callback pointed(x: float, y: float);
+
+    private property <bool> dragging;
+    private property <length> down-x;
+    private property <length> down-y;
+
+    function report() {
+        root.pointed(clamp(self.mouse-x / self.width, 0, 1), clamp(self.mouse-y / self.height, 0, 1));
+    }
+
+    mouse-cursor: MouseCursor.crosshair;
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+            root.dragging = false;
+            root.down-x = self.mouse-x;
+            root.down-y = self.mouse-y;
+            root.report();
+        }
+    }
+    moved => {
+        if !self.pressed {
+            return;
+        }
+        if !root.dragging {
+            let dx = (self.mouse-x - root.down-x) / 1px;
+            let dy = (self.mouse-y - root.down-y) / 1px;
+            root.dragging = sqrt(dx * dx + dy * dy) > 2;
+        }
+        if root.dragging {
+            root.report();
+        }
+    }
+}
+
+export component ColorPicker {
+    // Names the picker's fields that show lists (its format select); unique among them.
+    in property <string> owner: "color";
+    in-out property <color> value;
+    // Shows the alpha rail; without it, colors stay opaque.
+    in property <bool> alpha: true;
+
+    // The color as the picker holds it, hue kept through grays.
+    out property <Hsva> hsva;
+    out property <ColorFormat> format: ColorFormat.hex;
+
+    // A new color, from the plane, a rail, the fields or the eye dropper.
+    callback color-changed(color: color);
+
+    private property <color> committed;
+    private property <color> current: ColorMath.color-of(root.hsva);
+    private property <color> solid: root.current.with-alpha(1);
+    private property <string> shown: ColorMath.hex(root.current);
+    private property <length> rail: Theme.slider-thumb * 0.75;
+    // What the typed fields hold.
+    private property <string> hex-text;
+    private property <bool> hex-focused;
+    private property <string> format-key: "HEX";
+    private property <float> red;
+    private property <float> green;
+    private property <float> blue;
+    private property <float> hue-part;
+    private property <float> saturation;
+    private property <float> brightness;
+
+    function opaque(c: color) -> color {
+        root.alpha ? c : c.with-alpha(1)
+    }
+
+    // Shows `hsva` in the typed fields; the hex field keeps what is being typed.
+    function show-parts() {
+        root.red = round(root.current.red);
+        root.green = round(root.current.green);
+        root.blue = round(root.current.blue);
+        root.hue-part = round(root.hsva.h);
+        root.saturation = round(root.hsva.s * 100);
+        root.brightness = round(root.hsva.v * 100);
+        if !root.hex-focused {
+            root.hex-text = root.shown;
+        }
+    }
+
+    function commit(next: Hsva) {
+        root.hsva = root.alpha ? next : { h: next.h, s: next.s, v: next.v, a: 1 };
+        root.committed = ColorMath.color-of(root.hsva);
+        root.value = root.committed;
+        root.show-parts();
+        root.color-changed(root.committed);
+    }
+
+    // `c` with the hue held through grays.
+    function commit-color(c: color) {
+        root.commit(ColorMath.hsva-of(c, root.hsva.h));
+    }
+
+    function read-hex() {
+        let parsed = Colors.parse-hex(root.hex-text);
+        if parsed.ok {
+            root.commit-color(parsed.color);
+        } else {
+            root.hex-text = root.shown;
+        }
+    }
+
+    function channel(r: float, g: float, b: float) {
+        root.commit-color(rgba(r, g, b, root.current.alpha / 255));
+    }
+
+    init => {
+        root.hsva = ColorMath.hsva-of(root.opaque(root.value), 0);
+        root.committed = root.opaque(root.value);
+        root.show-parts();
+    }
+    changed value => {
+        if root.opaque(root.value) != root.committed {
+            root.committed = root.opaque(root.value);
+            root.hsva = ColorMath.hsva-of(root.committed, root.hsva.h);
+            root.show-parts();
+        }
+    }
+    changed hex-focused => {
+        if !root.hex-focused {
+            root.read-hex();
+            root.hex-text = root.shown;
+        }
+    }
+
+    horizontal-stretch: 1;
+
+    VerticalLayout {
+        spacing: 12px;
+        padding-left: Theme.slider-thumb / 2;
+        padding-right: Theme.slider-thumb / 2;
+        padding-top: Theme.slider-thumb / 2;
+
+        Rectangle {
+            height: Theme.color-plane;
+            border-radius: Theme.radius(Radius.md);
+            background: ColorMath.hue(root.hsva.h);
+
+            Rectangle {
+                border-radius: Theme.radius(Radius.md);
+                background: @linear-gradient(90deg, #ffffff 0%, #ffffff00 100%);
+            }
+
+            Rectangle {
+                border-radius: Theme.radius(Radius.md);
+                background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+            }
+
+            PickerThumb {
+                at-x: root.hsva.s * parent.width;
+                at-y: (1 - root.hsva.v) * parent.height;
+                background: root.solid;
+            }
+
+            PickArea {
+                pointed(x, y) => {
+                    root.commit({ h: root.hsva.h, s: x, v: 1 - y, a: root.hsva.a });
+                }
+            }
+        }
+
+        Rectangle {
+            height: root.rail;
+
+            HorizontalLayout {
+                for band in 6: Rectangle {
+                    horizontal-stretch: 1;
+                    background: @linear-gradient(90deg, ColorMath.hue(band * 60) 0%, ColorMath.hue((band + 1) * 60) 100%);
+                    border-top-left-radius: band == 0 ? Theme.radius(Radius.sm) : 0;
+                    border-bottom-left-radius: self.border-top-left-radius;
+                    border-top-right-radius: band == 5 ? Theme.radius(Radius.sm) : 0;
+                    border-bottom-right-radius: self.border-top-right-radius;
+                }
+            }
+
+            PickerThumb {
+                at-x: root.hsva.h / 360 * parent.width;
+                at-y: parent.height / 2;
+                background: ColorMath.hue(root.hsva.h);
+            }
+
+            PickArea {
+                pointed(x, y) => {
+                    root.commit({ h: x * 360, s: root.hsva.s, v: root.hsva.v, a: root.hsva.a });
+                }
+            }
+        }
+
+        if root.alpha: Rectangle {
+            height: root.rail;
+
+            Checker {
+                radius: Theme.radius(Radius.sm);
+            }
+
+            Rectangle {
+                border-radius: Theme.radius(Radius.sm);
+                background: @linear-gradient(90deg, root.solid.with-alpha(0) 0%, root.solid 100%);
+            }
+
+            PickerThumb {
+                at-x: root.hsva.a * parent.width;
+                at-y: parent.height / 2;
+                background: root.current;
+            }
+
+            PickArea {
+                pointed(x, y) => {
+                    root.commit({ h: root.hsva.h, s: root.hsva.s, v: root.hsva.v, a: x });
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            ColorSwatch {
+                color: root.current;
+                size: ControlSize.md;
+            }
+
+            Select {
+                owner: root.owner + "-format";
+                choices: [
+                    { value: "HEX", label: "HEX" },
+                    { value: "RGB", label: "RGB" },
+                    { value: "HSV", label: "HSV" },
+                ];
+                selected <=> root.format-key;
+                label: @tr("Color format");
+                size: ControlSize.md;
+                selection-changed(key) => {
+                    root.format = key == "RGB" ? ColorFormat.rgb : key == "HSV" ? ColorFormat.hsv : ColorFormat.hex;
+                }
+            }
+
+            EyeDropper {
+                owner: root.owner + "-dropper";
+                picked(c) => {
+                    root.commit-color(c);
+                }
+            }
+        }
+
+        if root.format == ColorFormat.hex: Input {
+            text <=> root.hex-text;
+            label: @tr("Color value");
+            max-len: 9;
+            font-family: Theme.mono-family;
+            accepted => {
+                root.read-hex();
+            }
+            changed has-focus => {
+                root.hex-focused = self.has-focus;
+            }
+        }
+
+        if root.format == ColorFormat.rgb: VerticalLayout {
+            spacing: 4px;
+
+            ScrubInput {
+                label: "R";
+                value <=> root.red;
+                minimum: 0;
+                maximum: 255;
+                value-changed(v) => {
+                    root.channel(v, root.current.green, root.current.blue);
+                }
+            }
+
+            ScrubInput {
+                label: "G";
+                value <=> root.green;
+                minimum: 0;
+                maximum: 255;
+                value-changed(v) => {
+                    root.channel(root.current.red, v, root.current.blue);
+                }
+            }
+
+            ScrubInput {
+                label: "B";
+                value <=> root.blue;
+                minimum: 0;
+                maximum: 255;
+                value-changed(v) => {
+                    root.channel(root.current.red, root.current.green, v);
+                }
+            }
+        }
+
+        if root.format == ColorFormat.hsv: VerticalLayout {
+            spacing: 4px;
+
+            ScrubInput {
+                label: "H";
+                value <=> root.hue-part;
+                minimum: 0;
+                maximum: 360;
+                value-changed(v) => {
+                    root.commit({ h: v, s: root.hsva.s, v: root.hsva.v, a: root.hsva.a });
+                }
+            }
+
+            ScrubInput {
+                label: "S";
+                value <=> root.saturation;
+                minimum: 0;
+                maximum: 100;
+                value-changed(v) => {
+                    root.commit({ h: root.hsva.h, s: v / 100, v: root.hsva.v, a: root.hsva.a });
+                }
+            }
+
+            ScrubInput {
+                label: "V";
+                value <=> root.brightness;
+                minimum: 0;
+                maximum: 100;
+                value-changed(v) => {
+                    root.commit({ h: root.hsva.h, s: root.hsva.s, v: v / 100, a: root.hsva.a });
+                }
+            }
+        }
+    }
+}

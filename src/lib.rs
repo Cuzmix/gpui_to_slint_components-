@@ -5,6 +5,7 @@
 //! and this crate computes them. Nothing here holds UI state.
 
 pub mod cascade;
+pub mod colors;
 pub mod columns;
 pub mod cron;
 pub mod dates;

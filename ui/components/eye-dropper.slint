@@ -1,0 +1,46 @@
+// Port of ely-core/src/forms/color/dropper.rs (`EyeDropper`): a button that picks a color from
+// anywhere on screen. It shows disabled until the host can sample the screen.
+//
+// gpui opens AppKit's color sampler on macOS. Here the host does the sampling (gap G63): it sets
+// `Colors.can-sample`, handles `Colors.sample(owner)`, and hands the color back with
+//     ely_slint::deliver_sample!(app, owner, color);
+// which reaches the dropper whose `owner` matches.
+
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Icons } from "../icons/icons.slint";
+import { Colors, ColorSample } from "colors.slint";
+
+export component EyeDropper {
+    // Names this dropper to the host's sampler; unique among droppers.
+    in property <string> owner: "eye-dropper";
+
+    out property <bool> has-focus: button.has-focus;
+    out property <bool> available: Colors.can-sample;
+
+    // A color picked from the screen.
+    callback picked(color: color);
+
+    private property <ColorSample> sample: Colors.sampled;
+
+    changed sample => {
+        if root.sample.owner == root.owner && root.sample.serial > 0 {
+            root.picked(root.sample.color);
+        }
+    }
+
+    forward-focus: button;
+    width: button.width;
+    height: button.height;
+
+    button := IconButton {
+        icon: Icons.pipette;
+        icon-name: "pipette";
+        variant: ButtonVariant.ghost;
+        tooltip: root.available ? @tr("Pick a color from the screen") : @tr("Picking from the screen needs macOS");
+        enabled: root.available;
+        clicked => {
+            Colors.sample(root.owner);
+        }
+    }
+}

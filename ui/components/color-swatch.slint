@@ -1,0 +1,155 @@
+// Port of ely-core/src/forms/color/swatch.rs (`ColorSwatch`, `ColorPalette`).
+//
+// ColorSwatch: a patch of one color; see-through colors sit on a checkerboard. Chosen swatches
+// wear an accent ring with a gap. With `clickable` it is a button: a press (which never takes
+// focus) or Enter or Space reports `clicked`, and Tab reaches it.
+//
+// ColorPalette: a grid of named swatches, `columns` to a row; one may be chosen. Like Select
+// (G48), `selected` is `in-out`: a pick sets it (and `chosen`), then reports it.
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { TooltipController } from "tooltip.slint";
+import { ClickKeys } from "click-keys.slint";
+import { Checker, ColorMath } from "colors.slint";
+
+export component ColorSwatch {
+    in property <color> color;
+    // Its side: the control height of this size.
+    in property <ControlSize> size: ControlSize.sm;
+    // Rings it as the chosen color.
+    in property <bool> selected;
+    // The color's name, shown on hover and read as the button's name (its hex otherwise).
+    in property <string> tooltip;
+    // Makes it a button that reports `clicked`.
+    in property <bool> clickable;
+
+    out property <bool> has-focus;
+    out property <bool> tooltip-shown: tip.shown;
+
+    callback clicked();
+
+    private property <length> inset: 1px + (root.selected ? 2px : 0);
+
+    // Spelled out so FlexboxLayout (ColorPalette) sees it.
+    min-width: Theme.control-height(root.size);
+    preferred-width: self.min-width;
+    max-width: self.min-width;
+    min-height: self.min-width;
+    preferred-height: self.min-width;
+    max-height: self.min-width;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: root.clickable && root.has-focus ? Theme.colors.focus : root.selected ? Theme.colors.accent : Theme.colors.border;
+    }
+
+    if root.color.alpha < 255: Checker {
+        x: root.inset;
+        y: root.inset;
+        width: root.width - root.inset * 2;
+        height: root.height - root.inset * 2;
+        radius: Theme.radius(Radius.sm);
+    }
+
+    Rectangle {
+        x: root.inset;
+        y: root.inset;
+        width: root.width - root.inset * 2;
+        height: root.height - root.inset * 2;
+        border-radius: Theme.radius(Radius.sm);
+        background: root.color;
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.tooltip;
+    }
+
+    TouchArea {
+        mouse-cursor: root.clickable ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            if root.clickable {
+                root.clicked();
+            }
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    // A button only when clickable: Slint fixes an element's role, so the button is its own
+    // element, and the swatch's focus is its.
+    if root.clickable: ClickKeys {
+        accessible-role: button;
+        accessible-label: root.tooltip != "" ? root.tooltip : ColorMath.hex(root.color);
+        accessible-item-selectable: true;
+        accessible-item-selected: root.selected;
+        accessible-action-default => {
+            root.clicked();
+        }
+        changed has-focus => {
+            root.has-focus = self.has-focus;
+        }
+        activated => {
+            root.clicked();
+        }
+    }
+}
+
+// A color with the name its swatch shows on hover.
+export struct NamedColor {
+    name: string,
+    color: color,
+}
+
+export component ColorPalette {
+    in property <[NamedColor]> colors;
+    // The color chosen, when `chosen`.
+    in-out property <color> selected;
+    in-out property <bool> chosen;
+    // How many swatches a row holds; at least one.
+    in property <int> columns: 8;
+
+    // A swatch was pressed.
+    callback selection-changed(color: color);
+
+    private property <length> cell: Theme.control-height(ControlSize.sm);
+    private property <length> gap: 6px;
+    // As wide as `columns` swatches at most; the swatches wrap.
+    private property <length> widest: Math.max(root.columns, 1) * (root.cell + root.gap) - root.gap;
+
+    min-width: root.cell;
+    preferred-width: root.widest;
+    max-width: root.widest;
+    height: flow.preferred-height;
+
+    flow := FlexboxLayout {
+        x: 0;
+        y: 0;
+        width: Math.min(root.width, root.widest);
+        spacing: root.gap;
+
+        for named in root.colors: ColorSwatch {
+            color: named.color;
+            tooltip: named.name;
+            selected: root.chosen && root.selected == named.color;
+            clickable: true;
+            clicked => {
+                root.selected = named.color;
+                root.chosen = true;
+                root.selection-changed(named.color);
+            }
+        }
+    }
+}

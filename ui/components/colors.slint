@@ -1,0 +1,141 @@
+// Port of ely-core/src/forms/color/mod.rs (`Hsva`, `parse_hex`, `hex`) and the checkerboard of
+// forms/color/swatch.rs (`checker`, `dark_cells`): what every color component shares.
+//
+// HSV math and hex spelling are pure Slint (`ColorMath`). Reading typed hex runs in Rust; the
+// host wires `Colors` once:
+//     ely_slint::wire_colors!(app);
+// Colors are Slint `color`s, eight bits a channel; ely's are f32 (gap G62).
+
+import { Theme } from "../theme/theme.slint";
+
+// A color by hue in degrees, then saturation, value and alpha from 0 to 1. Unlike a `color`, it
+// keeps a hue through grays.
+export struct Hsva {
+    h: float,
+    s: float,
+    v: float,
+    a: float,
+}
+
+// Typed hex as read: whether it was a color, and which.
+export struct ParsedColor {
+    ok: bool,
+    color: color,
+}
+
+// A color sampled from the screen for the EyeDropper named `owner`; each new sample counts up
+// `serial`.
+export struct ColorSample {
+    owner: string,
+    color: color,
+    serial: int,
+}
+
+// What the color components need from the host (`ely_slint::colors`).
+export global Colors {
+    // Reads `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`, with or without the hash.
+    pure callback parse-hex(text: string) -> ParsedColor;
+    // Whether the host can sample the screen; the EyeDropper shows disabled until it can.
+    in-out property <bool> can-sample: false;
+    // The EyeDropper named `owner` asks for a color from the screen. The host answers by
+    // setting `sampled` (`ely_slint::deliver_sample!`), or not at all when the person gives up.
+    callback sample(owner: string);
+    in-out property <ColorSample> sampled;
+}
+
+// HSV and hex, after ely's `Hsva` and `hex`.
+export global ColorMath {
+    out property <[string]> digits: [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f"
+    ];
+
+    // `hsva` as a color.
+    public pure function color-of(hsva: Hsva) -> color {
+        let h = mod(mod(hsva.h, 360) + 360, 360) / 60;
+        let chroma = hsva.v * hsva.s;
+        let x = chroma * (1 - abs(mod(h, 2) - 1));
+        let sector = floor(h);
+        let m = hsva.v - chroma;
+        let r = sector == 0 || sector == 5 ? chroma : sector == 1 || sector == 4 ? x : 0;
+        let g = sector == 1 || sector == 2 ? chroma : sector == 0 || sector == 3 ? x : 0;
+        let b = sector == 3 || sector == 4 ? chroma : sector == 2 || sector == 5 ? x : 0;
+        rgba(round((r + m) * 255), round((g + m) * 255), round((b + m) * 255), round(clamp(hsva.a, 0, 1) * 255) / 255)
+    }
+
+    // The HSV form of `c`; a gray keeps `hue`, which it cannot carry itself.
+    public pure function hsva-of(c: color, hue: float) -> Hsva {
+        let r = c.red / 255;
+        let g = c.green / 255;
+        let b = c.blue / 255;
+        let most = Math.max(r, Math.max(g, b));
+        let least = Math.min(r, Math.min(g, b));
+        let delta = most - least;
+        {
+            h: delta == 0 ? hue : most == r ? 60 * mod(mod((g - b) / delta, 6) + 6, 6) : most == g ? 60 * ((b - r) / delta + 2) : 60 * ((r - g) / delta + 4),
+            s: most == 0 ? 0 : delta / most,
+            v: most,
+            a: c.alpha / 255,
+        }
+    }
+
+    // The pure color at `degrees` of hue.
+    public pure function hue(degrees: float) -> color {
+        root.color-of({ h: degrees, s: 1, v: 1, a: 1 })
+    }
+
+    // Two hex digits for a channel from 0 to 255.
+    public pure function byte(value: int) -> string {
+        root.digits[floor(value / 16)] + root.digits[mod(value, 16)]
+    }
+
+    // `#rrggbb`, with alpha appended when it is not opaque.
+    public pure function hex(c: color) -> string {
+        "#" + root.byte(c.red) + root.byte(c.green) + root.byte(c.blue) + (c.alpha == 255 ? "" : root.byte(c.alpha))
+    }
+}
+
+// A checkerboard filling its parent with `radius` corners, so see-through colors read as
+// see-through. Cells are at least a quarter of the shorter side (and the corner radius) and
+// come in odd counts, so every corner cell is light and no dark cell reaches a rounded corner.
+export component Checker inherits Rectangle {
+    in property <length> radius;
+
+    private property <bool> drawn: root.width > 0 && root.height > 0;
+    private property <length> corner: Math.min(root.radius, Math.min(root.width, root.height) / 2);
+    private property <length> least: Math.max(Math.min(root.width, root.height) / 4, root.corner);
+    private property <int> wide: root.drawn ? Math.max(floor(root.width / root.least), 1) : 0;
+    private property <int> tall: root.drawn ? Math.max(floor(root.height / root.least), 1) : 0;
+    private property <int> columns: mod(root.wide, 2) == 0 ? root.wide - 1 : root.wide;
+    private property <int> rows: mod(root.tall, 2) == 0 ? root.tall - 1 : root.tall;
+
+    border-radius: root.corner;
+    background: Theme.colors.surface;
+    accessible-role: none;
+
+    for cell in root.columns * root.rows: Rectangle {
+        property <int> column: mod(cell, root.columns);
+        property <int> line: floor(cell / root.columns);
+
+        visible: mod(self.column + self.line, 2) == 1;
+        x: root.width / root.columns * self.column;
+        y: root.height / root.rows * self.line;
+        width: root.width / root.columns;
+        height: root.height / root.rows;
+        background: Theme.colors.active;
+    }
+}

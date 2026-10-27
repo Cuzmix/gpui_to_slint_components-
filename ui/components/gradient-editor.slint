@@ -1,0 +1,221 @@
+// Port of ely-core/src/forms/color/gradient.rs (`GradientEditor`, `GradientStop`): a gradient
+// bar with stops beneath, and a ColorPicker for the chosen stop.
+//
+// A press on the bar adds a stop there, colored as the gradient is, and chooses it. A press on a
+// stop chooses it; dragging it (past gpui's 2 px start) moves it, past its neighbors too. With
+// the stops focused, Left and Right move the chosen stop by a hundredth, and Delete or Backspace
+// removes it while more than two remain.
+//
+// Growing, moving and cutting the list run in Rust; the host wires `Gradients` once, beside what
+// ColorPicker needs:
+//     ely_slint::wire_gradients!(app);
+// Like Select (G48), `stops` is `in-out`: an edit sets it, then reports it.
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { Checker } from "colors.slint";
+import { ColorPicker } from "color-picker.slint";
+
+// A color at a place along a gradient, from 0 to 1.
+export struct GradientStop {
+    at: float,
+    color: color,
+}
+
+// Stops after an edit, and the one chosen.
+export struct GradientEdit {
+    stops: [GradientStop],
+    chosen: int,
+}
+
+// What GradientEditor needs from Rust (`ely_slint::colors`). Stops are sorted by place.
+export global Gradients {
+    // A new stop at `t`, colored as the gradient is there.
+    pure callback added(stops: [GradientStop], t: float) -> GradientEdit;
+    // Stop `index` moved to `t` (clamped to 0..1), still sorted.
+    pure callback moved(stops: [GradientStop], index: int, t: float) -> GradientEdit;
+    // Stop `index` gone, the one before it chosen; two stops stay.
+    pure callback removed(stops: [GradientStop], index: int) -> GradientEdit;
+    // Stop `index` recolored.
+    pure callback recolored(stops: [GradientStop], index: int, color: color) -> GradientEdit;
+    // The stop whose handle covers `t`, reaching `reach` either side; the last drawn wins; -1 none.
+    pure callback stop-at(stops: [GradientStop], t: float, reach: float) -> int;
+}
+
+export component GradientEditor {
+    // Names its color picker's list; unique among the fields that show lists.
+    in property <string> owner: "gradient";
+    // At least two, sorted, each within 0 to 1.
+    in-out property <[GradientStop]> stops;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+
+    out property <bool> has-focus: keys.has-focus;
+    // The stop chosen.
+    out property <int> chosen: Math.max(0, Math.min(root.picked, root.stops.length - 1));
+
+    // The stops after each change.
+    callback stops-changed(stops: [GradientStop]);
+
+    private property <int> picked;
+    private property <length> knob: Theme.slider-thumb;
+    private property <int> count: root.stops.length;
+    private property <GradientStop> first: root.stops[0];
+    private property <GradientStop> last: root.stops[root.count - 1];
+    // The chosen stop's color, as the picker edits it.
+    private property <color> chosen-color;
+    // A press on a stop, and whether it has moved enough to drag.
+    private property <bool> grabbed;
+    private property <bool> dragging;
+
+    function apply(edit: GradientEdit) {
+        root.picked = edit.chosen;
+        root.stops = edit.stops;
+        root.chosen-color = root.stops[root.chosen].color;
+        root.stops-changed(root.stops);
+    }
+
+    init => {
+        root.chosen-color = root.stops[root.chosen].color;
+    }
+    changed stops => {
+        root.chosen-color = root.stops[root.chosen].color;
+    }
+
+    forward-focus: keys;
+    horizontal-stretch: 1;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        VerticalLayout {
+            spacing: 8px;
+            padding-left: root.knob / 2;
+            padding-right: root.knob / 2;
+
+            Rectangle {
+                height: Theme.control-height(ControlSize.md);
+
+                Checker {
+                    radius: Theme.radius(Radius.sm);
+                }
+
+                if root.first.at > 0: Rectangle {
+                    x: 0;
+                    width: root.first.at * parent.width;
+                    background: root.first.color;
+                    border-top-left-radius: Theme.radius(Radius.sm);
+                    border-bottom-left-radius: Theme.radius(Radius.sm);
+                }
+
+                for stop[ix] in root.stops: Rectangle {
+                    property <GradientStop> next: root.stops[ix + 1];
+
+                    visible: ix < root.count - 1;
+                    x: stop.at * parent.width;
+                    width: (self.next.at - stop.at) * parent.width;
+                    background: @linear-gradient(90deg, stop.color 0%, self.next.color 100%);
+                    border-top-left-radius: ix == 0 && root.first.at <= 0 ? Theme.radius(Radius.sm) : 0;
+                    border-bottom-left-radius: self.border-top-left-radius;
+                    border-top-right-radius: ix == root.count - 2 && root.last.at >= 1 ? Theme.radius(Radius.sm) : 0;
+                    border-bottom-right-radius: self.border-top-right-radius;
+                }
+
+                if root.last.at < 1: Rectangle {
+                    x: root.last.at * parent.width;
+                    width: (1 - root.last.at) * parent.width;
+                    background: root.last.color;
+                    border-top-right-radius: Theme.radius(Radius.sm);
+                    border-bottom-right-radius: Theme.radius(Radius.sm);
+                }
+
+                TouchArea {
+                    mouse-cursor: MouseCursor.crosshair;
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                            root.apply(Gradients.added(root.stops, self.mouse-x / self.width));
+                        }
+                    }
+                }
+            }
+
+            rail := Rectangle {
+                height: root.knob;
+
+                for stop[ix] in root.stops: Rectangle {
+                    x: stop.at * parent.width - root.knob / 2;
+                    width: root.knob;
+                    height: root.knob;
+                    border-radius: Theme.radius(Radius.sm);
+                    border-width: 2px;
+                    border-color: ix == root.chosen ? (keys.has-focus ? Theme.colors.focus : Theme.colors.accent) : Theme.colors.border-strong;
+                    background: stop.color;
+                }
+
+                keys := FocusScope {
+                    focus-on-click: false;
+                    accessible-role: slider;
+                    accessible-label: root.label;
+                    accessible-value: round(root.stops[root.chosen].at * 100);
+                    accessible-value-minimum: 0;
+                    accessible-value-maximum: 100;
+                    accessible-description: @tr("Stop {} of {}", root.chosen + 1, root.count);
+                    key-pressed(event) => {
+                        let at = root.stops[root.chosen].at;
+                        if event.text == Key.LeftArrow {
+                            root.apply(Gradients.moved(root.stops, root.chosen, at - 0.01));
+                        } else if event.text == Key.RightArrow {
+                            root.apply(Gradients.moved(root.stops, root.chosen, at + 0.01));
+                        } else if (event.text == Key.Delete || event.text == Key.Backspace) && root.count > 2 {
+                            root.apply(Gradients.removed(root.stops, root.chosen));
+                        } else {
+                            return reject;
+                        }
+                        accept
+                    }
+                }
+
+                // Reaches over the handles' halves past each end.
+                TouchArea {
+                    x: -root.knob / 2;
+                    width: parent.width + root.knob;
+                    mouse-cursor: MouseCursor.grab;
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                            let ix = Gradients.stop-at(root.stops, (self.mouse-x - root.knob / 2) / rail.width, root.knob / 2 / rail.width);
+                            root.grabbed = ix >= 0;
+                            root.dragging = false;
+                            if ix >= 0 {
+                                root.picked = ix;
+                                root.chosen-color = root.stops[ix].color;
+                            }
+                            keys.focus();
+                        } else if event.kind == PointerEventKind.up {
+                            root.grabbed = false;
+                        }
+                    }
+                    moved => {
+                        if !self.pressed || !root.grabbed {
+                            return;
+                        }
+                        if !root.dragging {
+                            let dx = (self.mouse-x - self.pressed-x) / 1px;
+                            let dy = (self.mouse-y - self.pressed-y) / 1px;
+                            root.dragging = sqrt(dx * dx + dy * dy) > 2;
+                        }
+                        if root.dragging {
+                            root.apply(Gradients.moved(root.stops, root.chosen, (self.mouse-x - root.knob / 2) / rail.width));
+                        }
+                    }
+                }
+            }
+        }
+
+        ColorPicker {
+            owner: root.owner + "-color";
+            value <=> root.chosen-color;
+            color-changed(c) => {
+                root.apply(Gradients.recolored(root.stops, root.chosen, c));
+            }
+        }
+    }
+}
