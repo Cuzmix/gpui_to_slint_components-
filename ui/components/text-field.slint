@@ -55,6 +55,8 @@ export component TextField {
     callback edited(text: string);
     // Enter in one line, or Ctrl+Enter (⌘↩).
     callback accepted();
+    // A key before the editor takes it; reject to let it edit.
+    callback key-pressed(event: KeyEvent) -> EventResult;
 
     // The text the last edit left, to find the next edit in.
     private property <string> committed;
@@ -127,7 +129,7 @@ export component TextField {
                     root.accepted();
                     return accept;
                 }
-                reject
+                root.key-pressed(event)
             }
             accepted => {
                 root.accepted();

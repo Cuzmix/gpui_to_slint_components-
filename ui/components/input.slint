@@ -2,7 +2,8 @@
 // focus, and room for things before and after.
 //
 // A prefix icon sits before the text; children sit after it, as the suffix (one children slot,
-// gap G47). A press anywhere on the frame focuses the text.
+// gap G47). A press anywhere on the frame focuses the text. `InputFrame` and `InputText` are
+// the parts, for fields with more before the text.
 
 import {
     Theme,
@@ -20,6 +21,126 @@ import { Icons } from "../icons/icons.slint";
 export global InputStyle {
     public pure function text-size(size: ControlSize) -> TextSize {
         size == ControlSize.sm ? TextSize.sm : size == ControlSize.lg ? TextSize.md : TextSize.base
+    }
+}
+
+// The frame alone: border by focus and validity, fill, and a row for what goes in it. Fields
+// that put more than an icon before the text (NumberInput) build on it with a `InputText`.
+export component InputFrame {
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+    in property <bool> invalid;
+    // Whether the text inside has focus.
+    in property <bool> focused;
+    // Several lines: items at the start, 6 px above and below, and no fixed height.
+    in property <bool> multi-line;
+
+    out property <color> current-border: root.invalid ? Theme.colors.danger : root.focused ? Theme.colors.focus : Theme.colors.border-strong;
+
+    // A press anywhere on the frame: focus the text.
+    callback pressed();
+
+    horizontal-stretch: 1;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: root.multi-line ? row.preferred-height : Theme.control-height(root.size);
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: root.current-border;
+        background: root.enabled ? Theme.colors.surface : Theme.colors.sunken;
+    }
+
+    TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.default;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.pressed();
+            }
+        }
+    }
+
+    row := HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: Theme.control-padding(root.size) + 1px;
+        padding-right: self.padding-left;
+        padding-top: root.multi-line ? 7px : 0;
+        padding-bottom: self.padding-top;
+        spacing: 8px;
+        cross-axis-alignment: root.multi-line ? CrossAxisAlignment.start : CrossAxisAlignment.center;
+
+        @children
+    }
+}
+
+// The text inside a frame: a TextField in the frame's text size, and a strut holding room for
+// `least` whole, with the frame's inset.
+export component InputText inherits VerticalLayout {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <string> description;
+    in property <bool> masked;
+    in property <int> rows-min: 0;
+    in property <int> rows-max: root.rows-min;
+    in property <int> max-len: 0;
+    in property <string> fit-kind;
+    in property <bool> enabled: true;
+    in property <ControlSize> size: ControlSize.md;
+    in property <string> least;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <bool> empty: field.empty;
+    out property <bool> multi-line: field.multi-line;
+
+    callback edited(text: string);
+    callback accepted();
+    // A key the field did not take (Up and Down in one line, say).
+    callback key-pressed(event: KeyEvent) -> EventResult;
+
+    public function select-all() {
+        field.select-all();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: 0;
+
+    field := TextField {
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: root.label;
+        description: root.description;
+        masked: root.masked;
+        rows-min: root.rows-min;
+        rows-max: root.rows-max;
+        max-len: root.max-len;
+        fit-kind: root.fit-kind;
+        enabled: root.enabled;
+        font-size: Theme.text-size(InputStyle.text-size(root.size));
+        color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+        edited(text) => {
+            root.edited(text);
+        }
+        accepted => {
+            root.accepted();
+        }
+        key-pressed(event) => {
+            root.key-pressed(event)
+        }
+    }
+
+    Rectangle {
+        height: 0;
+        preferred-width: strut.preferred-width + (Theme.control-padding(root.size) + 1px) * 2;
+
+        strut := Text {
+            visible: false;
+            text: root.least;
+            font-family: Theme.font-family;
+            font-size: Theme.text-size(InputStyle.text-size(root.size));
+        }
     }
 }
 
@@ -47,7 +168,7 @@ export component Input {
     in property <color> prefix-color: Theme.colors.fg-subtle;
 
     out property <bool> has-focus: field.has-focus;
-    out property <color> current-border: root.invalid ? Theme.colors.danger : field.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+    out property <color> current-border: frame.current-border;
 
     callback edited(text: string);
     callback accepted();
@@ -58,34 +179,20 @@ export component Input {
 
     forward-focus: field;
     horizontal-stretch: 1;
-    min-width: row.min-width;
-    preferred-width: row.preferred-width;
-    height: field.multi-line ? row.preferred-height : Theme.control-height(root.size);
+    min-width: frame.min-width;
+    preferred-width: frame.preferred-width;
+    height: frame.height;
 
-    Rectangle {
-        border-radius: Theme.radius(Radius.md);
-        border-width: 1px;
-        border-color: root.current-border;
-        background: root.enabled ? Theme.colors.surface : Theme.colors.sunken;
-    }
-
-    TouchArea {
-        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.default;
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                field.focus();
-            }
+    frame := InputFrame {
+        width: root.width;
+        size: root.size;
+        enabled: root.enabled;
+        invalid: root.invalid;
+        focused: field.has-focus;
+        multi-line: field.multi-line;
+        pressed => {
+            field.focus();
         }
-    }
-
-    row := HorizontalLayout {
-        // Inside the 1 px border.
-        padding-left: Theme.control-padding(root.size) + 1px;
-        padding-right: self.padding-left;
-        padding-top: field.multi-line ? 7px : 0;
-        padding-bottom: self.padding-top;
-        spacing: 8px;
-        cross-axis-alignment: field.multi-line ? CrossAxisAlignment.start : CrossAxisAlignment.center;
 
         if root.prefix-icon.width > 0: Icon {
             source: root.prefix-icon;
@@ -93,42 +200,24 @@ export component Input {
             color: root.prefix-color;
         }
 
-        VerticalLayout {
-            horizontal-stretch: 1;
-            min-width: 0;
-
-            field := TextField {
-                text <=> root.text;
-                placeholder: root.placeholder;
-                label: root.label;
-                description: root.description;
-                masked: root.masked;
-                rows-min: root.rows-min;
-                rows-max: root.rows-max;
-                max-len: root.max-len;
-                fit-kind: root.fit-kind;
-                enabled: root.enabled;
-                font-size: Theme.text-size(InputStyle.text-size(root.size));
-                color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
-                edited(text) => {
-                    root.edited(text);
-                }
-                accepted => {
-                    root.accepted();
-                }
+        field := InputText {
+            text <=> root.text;
+            placeholder: root.placeholder;
+            label: root.label;
+            description: root.description;
+            masked: root.masked;
+            rows-min: root.rows-min;
+            rows-max: root.rows-max;
+            max-len: root.max-len;
+            fit-kind: root.fit-kind;
+            enabled: root.enabled;
+            size: root.size;
+            least: root.least;
+            edited(text) => {
+                root.edited(text);
             }
-
-            // A strut keeps room to type `least` in, with the frame's inset.
-            Rectangle {
-                height: 0;
-                preferred-width: least.preferred-width + (Theme.control-padding(root.size) + 1px) * 2;
-
-                least := Text {
-                    visible: false;
-                    text: root.least;
-                    font-family: Theme.font-family;
-                    font-size: Theme.text-size(InputStyle.text-size(root.size));
-                }
+            accepted => {
+                root.accepted();
             }
         }
 

@@ -1,0 +1,339 @@
+// Port of ely-core/src/forms/number.rs and number/scrub.rs: `NumberInput`, `ScrubInput`. A
+// number field: arrows or the stepper move it, dragging the grip scrubs it.
+//
+// Typing reports each number that is already settled; Enter, leaving the field, a step and a
+// scrub settle it into the range and precision and commit it. Reading and settling run in Rust
+// (`Numbers`): the host wires them, with the text fields they type in:
+//     ely_slint::wire_fields!(app);
+//     ely_slint::wire_numbers!(app);
+// Slint's `float` is single precision (gap G55).
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+} from "../theme/theme.slint";
+import { InputFrame, InputText, InputStyle } from "input.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+
+// A read number: whether the text was one, and its value.
+export struct ParsedNumber {
+    ok: bool,
+    value: float,
+}
+
+// What number fields need from Rust (`ely_slint::numbers`).
+export global Numbers {
+    // Past any range a field sets: the default limits (1e38, near Slint's float limit).
+    out property <float> unbounded: 100000000000000000000000000000000000000;
+    pure callback parse(text: string) -> ParsedNumber;
+    // Rounded to `precision` places, then clamped to the rounded numbers in the range.
+    pure callback settle(value: float, min: float, max: float, precision: int) -> float;
+    // Shown with English separators and `precision` places.
+    pure callback text(value: float, precision: int) -> string;
+    pure callback currency-symbol(code: string) -> string;
+    pure callback currency-places(code: string) -> int;
+}
+
+// Drags sideways move the number one step per notch (`handle-hit`) from where the drag began.
+component ScrubHandle {
+    in property <float> start-value;
+
+    // The drag has moved `notches` whole notches from where it began, at `from`.
+    callback scrubbed(from: float, notches: float);
+
+    private property <length> anchor;
+    private property <float> from;
+    private property <bool> started;
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.ew-resize;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.started = false;
+            }
+        }
+        moved => {
+            if !self.pressed {
+                return;
+            }
+            let x = self.absolute-position.x + self.mouse-x;
+            if !root.started {
+                root.started = true;
+                root.anchor = x;
+                root.from = root.start-value;
+            }
+            let notches = (x - root.anchor) / Theme.handle-hit;
+            root.scrubbed(root.from, notches < 0 ? ceil(notches) : floor(notches));
+        }
+    }
+
+    @children
+}
+
+// One half of the stepper: a chevron, a pointer and a hover fill while it can move the number.
+component StepHalf {
+    in property <image> icon;
+    in property <bool> enabled;
+
+    callback stepped();
+
+    width: Theme.icon-size(IconSize.lg);
+    vertical-stretch: 1;
+    opacity: root.enabled ? 1 : 0.4;
+
+    Rectangle {
+        background: root.enabled && touch.has-hover ? Theme.colors.hover : transparent;
+    }
+
+    Icon {
+        source: root.icon;
+        size: IconSize.xs;
+        color: Theme.colors.fg-muted;
+    }
+
+    // Presses never take focus from the field.
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.stepped();
+        }
+    }
+}
+
+export component NumberInput {
+    in-out property <float> value;
+    // Its least and greatest value; unbounded by default.
+    in property <float> minimum: -Numbers.unbounded;
+    in property <float> maximum: Numbers.unbounded;
+    // How far a step, an arrow key or a scrub notch moves it; positive.
+    in property <float> step: 1;
+    // Decimal places kept and shown.
+    in property <int> precision: 0;
+    // A symbol before the digits, such as "$".
+    in property <string> prefix;
+    // Money in an ISO 4217 currency: its symbol before the digits, its minor units as precision.
+    in property <string> currency;
+    // Marks a percentage with "%" after the digits.
+    in property <bool> percent;
+    // Text after the digits, such as a unit.
+    in property <string> suffix;
+    // The name assistive technology reads, drawn nowhere.
+    in property <string> label;
+    // Shows this, not a number, as for a mixed selection; commits once typed in.
+    in property <string> blank;
+    // A label beside the field that scrubs it (ScrubInput).
+    in property <string> scrub-label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // What the field shows.
+    out property <string> text: field.text;
+    // The typed number, or the value while the text is not one.
+    out property <float> current: root.read(field.text);
+    out property <bool> can-step-up: root.current < root.maximum;
+    out property <bool> can-step-down: root.current > root.minimum;
+
+    // Each new value, typed ones included.
+    callback value-changed(value: float);
+    // Enter, leaving the field, steps and scrubs; never typing.
+    callback committed(value: float);
+
+    private property <int> places: root.currency != "" ? Numbers.currency-places(root.currency) : root.precision;
+    private property <string> symbol: root.currency != "" ? Numbers.currency-symbol(root.currency) : root.prefix;
+    private property <bool> ranged: root.minimum > -Numbers.unbounded && root.maximum < Numbers.unbounded;
+    private property <bool> editing: field.has-focus;
+
+    pure function read(text: string) -> float {
+        let parsed = Numbers.parse(text);
+        parsed.ok ? parsed.value : root.value
+    }
+
+    function show-value() {
+        field.text = root.blank != "" ? "" : Numbers.text(root.value, root.places);
+    }
+
+    // Settles `next` into the limits, shows it and tells the owner.
+    function commit(next: float) {
+        root.value = Numbers.settle(next, root.minimum, root.maximum, root.places);
+        field.text = Numbers.text(root.value, root.places);
+        root.value-changed(root.value);
+        root.committed(root.value);
+    }
+
+    function settle-typed() {
+        if root.blank != "" && field.text == "" {
+            return;
+        }
+        root.commit(root.read(field.text));
+    }
+
+    // A new value from the owner shows once the field is not being edited.
+    changed value => {
+        if !root.editing {
+            root.show-value();
+        }
+    }
+    changed editing => {
+        if !root.editing {
+            root.settle-typed();
+        }
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: frame.height;
+
+    row := HorizontalLayout {
+        spacing: 8px;
+        cross-axis-alignment: center;
+
+        if root.scrub-label != "": ScrubHandle {
+            min-width: max(Theme.control-height(ControlSize.md), face.preferred-width);
+            preferred-width: self.min-width;
+            height: face.preferred-height;
+            start-value: root.current;
+            scrubbed(from, notches) => {
+                root.commit(from + notches * root.step);
+            }
+
+            face := Text {
+                x: 0;
+                text: root.scrub-label;
+                color: Theme.colors.fg-muted;
+                font-size: Theme.text-size(TextSize.sm);
+                font-family: Theme.font-family;
+                vertical-alignment: center;
+                wrap: no-wrap;
+            }
+        }
+
+        frame := InputFrame {
+            size: root.size;
+            enabled: root.enabled;
+            focused: field.has-focus;
+            pressed => {
+                field.focus();
+            }
+
+            HorizontalLayout {
+                spacing: 4px;
+                cross-axis-alignment: center;
+
+                ScrubHandle {
+                    width: Theme.icon-size(IconSize.xs);
+                    height: self.width;
+                    start-value: root.current;
+                    scrubbed(from, notches) => {
+                        root.commit(from + notches * root.step);
+                    }
+
+                    Icon {
+                        source: Icons.chevrons-up-down;
+                        size: IconSize.xs;
+                        color: Theme.colors.fg-subtle;
+                    }
+                }
+
+                if root.symbol != "": Text {
+                    text: root.symbol;
+                    color: Theme.colors.fg-subtle;
+                    font-size: Theme.text-size(InputStyle.text-size(root.size));
+                    font-family: Theme.font-family;
+                    vertical-alignment: center;
+                }
+            }
+
+            field := InputText {
+                // A binding until the first edit (read after the host wires `Numbers`), then
+                // set by each commit.
+                text: root.blank != "" ? "" : Numbers.text(root.value, root.places);
+                size: root.size;
+                enabled: root.enabled;
+                label: root.label;
+                placeholder: root.blank;
+                fit-kind: "number";
+                least: !root.ranged ? "" : Numbers.text(root.minimum, root.places).character-count > Numbers.text(root.maximum, root.places).character-count ? Numbers.text(root.minimum, root.places) : Numbers.text(root.maximum, root.places);
+                edited(text) => {
+                    let typed = Numbers.parse(text);
+                    if !typed.ok || typed.value != Numbers.settle(typed.value, root.minimum, root.maximum, root.places) || typed.value == root.value {
+                        return;
+                    }
+                    root.value = typed.value;
+                    root.value-changed(typed.value);
+                }
+                accepted => {
+                    root.settle-typed();
+                }
+                key-pressed(event) => {
+                    if event.text == Key.UpArrow {
+                        root.commit(root.current + root.step);
+                        return accept;
+                    }
+                    if event.text == Key.DownArrow {
+                        root.commit(root.current - root.step);
+                        return accept;
+                    }
+                    reject
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 4px;
+                cross-axis-alignment: center;
+
+                if root.percent || root.suffix != "": Text {
+                    text: root.percent ? "%" : root.suffix;
+                    font-size: Theme.text-size(InputStyle.text-size(root.size));
+                    font-family: Theme.font-family;
+                    color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+                    vertical-alignment: center;
+                }
+
+                // The stepper, full height inside the border, a hairline on its left.
+                Rectangle {
+                    width: Theme.icon-size(IconSize.lg) + 1px;
+                    height: Theme.control-height(root.size) - 2px;
+
+                    Rectangle {
+                        x: 0;
+                        width: 1px;
+                        background: Theme.colors.border;
+                    }
+
+                    VerticalLayout {
+                        x: 1px;
+                        width: parent.width - 1px;
+
+                        StepHalf {
+                            icon: Icons.chevron-up;
+                            enabled: root.can-step-up;
+                            stepped => {
+                                root.commit(root.current + root.step);
+                            }
+                        }
+
+                        StepHalf {
+                            icon: Icons.chevron-down;
+                            enabled: root.can-step-down;
+                            stepped => {
+                                root.commit(root.current - root.step);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// A label you drag sideways to change a number, beside its field. The label names the field.
+export component ScrubInput inherits NumberInput {
+    scrub-label: root.label;
+}

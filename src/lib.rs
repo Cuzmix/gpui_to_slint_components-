@@ -13,6 +13,7 @@ pub mod focus;
 pub mod format;
 pub mod keys;
 pub mod layout;
+pub mod numbers;
 pub mod open;
 pub mod options;
 pub mod panes;
