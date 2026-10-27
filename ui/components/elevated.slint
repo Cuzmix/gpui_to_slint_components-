@@ -8,6 +8,12 @@ export component Elevated inherits Rectangle {
     // False draws the box without its shadow.
     in property <bool> casting: true;
 
+    // Slint draws a corner from its own radius once the corners are read, so each corner
+    // follows `border-radius` unless set.
+    border-top-left-radius: self.border-radius;
+    border-top-right-radius: self.border-radius;
+    border-bottom-left-radius: self.border-radius;
+    border-bottom-right-radius: self.border-radius;
     drop-shadow-offset-y: Theme.shadow-near(elevation).offset-y;
     drop-shadow-blur: Theme.shadow-near(elevation).blur;
     drop-shadow-color: root.casting ? Theme.shadow-near(elevation).color : transparent;
@@ -25,6 +31,20 @@ export component Elevated inherits Rectangle {
         drop-shadow-offset-y: Theme.shadow-far(elevation).offset-y;
         drop-shadow-blur: Theme.shadow-far(elevation).blur;
         drop-shadow-color: root.casting ? Theme.shadow-far(elevation).color : transparent;
+    }
+
+    // The far layer's fill covers the box's own border, so the border is drawn again above it.
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        border-top-left-radius: root.border-top-left-radius;
+        border-top-right-radius: root.border-top-right-radius;
+        border-bottom-left-radius: root.border-bottom-left-radius;
+        border-bottom-right-radius: root.border-bottom-right-radius;
+        border-width: root.border-width;
+        border-color: root.border-color;
     }
 
     @children
