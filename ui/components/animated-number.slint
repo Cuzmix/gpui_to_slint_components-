@@ -1,0 +1,118 @@
+// Port of ely-core/src/typography/rolling.rs (`AnimatedNumber`).
+// A number that rolls each digit's column, or counts, to every new value over twice the slow
+// motion (640 ms, ease-out cubic; 1 ms under reduced motion). Size xxl unless set, leading 1.2
+// rounded to whole device pixels, ink fg unless set.
+//
+// Grouping and aligning the digits needs the host (`TextFormat.rolling-text` and `roll-cells`,
+// wired by `ely_slint::wire_text_format!`). Unwired, it shows the value with Slint's `to-fixed`
+// and does not animate.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat, RollCell } from "text-format.slint";
+
+export component AnimatedNumber inherits HorizontalLayout {
+    in property <float> value;
+    // Places after the point.
+    in property <int> decimals: 0;
+    // Zero-pads to this many characters, minus first, as a clock shows minutes.
+    in property <int> pad: 0;
+    in property <color> color: Theme.colors.fg;
+    in property <TextSize> size: TextSize.xxl;
+    // Counts through the values instead of rolling digits.
+    in property <bool> count-up: false;
+    // What it reads once settled.
+    out property <string> settled-text: root.text-of(root.to);
+    // True while it moves.
+    out property <bool> moving: root.running;
+
+    // Set from `value` at init and on each change, never bound to it, so a change can start
+    // from the last value.
+    private property <float> from;
+    private property <float> to;
+    private property <duration> span: Theme.duration(640ms);
+    private property <duration> started;
+    private property <bool> running: false;
+    private property <float> eased: Theme.ease-out-cubic(root.running ? clamp((animation-tick() - root.started) / root.span, 0, 1) : 1);
+    private property <length> font-size: Theme.text-size(root.size);
+    private property <length> line: round(root.font-size * 1.2 / 1phx) * 1phx;
+    private property <bool> wired: TextFormat.grapheme-count("x") == 1;
+
+    pure function text-of(number: float) -> string {
+        root.wired ? TextFormat.rolling-text(number, root.decimals, root.pad) : number.to-fixed(root.decimals)
+    }
+
+    init => {
+        root.from = root.value;
+        root.to = root.value;
+    }
+    changed value => {
+        root.from = root.to;
+        root.to = root.value;
+        root.started = animation-tick();
+        root.running = true;
+    }
+
+    height: root.line;
+    alignment: start;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.settled-text;
+
+    if root.count-up || !root.wired: Rectangle {
+        clip: true;
+        TypeText {
+            text: root.text-of(root.from + (root.to - root.from) * root.eased);
+            font-size: root.font-size;
+            color: root.color;
+            leading: root.line / root.font-size;
+            wrap: no-wrap;
+            vertical-alignment: top;
+            accessible-role: none;
+        }
+    }
+
+    if !root.count-up && root.wired: HorizontalLayout {
+        for cell in TextFormat.roll-cells(root.text-of(root.from), root.text-of(root.to)): Rectangle {
+            private property <bool> digit: cell.to.is-float();
+            private property <float> start: cell.from.is-float() ? cell.from.to-float() : 0;
+            private property <float> end: cell.to.to-float();
+
+            clip: true;
+            preferred-width: self.digit ? column.preferred-width : glyph.preferred-width;
+
+            glyph := TypeText {
+                visible: !parent.digit;
+                text: cell.to;
+                font-size: root.font-size;
+                color: root.color;
+                leading: root.line / root.font-size;
+                wrap: no-wrap;
+                accessible-role: none;
+            }
+
+            column := VerticalLayout {
+                visible: parent.digit;
+                y: -root.line * (parent.start + (parent.end - parent.start) * root.eased);
+                height: root.line * 10;
+                for n in 10: TypeText {
+                    text: n;
+                    height: root.line;
+                    font-size: root.font-size;
+                    color: root.color;
+                    leading: root.line / root.font-size;
+                    wrap: no-wrap;
+                    horizontal-alignment: center;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: root.span;
+        running: root.running;
+        triggered => {
+            root.running = false;
+        }
+    }
+}

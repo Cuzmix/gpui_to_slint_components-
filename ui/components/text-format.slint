@@ -1,13 +1,20 @@
-// The text work `.slint` cannot do on its own: parsing key syntax, cutting text to fit and
-// finding matches. Each is a pure callback the host wires once to `ely_slint` (Rust):
+// The text work `.slint` cannot do on its own: parsing key syntax, cutting text to fit,
+// finding matches, formatting numbers and dates, splitting graphemes and coloring them. Each
+// is a pure callback the host wires once to `ely_slint` (Rust):
 //
 //     ely_slint::wire_text_format!(app);
 //
-// The host exports `TextFormat` and `PlatformStyle` from its root `.slint` file. Unwired, each
-// callback returns an empty value and its component falls back to a plain rendering, noted
-// where the component is.
+// The host exports `TextFormat`, `PlatformStyle` and `RollCell` from its root `.slint` file.
+// Unwired, each callback returns an empty value and its component falls back to a plain
+// rendering, noted where the component is.
 
 import { PlatformStyle } from "../theme/theme.slint";
+
+// One place of a rolling number: the character it leaves and the one it lands on.
+export struct RollCell {
+    from: string,
+    to: string,
+}
 
 export global TextFormat {
     // The caps of one keystroke in gpui key syntax (`secondary-s`), modifiers first in the
@@ -35,4 +42,17 @@ export global TextFormat {
     pure callback datetime(at: int, pattern: string, zone: string) -> string;
     // The emoji a GitHub shortcode names ("tada" is 🎉); empty if unknown.
     pure callback emoji(shortcode: string) -> string;
+    // How many grapheme clusters `text` holds, as a reader counts letters.
+    pure callback grapheme-count(text: string) -> int;
+    // The first `count` grapheme clusters of `text`.
+    pure callback grapheme-prefix(text: string, count: int) -> string;
+    // `text` with each grapheme blended from `from` at the first to `to` at the last.
+    pure callback gradient(text: string, from: color, to: color) -> styled-text;
+    // `text` in `dim` with a band a quarter of the line wide lighting it toward `lit`, the band
+    // at loop position `t` (0 to 1) sweeping from -0.3 to 1.3.
+    pure callback shimmer(text: string, dim: color, lit: color, t: float) -> styled-text;
+    // AnimatedNumber's text: grouped, `decimals` places, zero-padded to `pad` after the minus.
+    pure callback rolling-text(value: float, decimals: int, pad: int) -> string;
+    // Two rolling texts right-aligned by place, a character per cell.
+    pure callback roll-cells(from: string, to: string) -> [RollCell];
 }

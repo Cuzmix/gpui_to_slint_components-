@@ -3,8 +3,8 @@ mod common;
 use slint::ComponentHandle;
 
 slint::slint! {
-    import { TextFormat, PlatformStyle, Theme, Clock, Figures, DurationStyle, NumberText, CurrencyText, PercentText, FileSizeText, DurationText, PluralText, RelativeTime, DateTimeText } from "ui/index.slint";
-    export { TextFormat, PlatformStyle, Clock, DurationStyle }
+    import { TextFormat, PlatformStyle, RollCell, Theme, Clock, Figures, DurationStyle, NumberText, CurrencyText, PercentText, FileSizeText, DurationText, PluralText, RelativeTime, DateTimeText } from "ui/index.slint";
+    export { TextFormat, PlatformStyle, RollCell, Clock, DurationStyle }
     export component Harness inherits Window {
         width: 400px;
         height: 400px;

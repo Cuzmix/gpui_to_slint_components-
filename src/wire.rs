@@ -1,7 +1,7 @@
 //! What `wire_text_format!` hands the `TextFormat` global. Each function takes and returns Slint
 //! values, so the macro is only glue.
 
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{Color, ModelRc, SharedString, StyledText, VecModel};
 
 use crate::format::{self, Separators};
 use crate::keys::{Platform, keystroke, keystroke_labels};
@@ -106,13 +106,55 @@ pub fn emoji(shortcode: &str) -> SharedString {
     text::emoji(shortcode).unwrap_or_default().into()
 }
 
+/// Grapheme clusters in `text`.
+pub fn grapheme_count(text: &str) -> i32 {
+    i32::try_from(text::graphemes(text).len()).unwrap_or(i32::MAX)
+}
+
+/// The first `count` grapheme clusters.
+pub fn grapheme_prefix(text: &str, count: i32) -> SharedString {
+    text::grapheme_prefix(text, count.max(0) as usize).into()
+}
+
+fn rgba(color: Color) -> [u8; 4] {
+    [color.red(), color.green(), color.blue(), color.alpha()]
+}
+
+fn styled(markdown: &str, text: &str) -> StyledText {
+    StyledText::from_markdown(markdown).unwrap_or_else(|error| {
+        log::error!("styled text: {error}");
+        StyledText::from_plain_text(text)
+    })
+}
+
+/// A ramp from `from` to `to` across the graphemes.
+pub fn gradient(text: &str, from: Color, to: Color) -> StyledText {
+    styled(&text::gradient_markdown(text, rgba(from), rgba(to)), text)
+}
+
+/// The shimmer's band at loop position `t`.
+pub fn shimmer(text: &str, dim: Color, lit: Color, t: f32) -> StyledText {
+    styled(&text::shimmer_markdown(text, rgba(dim), rgba(lit), t), text)
+}
+
+/// AnimatedNumber's text.
+pub fn rolling_text(value: f32, decimals: i32, pad: i32) -> SharedString {
+    text::rolling_text(f64::from(value), decimals.max(0) as usize, pad.max(0) as usize).into()
+}
+
+/// Two texts aligned by place, as (from, to) pairs.
+pub fn roll_pairs(from: &str, to: &str) -> Vec<(SharedString, SharedString)> {
+    let (from, to) = text::align(from, to);
+    from.into_iter().zip(to).map(|(from, to)| (from.into(), to.into())).collect()
+}
+
 /// The current moment in Unix seconds, as `ely_slint::format::now` reads it.
 pub fn now() -> i32 {
     i32::try_from(format::now().as_second()).unwrap_or(i32::MAX)
 }
 
 /// Wires the `TextFormat` global of `app` to this crate. The host's root `.slint` file exports
-/// `TextFormat` and `PlatformStyle`, and the generated types are in scope where this is called.
+/// `TextFormat`, `PlatformStyle` and `RollCell`, and the generated types are in scope where this is called.
 ///
 /// ```ignore
 /// let app = App::new()?;
@@ -140,6 +182,18 @@ macro_rules! wire_text_format {
         format.on_file_size(|bytes, binary| $crate::wire::file_size(bytes, binary));
         format.on_datetime(|at, pattern, zone| $crate::wire::datetime(at, &pattern, &zone));
         format.on_emoji(|shortcode| $crate::wire::emoji(&shortcode));
+        format.on_grapheme_count(|text| $crate::wire::grapheme_count(&text));
+        format.on_grapheme_prefix(|text, count| $crate::wire::grapheme_prefix(&text, count));
+        format.on_gradient(|text, from, to| $crate::wire::gradient(&text, from, to));
+        format.on_shimmer(|text, dim, lit, t| $crate::wire::shimmer(&text, dim, lit, t));
+        format.on_rolling_text(|value, decimals, pad| $crate::wire::rolling_text(value, decimals, pad));
+        format.on_roll_cells(|from, to| {
+            let cells: Vec<RollCell> = $crate::wire::roll_pairs(&from, &to)
+                .into_iter()
+                .map(|(from, to)| RollCell { from, to })
+                .collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(cells))
+        });
     }};
 }
 

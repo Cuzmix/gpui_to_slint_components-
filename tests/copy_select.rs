@@ -5,8 +5,8 @@ use slint::ComponentHandle;
 use slint::platform::Key;
 
 slint::slint! {
-    import { TextFormat, PlatformStyle, Theme, CopyButton, CopyableText, Emoji, SelectableText, TextSize } from "ui/index.slint";
-    export { TextFormat, PlatformStyle }
+    import { TextFormat, PlatformStyle, RollCell, Theme, CopyButton, CopyableText, Emoji, SelectableText, TextSize } from "ui/index.slint";
+    export { TextFormat, PlatformStyle, RollCell }
     export component Harness inherits Window {
         width: 400px;
         height: 300px;

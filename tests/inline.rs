@@ -4,8 +4,8 @@ use i_slint_backend_testing::ElementHandle;
 use slint::ComponentHandle;
 
 slint::slint! {
-    import { Theme, PlatformStyle, TextFormat, TypeText, Code, Blockquote, Kbd, KbdCombo, Highlight, TextSize } from "ui/index.slint";
-    export { TextFormat, PlatformStyle }
+    import { Theme, PlatformStyle, TextFormat, RollCell, TypeText, Code, Blockquote, Kbd, KbdCombo, Highlight, TextSize } from "ui/index.slint";
+    export { TextFormat, PlatformStyle, RollCell }
     export component Harness inherits Window {
         width: 600px;
         height: 400px;

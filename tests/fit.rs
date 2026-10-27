@@ -3,8 +3,8 @@ mod common;
 use slint::ComponentHandle;
 
 slint::slint! {
-    import { TextFormat, PlatformStyle, TypeText, LineClamp, Ellipsis, MiddleEllipsis, EllipsisTooltip, TextSize, Theme } from "ui/index.slint";
-    export { TextFormat, PlatformStyle }
+    import { TextFormat, PlatformStyle, RollCell, TypeText, LineClamp, Ellipsis, MiddleEllipsis, EllipsisTooltip, TextSize, Theme } from "ui/index.slint";
+    export { TextFormat, PlatformStyle, RollCell }
     export component Harness inherits Window {
         width: 600px;
         height: 300px;
