@@ -96,8 +96,9 @@ export component InputText inherits VerticalLayout {
 
     callback edited(text: string);
     callback accepted();
-    // A key the field did not take (Up and Down in one line, say).
+    // A key the field did not take (Up and Down in one line, say), and a key released.
     callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     public function select-all() {
         field.select-all();
@@ -128,6 +129,9 @@ export component InputText inherits VerticalLayout {
         }
         key-pressed(event) => {
             root.key-pressed(event)
+        }
+        key-released(event) => {
+            root.key-released(event)
         }
     }
 

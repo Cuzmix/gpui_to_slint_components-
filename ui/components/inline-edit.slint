@@ -1,0 +1,147 @@
+// Port of ely-core/src/forms/inline.rs (`InlineEdit`): text that becomes a field when pressed.
+// Enter or leaving the field keeps the text; Escape reverts. After Enter or Escape focus goes
+// back to the text; Enter keeps on its release, so the release does not open it again.
+
+import { Theme, ControlSize, IconSize, Radius } from "../theme/theme.slint";
+import { InputFrame, InputText } from "input.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { ClickKeys } from "click-keys.slint";
+import { FocusRing } from "focus-ring.slint";
+
+export component InlineEdit {
+    in property <string> value;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    // What it shows while empty.
+    in property <string> placeholder: @tr("Empty");
+
+    // Whether the field is open.
+    out property <bool> editing;
+    out property <bool> has-focus: root.editing ? root.field-focused : root.text-focused;
+
+    // The text kept on Enter or leaving the field.
+    callback committed(text: string);
+
+    private property <bool> field-focused;
+    private property <bool> text-focused: keys.has-focus;
+    private property <string> draft;
+
+    function begin() {
+        root.draft = root.value;
+        root.editing = true;
+        field.focus();
+        field.select-all();
+    }
+
+    // Ends editing; keeps the text unless `cancel`; hands focus back to the text if `back`.
+    function finish(cancel: bool, back: bool) {
+        if !root.editing {
+            return;
+        }
+        root.editing = false;
+        if !cancel {
+            root.committed(root.draft);
+        }
+        if back {
+            keys.focus();
+        }
+    }
+
+    forward-focus: keys;
+    min-width: 0;
+    preferred-width: root.editing ? Theme.pane-min : row.preferred-width;
+    height: Theme.control-height(ControlSize.sm);
+
+    shown := Rectangle {
+        visible: !root.editing;
+        border-radius: Theme.radius(Radius.md);
+        background: touch.has-hover ? Theme.colors.hover : transparent;
+        // Hidden while editing, so only the field is read then.
+        accessible-role: text-input;
+        accessible-label: root.label;
+        accessible-value: root.value;
+        accessible-action-default => {
+            root.begin();
+        }
+
+        row := HorizontalLayout {
+            // Inside the 1 px border.
+            padding-left: Theme.control-padding(ControlSize.sm) + 1px;
+            padding-right: self.padding-left;
+            spacing: 8px;
+            cross-axis-alignment: center;
+
+            Ellipsis {
+                horizontal-stretch: 1;
+                text: root.value == "" ? root.placeholder : root.value;
+                color: root.value == "" ? Theme.colors.fg-subtle : Theme.colors.fg;
+            }
+
+            Icon {
+                source: Icons.pencil;
+                size: IconSize.xs;
+                color: Theme.colors.fg-subtle;
+                opacity: touch.has-hover ? 1 : 0;
+            }
+        }
+
+        FocusRing {
+            border-radius: parent.border-radius;
+            focused: keys.has-focus;
+        }
+
+        touch := TouchArea {
+            enabled: !root.editing;
+            mouse-cursor: MouseCursor.text;
+            clicked => {
+                root.begin();
+            }
+        }
+
+        keys := ClickKeys {
+            enabled: !root.editing;
+            activated => {
+                root.begin();
+            }
+        }
+    }
+
+    // Kept, hidden, while not editing, so opening can focus it at once.
+    InputFrame {
+        visible: root.editing;
+        size: ControlSize.sm;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        field := InputText {
+            text <=> root.draft;
+            label: root.label;
+            size: ControlSize.sm;
+            changed has-focus => {
+                root.field-focused = self.has-focus;
+                // Leaving the field keeps the text, and focus stays where it went.
+                if !self.has-focus && root.editing {
+                    root.finish(false, false);
+                }
+            }
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.finish(true, true);
+                    return accept;
+                }
+                reject
+            }
+            key-released(event) => {
+                if event.text == Key.Return {
+                    root.finish(false, true);
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+}

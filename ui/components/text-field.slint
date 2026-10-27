@@ -67,6 +67,8 @@ export component TextField {
     callback accepted();
     // A key before the editor takes it; reject to let it edit.
     callback key-pressed(event: KeyEvent) -> EventResult;
+    // A key released over the editor.
+    callback key-released(event: KeyEvent) -> EventResult;
 
     // The text the last edit left, to find the next edit in.
     private property <string> committed;
@@ -148,6 +150,9 @@ export component TextField {
                     return accept;
                 }
                 root.key-pressed(event)
+            }
+            key-released(event) => {
+                root.key-released(event)
             }
             accepted => {
                 root.accepted();
