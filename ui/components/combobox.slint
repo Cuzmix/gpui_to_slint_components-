@@ -1,0 +1,169 @@
+// Port of ely-core/src/forms/combobox.rs (`Combobox`): a text field that filters a list as you
+// type; Enter or a press picks a row. While focused and not dismissed the rows whose label or
+// note holds the text float under it (all of them while the text is the chosen label). Up and
+// Down walk them past disabled rows, Enter picks, Escape hides them until the text changes or
+// Down. Leaving the field puts the chosen label back, unless `free` (an autocomplete), which
+// keeps any text.
+//
+// Matching runs in Rust (`Choices.matching`, `wire_options!`); the field needs `wire_fields!`
+// and the list an `OptionLayer` (options.slint). Like Select (G48), `selected` is `in-out`.
+
+import { Theme, ControlSize, IconSize } from "../theme/theme.slint";
+import { InputFrame, InputText } from "input.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Choice, Choices, OptionAnchor } from "options.slint";
+
+export component Combobox {
+    // Names the field's list; unique among the fields that show lists.
+    in property <string> owner: "combobox";
+    in property <[Choice]> choices;
+    // The value chosen; empty for none.
+    in-out property <string> selected;
+    // Keeps any text; the list only completes it.
+    in property <bool> free;
+    in property <string> placeholder;
+    in property <string> label;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // The words in the field.
+    out property <string> text: field.text;
+    out property <bool> open: field.has-focus && !root.dismissed && root.rows.length > 0;
+    out property <int> highlighted: root.kept >= 0 && root.kept < root.rows.length && !root.rows[root.kept].disabled ? root.kept : Choices.step(root.rows, root.rows.length - 1, 1);
+
+    // The value of a picked row.
+    callback selection-changed(value: string);
+    // The words changed by typing.
+    callback edited(text: string);
+    callback accepted();
+
+    private property <int> current: Choices.index-of(root.choices, root.selected);
+    private property <string> chosen-label: root.current >= 0 ? root.choices[root.current].label : "";
+    // While the text is the chosen label every row shows.
+    private property <string> query: root.current >= 0 && field.text == root.chosen-label ? "" : field.text;
+    // Only while focused: read at start-up, before the host wires `Choices`, it would stick empty.
+    private property <[Choice]> rows: field.has-focus ? Choices.matching(root.choices, root.query, []) : [];
+    private property <bool> dismissed;
+    private property <int> kept;
+
+    // The text the field shows for the choice: its label; empty without one unless `free`.
+    function show-choice() {
+        if root.current >= 0 || !root.free {
+            field.text = root.chosen-label;
+        }
+    }
+
+    function pick(ix: int) {
+        if root.rows[ix].disabled {
+            return;
+        }
+        root.selected = root.rows[ix].value;
+        field.text = root.rows[ix].label;
+        root.dismissed = true;
+        root.selection-changed(root.selected);
+    }
+
+    changed selected => {
+        if !field.has-focus {
+            root.show-choice();
+        }
+    }
+    changed open => {
+        if root.open {
+            let at = Choices.index-of(root.rows, root.selected);
+            if at >= 0 && !root.rows[at].disabled {
+                root.kept = at;
+            }
+        }
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: frame.min-width;
+    preferred-width: frame.preferred-width;
+    height: frame.height;
+
+    frame := InputFrame {
+        width: root.width;
+        size: root.size;
+        enabled: root.enabled;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        field := InputText {
+            // A binding until the first edit: read after the host wires `Choices`.
+            text: root.current >= 0 ? root.choices[root.current].label : "";
+            placeholder: root.placeholder;
+            label: root.label;
+            size: root.size;
+            enabled: root.enabled;
+            edited(text) => {
+                root.dismissed = false;
+                root.edited(text);
+            }
+            accepted => {
+                root.accepted();
+            }
+            key-pressed(event) => {
+                if event.text == Key.UpArrow && root.open {
+                    root.kept = Choices.step(root.rows, root.highlighted, -1);
+                    return accept;
+                }
+                if event.text == Key.DownArrow {
+                    if root.open {
+                        root.kept = Choices.step(root.rows, root.highlighted, 1);
+                        return accept;
+                    }
+                    if root.dismissed {
+                        root.dismissed = false;
+                        return accept;
+                    }
+                }
+                if event.text == Key.Return && root.open {
+                    root.pick(root.highlighted);
+                    return accept;
+                }
+                if event.text == Key.Escape && root.open {
+                    root.dismissed = true;
+                    return accept;
+                }
+                reject
+            }
+            changed has-focus => {
+                if !self.has-focus {
+                    root.dismissed = false;
+                    if !root.free && field.text != root.chosen-label {
+                        root.show-choice();
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: Icons.chevrons-up-down;
+                size: IconSize.xs;
+                color: Theme.colors.fg-subtle;
+            }
+        }
+    }
+
+    OptionAnchor {
+        owner: root.owner;
+        open: root.open;
+        rows: root.rows;
+        highlighted: root.highlighted;
+        checks: true;
+        checked: root.current >= 0 ? [root.selected] : [];
+        picked(ix) => {
+            root.pick(ix);
+        }
+    }
+}
