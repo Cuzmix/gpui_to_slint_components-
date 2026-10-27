@@ -1,0 +1,21 @@
+// The layout work `.slint` cannot do on its own, because it needs a loop over a model. Each is
+// a pure callback the host wires once to `ely_slint` (Rust):
+//
+//     ely_slint::wire_layout!(app);
+//
+// The host exports `LayoutMath` and `MasonrySpot` from its root `.slint` file. Unwired, each
+// callback returns an empty value; the component that needs it says what it shows then.
+
+// Where one masonry item sits: its column and its top within that column.
+export struct MasonrySpot {
+    column: int,
+    y: length,
+}
+
+export global LayoutMath {
+    // Each item, in order, joins the column filled least so far (ties go left), `gap` below the
+    // item before it there.
+    pure callback masonry(heights: [length], columns: int, gap: length) -> [MasonrySpot];
+    // How tall the masonry of `heights` stands: its tallest column.
+    pure callback masonry-height(heights: [length], columns: int, gap: length) -> length;
+}

@@ -7,6 +7,7 @@
 pub mod focus;
 pub mod format;
 pub mod keys;
+pub mod layout;
 pub mod open;
 pub mod text;
 #[doc(hidden)]

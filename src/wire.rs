@@ -217,3 +217,30 @@ macro_rules! wire_clock {
         timer
     }};
 }
+
+/// Wires the `LayoutMath` global of `app` to [`crate::layout`]. The host exports `LayoutMath`
+/// and `MasonrySpot` from its root `.slint` file.
+///
+/// ```ignore
+/// ely_slint::wire_layout!(app);
+/// ```
+#[macro_export]
+macro_rules! wire_layout {
+    ($app:expr) => {{
+        fn lengths(model: ::slint::ModelRc<f32>) -> Vec<f32> {
+            use ::slint::Model;
+            model.iter().collect()
+        }
+        let math = $app.global::<LayoutMath>();
+        math.on_masonry(|heights, columns, gap| {
+            let spots: Vec<MasonrySpot> = $crate::layout::masonry(&lengths(heights), columns.max(1) as usize, gap)
+                .into_iter()
+                .map(|(column, y)| MasonrySpot { column: column as i32, y })
+                .collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(spots))
+        });
+        math.on_masonry_height(|heights, columns, gap| {
+            $crate::layout::masonry_height(&lengths(heights), columns.max(1) as usize, gap)
+        });
+    }};
+}

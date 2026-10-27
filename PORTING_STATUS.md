@@ -43,6 +43,10 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Typewriter | typography/effects.rs | ✓ | n/a | n/a | n/a | ✓ per grapheme, caret breath, reduced motion | ✓ | ✓ text node | ✓ `tests/effects.rs` | | ✓ |
 | GradientText, ShimmerText | typography/effects.rs | ✓ | n/a | n/a | n/a | ✓ 1.8 s sweep, reduced motion | ✓ | ✓ text node | ✓ `tests/effects.rs` | G28 | ✓ |
 | AnimatedNumber | typography/rolling.rs | ✓ | n/a | n/a | n/a | ✓ roll and count, 640 ms ease-out | ✓ | ✓ reads its target | ✓ `tests/effects.rs` | G20 G25 | ✓ |
+| HStack, VStack (Stack) | layout/stack.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs` | | ✓ |
+| ZStack, ZLayer | layout/stack.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs` | | ✓ |
+| AspectRatio, Container | layout/stack.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs` | | ✓ |
+| SimpleGrid, Masonry | layout/grid.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs`, `src/layout.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

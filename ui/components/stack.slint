@@ -1,0 +1,74 @@
+// Port of ely-core/src/layout/stack.rs: `h_stack`, `v_stack`, `ZStack`, `AspectRatio`,
+// `Container`. gpui's flex rows and columns are CSS flexbox, so the stacks are Slint's
+// FlexboxLayout without wrapping: items keep their preferred size and shrink when room runs out.
+
+import { Theme, ContainerSize } from "../theme/theme.slint";
+
+// A row with its children centered on the cross axis (`h_stack()`). Set `spacing` for a gap.
+export component HStack inherits FlexboxLayout {
+    flex-direction: row;
+    flex-wrap: no-wrap;
+    cross-axis-alignment: center;
+}
+
+// A column (`v_stack()`); children stretch across it, as in a CSS flex column.
+export component VStack inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: no-wrap;
+}
+
+// Layers (`ZStack`): the first child sets the size and the rest cover it. Put the ground first
+// and wrap each covering layer in a ZLayer:
+//     ZStack {
+//         Rectangle { width: 200px; height: 120px; }
+//         ZLayer { Rectangle { background: Theme.colors.hover; } }
+//     }
+// The stack takes the ground's size; a ZLayer fills the stack and adds nothing to its size.
+export component ZStack inherits GridLayout {
+    @children
+}
+
+// One covering layer of a ZStack: it fills the stack from its top left.
+export component ZLayer {
+    row: 0;
+    col: 0;
+    min-width: 0;
+    min-height: 0;
+    preferred-width: 0;
+    preferred-height: 0;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    @children
+}
+
+// Keeps width to height at `ratio` (`AspectRatio`); the width fills the parent, the height
+// follows, and content past the box is clipped. Children fill the box.
+export component AspectRatio inherits Rectangle {
+    // Width over height, such as 16 / 9. gpui panics on a ratio that is not positive; here the
+    // box has no height.
+    in property <float> ratio: 1;
+
+    horizontal-stretch: 1;
+    clip: true;
+    height: root.ratio > 0 ? root.width / root.ratio : 0;
+}
+
+// A centered column with a readable maximum width (`Container`): the width fills the parent up
+// to the `size` token, and the column pads 24 px on each side inside that cap.
+export component Container {
+    in property <ContainerSize> size: ContainerSize.md;
+
+    horizontal-stretch: 1;
+    preferred-height: column.preferred-height;
+    min-height: column.min-height;
+
+    column := VerticalLayout {
+        width: min(root.width, Theme.container-width(root.size));
+        x: (root.width - self.width) / 2;
+        y: 0;
+        height: root.height;
+        padding-left: 24px;
+        padding-right: 24px;
+        @children
+    }
+}

@@ -1,0 +1,68 @@
+// Port of ely-core/src/layout/grid.rs: `SimpleGrid` and `Masonry`.
+
+import { MasonrySpot, LayoutMath } from "layout-math.slint";
+
+// Equal columns, as many as fit at `min` width each with `gap` between, at least one
+// (`SimpleGrid`). Rows are as tall as their tallest item, which the others stretch to.
+// Slint cannot size a child from its container, so each child binds its width:
+//     grid := SimpleGrid {
+//         min: 140px;
+//         gap: 12px;
+//         for n in 7: Tile { width: grid.cell-width; }
+//     }
+export component SimpleGrid inherits FlexboxLayout {
+    // The narrowest a column may be. gpui panics unless it is positive; here a zero or
+    // negative minimum counts as one pixel.
+    in property <length> min: 1px;
+    in property <length> gap: 0;
+    // How many columns fit.
+    out property <int> columns: max(1, floor((root.width + root.gap) / (max(1px, root.min) + root.gap)));
+    // Each column's width.
+    out property <length> cell-width: (root.width - root.gap * (root.columns - 1)) / root.columns;
+
+    flex-direction: row;
+    flex-wrap: wrap;
+    spacing: root.gap;
+    cross-axis-alignment: stretch;
+    cross-axis-line-alignment: start;
+    horizontal-stretch: 1;
+}
+
+// Columns that fill shortest first, so uneven items pack tight (`Masonry`). Slint cannot move
+// children between columns, so the owner gives each item's height and places it:
+//     m := Masonry {
+//         columns: 3;
+//         gap: 10px;
+//         heights: [72px, 120px, 56px];
+//         for h[i] in self.heights: Tile { x: m.item-x(i); y: m.item-y(i); width: m.column-width; height: h; }
+//     }
+// Needs the host (`ely_slint::wire_layout!`); unwired, every item sits at the top of the
+// column its index falls in, round robin.
+export component Masonry {
+    // How many columns. gpui panics on zero; here fewer than one counts as one.
+    in property <int> columns: 1;
+    in property <length> gap: 0;
+    // Each item's height, in order.
+    in property <[length]> heights;
+    // Each column's width: the columns share the width equally, `gap` apart.
+    out property <length> column-width: (root.width - root.gap * (root.count - 1)) / root.count;
+
+    private property <int> count: max(1, root.columns);
+    private property <[MasonrySpot]> spots: LayoutMath.masonry(root.heights, root.count, root.gap);
+    private property <bool> wired: root.spots.length == root.heights.length;
+
+    horizontal-stretch: 1;
+    preferred-height: root.wired ? LayoutMath.masonry-height(root.heights, root.count, root.gap) : 0;
+
+    // The left edge of item `index`.
+    public pure function item-x(index: int) -> length {
+        (root.column-width + root.gap) * (root.wired ? root.spots[index].column : Math.mod(index, root.count))
+    }
+
+    // The top of item `index`.
+    public pure function item-y(index: int) -> length {
+        root.wired ? root.spots[index].y : 0
+    }
+
+    @children
+}
