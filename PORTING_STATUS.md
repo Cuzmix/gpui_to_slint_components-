@@ -70,6 +70,12 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Dock / DockPanel / DockZone | layout/dock/ | ✓ | ✓ activate, move, float, resize | n/a | ✓ tab click and drag, zones, handle | n/a | ✓ | ✓ tab role, selected | ✓ `tests/dock_panes.rs`, `src/dock.rs` | G12 G33 G34 | ✓ |
 | Pane / PaneGroup | layout/panes.rs | ✓ | ✓ split, close, focus, resize | n/a | ✓ press focus, divider drag | n/a | ✓ | ✓ buttons | ✓ `tests/dock_panes.rs`, `src/panes.rs` | G33 G35 | ✓ |
 | Workspace | layout/workspace.rs | ✓ | n/a | n/a | n/a | n/a | n/a | n/a | ✓ `src/workspace.rs`, `tests/dock_panes.rs` | | ✓ |
+| WindowChrome, window host (`wire_window!`, `guard_close`) | shell/chrome.rs, frame.rs, closing.rs | ✓ | ✓ move, resize, minimize, zoom, close, zoom % | n/a | n/a | n/a | n/a | n/a | ✓ `tests/title_bar.rs` | G37 G38 G39 G40 | ✓ |
+| WindowDragRegion (WindowDragArea) | shell/chrome.rs `drag_region` | ✓ | ✓ start-move, double click | n/a | ✓ moves on the first move of a press | n/a | n/a | n/a | ✓ `tests/title_bar.rs` | G38 | ✓ |
+| WindowControls / TrafficLights | shell/chrome.rs | ✓ | ✓ close-requested | n/a | ✓ hover glyphs, occludes | n/a | ✓ | ✓ buttons named | ✓ `tests/title_bar.rs` | G37 | ✓ |
+| TitleBar (TitleBarTitle) | shell/chrome.rs | ✓ | ✓ close-requested, routed system close | n/a | ✓ drag, slots take presses | n/a | ✓ | ✓ title text | ✓ `tests/title_bar.rs` | G39 G41 | ✓ |
+| WindowResizeBorder (ResizeBorder) | shell/frame.rs | ✓ | ✓ start-resize | n/a | ✓ edge cursors | n/a | ✓ | n/a | ✓ `tests/title_bar.rs` | G37 | ✓ |
+| Vibrancy | shell/vibrancy.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | n/a (a fill) | | ✓ |
 
 Gallery: pages 1–3 (Foundations, Typography, Layout) mirror the story app; `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
 

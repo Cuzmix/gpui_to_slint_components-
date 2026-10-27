@@ -12,6 +12,7 @@ pub mod layout;
 pub mod open;
 pub mod panes;
 pub mod text;
+pub mod window;
 pub mod workspace;
 #[doc(hidden)]
 pub mod wire;

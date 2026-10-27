@@ -1,0 +1,119 @@
+// The window a component sits in, for the shell components (gpui's `Window` calls in
+// ely-core/src/shell/chrome.rs, frame.rs, closing.rs and status.rs).
+//
+// `.slint` cannot move, resize, minimize or close its window, so every such act is a callback the
+// host answers, and what the window is doing is a property the host keeps current. Each window
+// component has its own instance of this global. `ely_slint::wire_window!(window)` wires it with
+// winit; without it the callbacks do nothing and the properties keep their defaults (gap G37).
+
+// Whose window buttons a bar draws: the system's way (gpui's unset `platform`), or one forced.
+// The system's way on macOS, with `WindowChrome.system-lights`, leaves room for the real lights.
+export enum ChromeStyle { system, mac, windows, linux }
+
+// A border or corner a resize starts from (gpui's `ResizeEdge`).
+export enum ResizeEdge {
+    none,
+    top,
+    top-right,
+    right,
+    bottom-right,
+    bottom,
+    bottom-left,
+    left,
+    top-left,
+}
+
+// Which edges sit against a screen edge or another window, and so resize from nowhere
+// (gpui's `Tiling`).
+export struct Tiling {
+    top: bool,
+    left: bool,
+    right: bool,
+    bottom: bool,
+}
+
+export global WindowChrome {
+    // Whether the window is the active one; inactive macOS lights go grey.
+    in-out property <bool> active: true;
+    in-out property <bool> maximized;
+    in-out property <bool> fullscreen;
+    // Whether the app draws the window's frame (gpui's `Decorations::Client`): ResizeBorder then
+    // draws a margin, hairline and shadow.
+    in-out property <bool> client-decorated;
+    // The tiled edges; maximized or full screen, all of them.
+    in-out property <Tiling> tiling;
+    // Which buttons the system offers (gpui's `window_controls()`); Linux hides the others.
+    in-out property <bool> offers-minimize: true;
+    in-out property <bool> offers-maximize: true;
+    // Whether the system draws macOS's traffic lights over the title bar, as a window opened
+    // with a transparent title bar does on macOS. Bars then leave them room and draw none.
+    in-out property <bool> system-lights: Platform.os == OperatingSystemType.macos;
+    // The zoom the window shows, in percent.
+    in-out property <int> zoom-percent: 100;
+
+    // A bar routes system closes to its owner while this is set (gpui's `route_close`).
+    in-out property <bool> close-routed;
+    // Bumped by the host for each system close it held back for a routed bar.
+    in-out property <int> close-asked;
+
+    // Starts moving the window with the pointer, as a title bar drag does.
+    callback start-move();
+    // Starts resizing from `edge` with the pointer.
+    callback start-resize(edge: ResizeEdge);
+    callback minimize();
+    // Maximizes, or restores a maximized window.
+    callback zoom();
+    // A double click on a title bar: the system's choice on macOS, zoom on Linux.
+    callback title-double-click();
+    // Closes the window once its close check lets it.
+    callback close();
+    // Shows the window at `percent` of its size.
+    callback set-zoom(percent: int);
+
+    // The untiled edge or corner `x`, `y` grabs within `inset` of a `width` × `height` window
+    // (frame.rs `resize_edge`): corners win over edges, and the middle grabs nothing.
+    public pure function resize-edge(x: length, y: length, inset: length, width: length, height: length, tiled: Tiling) -> ResizeEdge {
+        if !tiled.top && y < inset {
+            if !tiled.left && x < inset {
+                return ResizeEdge.top-left;
+            }
+            if !tiled.right && x > width - inset {
+                return ResizeEdge.top-right;
+            }
+            return ResizeEdge.top;
+        }
+        if !tiled.bottom && y > height - inset {
+            if !tiled.left && x < inset {
+                return ResizeEdge.bottom-left;
+            }
+            if !tiled.right && x > width - inset {
+                return ResizeEdge.bottom-right;
+            }
+            return ResizeEdge.bottom;
+        }
+        if !tiled.left && x < inset {
+            return ResizeEdge.left;
+        }
+        if !tiled.right && x > width - inset {
+            return ResizeEdge.right;
+        }
+        ResizeEdge.none
+    }
+
+    // The cursor over `edge` (frame.rs `cursor`).
+    public pure function edge-cursor(edge: ResizeEdge) -> MouseCursor {
+        if edge == ResizeEdge.top || edge == ResizeEdge.bottom {
+            return MouseCursor.ns-resize;
+        }
+        if edge == ResizeEdge.left || edge == ResizeEdge.right {
+            return MouseCursor.ew-resize;
+        }
+        if edge == ResizeEdge.top-left || edge == ResizeEdge.bottom-right {
+            return MouseCursor.nwse-resize;
+        }
+        if edge == ResizeEdge.top-right || edge == ResizeEdge.bottom-left {
+            return MouseCursor.nesw-resize;
+        }
+        MouseCursor.default
+    }
+}

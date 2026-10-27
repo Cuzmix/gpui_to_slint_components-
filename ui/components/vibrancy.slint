@@ -1,0 +1,11 @@
+// Port of ely-core/src/shell/vibrancy.rs (`Vibrancy`): a pane the window's blur shows through,
+// on the palette's `glass`. The window must open see-through and blurred, with nothing opaque
+// beneath the pane (the host's part: Slint's `Window.background: transparent`, and the
+// platform's blur, which winit 0.30 offers as `set_blur`). High contrast fills it solid, as its
+// palette's `glass` is opaque.
+
+import { Theme } from "../theme/theme.slint";
+
+export component Vibrancy inherits Rectangle {
+    background: Theme.colors.glass;
+}

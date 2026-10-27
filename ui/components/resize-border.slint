@@ -1,0 +1,58 @@
+// Port of ely-core/src/shell/frame.rs (`ResizeBorder`): for a window that draws its own frame
+// (`WindowChrome.client-decorated`), a margin to resize from on each untiled side, with the
+// edge's cursor, around a pane with a hairline and a shadow while the window floats. Otherwise a
+// plain box. Its children fill the pane. The window's own background must be transparent for
+// the margin to show what lies behind.
+
+import { Theme, Radius, Elevation } from "../theme/theme.slint";
+import { WindowChrome, ResizeEdge } from "window-chrome.slint";
+import { Elevated } from "elevated.slint";
+
+export component ResizeBorder {
+    // Leaves a see-through window's pane to its content: no ground, nor the shadow under it.
+    in property <bool> glass;
+
+    private property <bool> client: WindowChrome.client-decorated;
+    private property <length> inset: root.client ? Theme.window-inset : 0;
+    private property <bool> floating: root.client && !(WindowChrome.tiling.top && WindowChrome.tiling.left && WindowChrome.tiling.right && WindowChrome.tiling.bottom);
+    private property <length> top: root.client && !WindowChrome.tiling.top ? root.inset : 0;
+    private property <length> left: root.client && !WindowChrome.tiling.left ? root.inset : 0;
+    private property <length> right: root.client && !WindowChrome.tiling.right ? root.inset : 0;
+    private property <length> bottom: root.client && !WindowChrome.tiling.bottom ? root.inset : 0;
+
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    edges := TouchArea {
+        width: 100%;
+        height: 100%;
+        private property <ResizeEdge> edge: root.client ? WindowChrome.resize-edge(self.mouse-x, self.mouse-y, root.inset, root.width, root.height, WindowChrome.tiling) : ResizeEdge.none;
+        enabled: root.client;
+        mouse-cursor: WindowChrome.edge-cursor(self.edge);
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down && self.edge != ResizeEdge.none {
+                WindowChrome.start-resize(self.edge);
+            }
+        }
+    }
+
+    pane := Elevated {
+        x: root.left;
+        y: root.top;
+        width: root.width - root.left - root.right;
+        height: root.height - root.top - root.bottom;
+        elevation: Elevation.modal;
+        background: root.glass ? transparent : Theme.colors.bg;
+        // gpui draws no shadow under a glass pane, and none while tiled.
+        casting: root.floating && !root.glass;
+        border-radius: root.floating ? Theme.radius(Radius.lg) : 0;
+        border-width: root.floating ? 1px : 0;
+        border-color: Theme.colors.border-strong;
+
+        Rectangle {
+            border-radius: parent.border-radius;
+            clip: true;
+            @children
+        }
+    }
+}

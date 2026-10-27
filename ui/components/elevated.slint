@@ -5,10 +5,12 @@ import { Theme, Elevation } from "../theme/theme.slint";
 
 export component Elevated inherits Rectangle {
     in property <Elevation> elevation: Elevation.floating;
+    // False draws the box without its shadow.
+    in property <bool> casting: true;
 
     drop-shadow-offset-y: Theme.shadow-near(elevation).offset-y;
     drop-shadow-blur: Theme.shadow-near(elevation).blur;
-    drop-shadow-color: Theme.shadow-near(elevation).color;
+    drop-shadow-color: root.casting ? Theme.shadow-near(elevation).color : transparent;
 
     Rectangle {
         x: 0;
@@ -22,7 +24,7 @@ export component Elevated inherits Rectangle {
         background: root.background;
         drop-shadow-offset-y: Theme.shadow-far(elevation).offset-y;
         drop-shadow-blur: Theme.shadow-far(elevation).blur;
-        drop-shadow-color: Theme.shadow-far(elevation).color;
+        drop-shadow-color: root.casting ? Theme.shadow-far(elevation).color : transparent;
     }
 
     @children

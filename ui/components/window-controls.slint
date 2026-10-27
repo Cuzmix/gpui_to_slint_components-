@@ -1,0 +1,239 @@
+// Port of ely-core/src/shell/chrome.rs: `drag_region` (WindowDragRegion) and `WindowControls`
+// (TrafficLights). The window acts go through `WindowChrome`, which the host wires.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    PlatformStyle,
+} from "../theme/theme.slint";
+import { WindowChrome } from "window-chrome.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+
+// Drags the window, and zooms it on double click (`drag_region`). A left press arms it; the
+// first move while armed starts the window move. A control inside takes its own press, so a
+// press there never moves the window. Children lie over it.
+export component WindowDragArea inherits TouchArea {
+    private property <bool> armed;
+
+    pointer-event(event) => {
+        if event.button != PointerEventButton.left {
+            return;
+        }
+        if event.kind == PointerEventKind.down {
+            self.armed = true;
+        } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+            self.armed = false;
+        }
+    }
+    moved => {
+        if self.armed {
+            self.armed = false;
+            WindowChrome.start-move();
+        }
+    }
+    double-clicked => {
+        WindowChrome.title-double-click();
+    }
+}
+
+// One of a window's three acts.
+enum WindowAct { minimize, maximize, close }
+
+// A macOS light: a tinted dot whose glyph shows while its row is hovered.
+component Light inherits TouchArea {
+    in property <WindowAct> act;
+    in property <color> tint;
+    in property <string> glyph;
+    in property <bool> row-hovered;
+
+    width: Theme.traffic-light;
+    height: Theme.traffic-light;
+    accessible-role: button;
+    accessible-label: root.act == WindowAct.close ? @tr("Close") : root.act == WindowAct.minimize ? @tr("Minimize") : @tr("Maximize");
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: WindowChrome.active ? root.tint : Theme.colors.border-strong;
+        border-width: 1px;
+        border-color: Theme.colors.shadow.with-alpha(0.12);
+
+        Text {
+            text: root.glyph;
+            font-size: Theme.text-size(TextSize.xs);
+            font-weight: 700;
+            color: root.row-hovered ? Theme.colors.shadow.with-alpha(0.6) : transparent;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+}
+
+// A Windows caption button: as wide as the token, as tall as the bar less its hairline.
+component CaptionButton inherits TouchArea {
+    in property <WindowAct> act;
+    in property <image> icon;
+
+    width: Theme.caption-button-width;
+    height: Theme.titlebar-height - 1px;
+    accessible-role: button;
+    accessible-label: root.act == WindowAct.close ? @tr("Close") : root.act == WindowAct.minimize ? @tr("Minimize") : @tr("Maximize");
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    Rectangle {
+        background: !root.has-hover ? transparent : root.act == WindowAct.close ? Theme.colors.danger : Theme.colors.hover;
+        Icon {
+            source: root.icon;
+            size: IconSize.sm;
+            color: !root.has-hover ? Theme.colors.fg-muted : root.act == WindowAct.close ? Theme.colors.on-accent : Theme.colors.fg;
+        }
+    }
+}
+
+// A Linux button: a small round button on the hover fill.
+component Round inherits TouchArea {
+    in property <WindowAct> act;
+    in property <image> icon;
+
+    width: Theme.control-height(ControlSize.sm);
+    height: Theme.control-height(ControlSize.sm);
+    accessible-role: button;
+    accessible-label: root.act == WindowAct.close ? @tr("Close") : root.act == WindowAct.minimize ? @tr("Minimize") : @tr("Maximize");
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.has-hover ? Theme.colors.active : Theme.colors.hover;
+        Icon {
+            source: root.icon;
+            size: IconSize.xs;
+            color: Theme.colors.fg;
+        }
+    }
+}
+
+// Minimize, maximize and close, drawn in one system's manner (`WindowControls`): macOS's
+// lights, Windows' caption buttons, or Linux's round buttons (only those the system offers,
+// close always). The block takes every press on it, so nothing beneath sees one.
+export component WindowControls inherits TouchArea {
+    // Whose manner; the theme's by default.
+    in property <PlatformStyle> platform: Theme.platform;
+    // True: Close runs `close-requested` instead of closing the window, e.g. to confirm first.
+    in property <bool> handles-close;
+
+    // Close was pressed and `handles-close` is set.
+    callback close-requested();
+
+    function run(act: WindowAct) {
+        if act == WindowAct.minimize {
+            WindowChrome.minimize();
+        } else if act == WindowAct.maximize {
+            WindowChrome.zoom();
+        } else if root.handles-close {
+            root.close-requested();
+        } else {
+            WindowChrome.close();
+        }
+    }
+
+    accessible-role: none;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        alignment: start;
+        if root.platform == PlatformStyle.mac: HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            for light in [
+                { act: WindowAct.close, glyph: "×" },
+                { act: WindowAct.minimize, glyph: "−" },
+                { act: WindowAct.maximize, glyph: "+" },
+            ]: VerticalLayout {
+                alignment: center;
+                Light {
+                    act: light.act;
+                    glyph: light.glyph;
+                    tint: light.act == WindowAct.close ? Theme.colors.danger : light.act == WindowAct.minimize ? Theme.colors.warning : Theme.colors.success;
+                    row-hovered: root.has-hover;
+                    clicked => {
+                        root.run(light.act);
+                    }
+                }
+            }
+        }
+
+        if root.platform == PlatformStyle.windows: HorizontalLayout {
+            alignment: start;
+            CaptionButton {
+                act: WindowAct.minimize;
+                icon: Icons.minus;
+                clicked => {
+                    root.run(WindowAct.minimize);
+                }
+            }
+
+            CaptionButton {
+                act: WindowAct.maximize;
+                icon: WindowChrome.maximized ? Icons.copy : Icons.square;
+                clicked => {
+                    root.run(WindowAct.maximize);
+                }
+            }
+
+            CaptionButton {
+                act: WindowAct.close;
+                icon: Icons.x;
+                clicked => {
+                    root.run(WindowAct.close);
+                }
+            }
+        }
+
+        if root.platform == PlatformStyle.linux: HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            if WindowChrome.offers-minimize: VerticalLayout {
+                alignment: center;
+                Round {
+                    act: WindowAct.minimize;
+                    icon: Icons.minus;
+                    clicked => {
+                        root.run(WindowAct.minimize);
+                    }
+                }
+            }
+            if WindowChrome.offers-maximize: VerticalLayout {
+                alignment: center;
+                Round {
+                    act: WindowAct.maximize;
+                    icon: Icons.square;
+                    clicked => {
+                        root.run(WindowAct.maximize);
+                    }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                Round {
+                    act: WindowAct.close;
+                    icon: Icons.x;
+                    clicked => {
+                        root.run(WindowAct.close);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,138 @@
+// Port of ely-core/src/shell/chrome.rs (`TitleBar`): a window's title bar. Its empty space drags
+// the window; double click zooms.
+//
+// gpui's bar takes leading children, a title and trailing actions. Slint gives a component one
+// `@children`, so the bar lays out its children in a row between the window controls, and the
+// title is a part placed among them, between the leading items and the actions:
+//     bar := TitleBar {
+//         IconButton { icon: Icons.panel-left; }                        // leading
+//         TitleBarTitle { text: "Untitled"; bar: bar.frame; }
+//         IconButton { icon: Icons.search; }                            // action
+//     }
+// `bar: bar.frame` lets the title center in the whole bar, as gpui's does; unbound, it centers
+// in its own room. The bar's children sit 8 px apart (gap G41 for presses between them).
+
+import { Theme, TextSize, PlatformStyle } from "../theme/theme.slint";
+import { WindowChrome, ChromeStyle } from "window-chrome.slint";
+import { WindowDragArea, WindowControls } from "window-controls.slint";
+import { Ellipsis } from "ellipsis.slint";
+
+// What a bar's title needs from it: its width, where its first child starts (after any drawn
+// controls, which only lead in macOS's centered manner), and whether the
+// title centers (every style but Windows).
+export struct TitleBarFrame {
+    width: length,
+    lead: length,
+    centered: bool,
+}
+
+// The bar's title (`TitleBar::title`): small, medium, muted, ending in an ellipsis. Centered in
+// the bar while the room allows, else pushed by the items beside it; in Windows' manner it fills
+// the room from its left. Without text it is the space between the leading items and the
+// actions.
+export component TitleBarTitle {
+    in property <string> text;
+    // The bar's `frame`.
+    in property <TitleBarFrame> bar: { width: 0, lead: 0, centered: Theme.platform != PlatformStyle.windows };
+
+    // Windows' title follows an empty leading group, which keeps its 8 px gap.
+    private property <length> inset: !root.bar.centered && root.x <= root.bar.lead + 0.5px ? 8px : 0;
+    private property <length> shown: min(line.preferred-width, root.width - root.inset);
+    // Where the title's middle wants to be: the bar's, or this room's.
+    private property <length> middle: root.bar.width > 0 ? root.bar.width / 2 - root.x : root.width / 2;
+
+    horizontal-stretch: 1;
+    min-width: 0;
+    preferred-width: 0;
+
+    line := Ellipsis {
+        x: root.bar.centered ? max(0, min(root.middle - root.shown / 2, root.width - root.shown)) : root.inset;
+        y: (parent.height - self.height) / 2;
+        width: root.shown;
+        text: root.text;
+        font-size: Theme.text-size(TextSize.sm);
+        font-weight: 500;
+        color: Theme.colors.fg-muted;
+    }
+}
+
+// A window title bar: 38 px on `bg` with a hairline below. The system's macOS lights get room
+// (78 px, unless full screen); otherwise the style's controls are drawn, leading on macOS and
+// trailing elsewhere.
+export component TitleBar inherits Rectangle {
+    // Whose controls to draw; `system` leaves macOS's lights to the system.
+    in property <ChromeStyle> platform: ChromeStyle.system;
+    // True: Close runs `close-requested`, e.g. to confirm first. Without a forced platform,
+    // system closes run it too while the bar is shown.
+    in property <bool> handles-close;
+    // For the title part.
+    out property <TitleBarFrame> frame: {
+        width: root.width,
+        lead: root.pad-left,
+        centered: root.style != PlatformStyle.windows,
+    };
+
+    // Close was pressed (or the system asked) and `handles-close` is set.
+    callback close-requested();
+
+    // The system draws the lights; the bar draws none.
+    private property <bool> system: root.platform == ChromeStyle.system && WindowChrome.system-lights;
+    private property <PlatformStyle> style: root.system ? PlatformStyle.mac : root.platform == ChromeStyle.mac ? PlatformStyle.mac : root.platform == ChromeStyle.windows ? PlatformStyle.windows : root.platform == ChromeStyle.linux ? PlatformStyle.linux : Theme.platform;
+    private property <bool> lead-controls: !root.system && root.style == PlatformStyle.mac;
+    private property <bool> trail-controls: !root.system && root.style != PlatformStyle.mac;
+    private property <length> pad-left: root.style != PlatformStyle.windows && root.system && !WindowChrome.fullscreen ? Theme.traffic-light-inset : 12px;
+    private property <bool> routes: root.platform == ChromeStyle.system && root.handles-close;
+    private property <int> asked: WindowChrome.close-asked;
+
+    changed routes => {
+        WindowChrome.close-routed = root.routes;
+    }
+    changed asked => {
+        if root.routes {
+            root.close-requested();
+        }
+    }
+    init => {
+        if root.routes {
+            WindowChrome.close-routed = true;
+        }
+    }
+
+    height: Theme.titlebar-height;
+    background: Theme.colors.bg;
+
+    WindowDragArea {
+        width: 100%;
+        height: 100%;
+        HorizontalLayout {
+            padding-left: root.pad-left;
+            padding-right: root.style != PlatformStyle.windows ? 8px : 0;
+            padding-bottom: 1px;
+            spacing: 8px;
+
+            if root.lead-controls: WindowControls {
+                platform: root.style;
+                handles-close: root.handles-close;
+                close-requested => {
+                    root.close-requested();
+                }
+            }
+
+            @children
+
+            if root.trail-controls: WindowControls {
+                platform: root.style;
+                handles-close: root.handles-close;
+                close-requested => {
+                    root.close-requested();
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.colors.border;
+    }
+}
