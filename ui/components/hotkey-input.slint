@@ -1,0 +1,106 @@
+// Port of ely-core/src/forms/hotkey.rs (`HotkeyInput`): records one shortcut, then lets go.
+// Backspace or Delete clears; Escape leaves. Any other key, Tab included, is recorded with what
+// is held, and focus leaves the field. Modifiers alone record nothing.
+//
+// The value is gpui key syntax ("cmd-s"); its caps need `wire_text_format!` (KbdCombo).
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { KbdCombo } from "kbd.slint";
+import { KeyStrokes } from "keystroke.slint";
+import { FocusRing } from "focus-ring.slint";
+
+export component HotkeyInput {
+    // The shortcut held, in gpui key syntax; empty for none.
+    in property <string> value;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    in property <string> recording-text: @tr("Press a shortcut…");
+    in property <string> none-text: @tr("None");
+
+    // Whether it is waiting for a shortcut.
+    out property <bool> recording: keys.has-focus;
+
+    // The shortcut recorded, or empty once Backspace or Delete clears it.
+    callback value-changed(value: string);
+
+    forward-focus: keys;
+    horizontal-stretch: 1;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: Theme.control-height(ControlSize.md);
+    accessible-role: text-input;
+    accessible-label: root.label;
+    accessible-value: root.value;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        background: Theme.colors.surface;
+    }
+
+    FocusRing {
+        border-radius: Theme.radius(Radius.md);
+        rest-color: Theme.colors.border-strong;
+        focused: keys.has-focus;
+    }
+
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            keys.focus();
+        }
+    }
+
+    row := HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: Theme.control-padding(ControlSize.md) + 1px;
+        padding-right: self.padding-left;
+        spacing: 8px;
+        alignment: space-between;
+
+        if root.recording || root.value == "": TypeText {
+            text: root.recording ? root.recording-text : root.none-text;
+            color: Theme.colors.fg-subtle;
+            font-size: Theme.text-size(TextSize.base);
+            vertical-alignment: center;
+        }
+
+        if !root.recording && root.value != "": VerticalLayout {
+            alignment: center;
+
+            KbdCombo {
+                source: root.value;
+            }
+        }
+
+        Icon {
+            source: Icons.keyboard;
+            size: IconSize.sm;
+            color: Theme.colors.fg-subtle;
+        }
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if KeyStrokes.is-modifier(event.text) {
+                return accept;
+            }
+            let bare = !event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta;
+            if bare && event.text == Key.Escape {
+                self.clear-focus();
+                return accept;
+            }
+            self.clear-focus();
+            root.value-changed(bare && (event.text == Key.Backspace || event.text == Key.Delete) ? "" : KeyStrokes.unparse(event));
+            accept
+        }
+    }
+}
