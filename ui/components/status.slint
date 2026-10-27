@@ -1,0 +1,270 @@
+// Port of ely-core/src/shell/status.rs (`Connectivity`, `OfflineIndicator`, `ZoomStep`,
+// `ZoomControl`): a quiet pill while offline, and minus, percent, plus for the zoom.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Elevation,
+} from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { AnimatedNumber } from "animated-number.slint";
+import { TypeText } from "type-text.slint";
+import { WindowChrome } from "window-chrome.slint";
+
+// Network state as the host sees it.
+export enum Connectivity {
+    // Connected.
+    online,
+    // No connection.
+    offline,
+    // Trying to connect again.
+    reconnecting,
+}
+
+// The state's dot, in its color; it breathes while reconnecting (35 % to 100 % and back over
+// three slow beats, eased in and out), and rests under reduced motion.
+export component ConnectivityDot inherits Rectangle {
+    in property <Connectivity> state;
+
+    private property <float> t: Theme.ease-in-out-cubic(Math.mod(animation-tick() / (320ms * 3), 1));
+
+    width: Theme.status-dot;
+    height: Theme.status-dot;
+    border-radius: self.height / 2;
+    background: root.state == Connectivity.online ? Theme.colors.success : root.state == Connectivity.reconnecting ? Theme.colors.warning : Theme.colors.fg-subtle;
+    opacity: root.state == Connectivity.reconnecting && !Theme.reduced-motion ? 0.35 + 0.65 * (1 - Math.abs(2 * root.t - 1)) : 1;
+}
+
+// A quiet pill while offline or reconnecting, and for 2.4 s once back (`OfflineIndicator`). It
+// enters over the base motion (fading in, 4 px down to its place); back online it fades in over
+// the first tenth of the 2.4 s and out over the last 15 %. Hidden, it takes no room.
+export component OfflineIndicator inherits VerticalLayout {
+    in property <Connectivity> state: Connectivity.online;
+    // Shown now.
+    out property <bool> showing: root.state != Connectivity.online || root.holding;
+
+    // The state last seen (gpui logs each change).
+    callback changed-state(from: Connectivity, to: Connectivity);
+
+    private property <Connectivity> last;
+    private property <bool> holding;
+    private property <duration> started;
+    private property <bool> fading: root.state == Connectivity.online && !Theme.reduced-motion;
+    private property <duration> span: root.fading ? 2400ms : Theme.motion-base;
+    private property <float> t: clamp((animation-tick() - root.started) / root.span, 0, 1);
+
+    init => {
+        root.last = root.state;
+        root.started = animation-tick();
+    }
+    changed state => {
+        if root.state != root.last {
+            root.changed-state(root.last, root.state);
+            root.last = root.state;
+            root.holding = root.state == Connectivity.online;
+            root.started = animation-tick();
+            hold.running = root.holding;
+            if root.holding {
+                hold.restart();
+            }
+        }
+    }
+
+    alignment: start;
+    padding-top: root.showing && !root.fading ? Theme.nudge * (1 - root.t) : 0;
+
+    hold := Timer {
+        interval: 2400ms;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.holding = false;
+        }
+    }
+
+    if root.showing: HorizontalLayout {
+        alignment: start;
+        Elevated {
+            elevation: Elevation.raised;
+            border-radius: self.height / 2;
+            background: Theme.colors.surface;
+            border-width: 1px;
+            border-color: Theme.colors.border;
+            opacity: !root.fading ? root.t : root.t < 0.85 ? Math.min(root.t / 0.1, 1) : (1 - root.t) / 0.15;
+            accessible-role: AccessibleRole.text;
+            accessible-label: label.text;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                spacing: 8px;
+                VerticalLayout {
+                    alignment: center;
+                    ConnectivityDot {
+                        state: root.state;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Icon {
+                        source: root.state == Connectivity.offline ? Icons.wifi-off : Icons.wifi;
+                        size: IconSize.sm;
+                        color: Theme.colors.fg-muted;
+                    }
+                }
+
+                label := TypeText {
+                    text: root.state == Connectivity.offline ? @tr("Offline · changes stay on this device") : root.state == Connectivity.reconnecting ? @tr("Reconnecting…") : @tr("Back online");
+                    font-size: Theme.text-size(TextSize.sm);
+                    color: Theme.colors.fg-muted;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+}
+
+// A press on a `ZoomControl` its owner handles.
+export enum ZoomStep {
+    // Zooms out a step.
+    out,
+    // Zooms in a step.
+    in,
+    // Back to 100 %.
+    reset,
+}
+
+// The zoom steps, in percent: 50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200.
+export global ZoomSteps {
+    // The step above `current`, or -1 at the top.
+    public pure function up(current: int) -> int {
+        current < 50 ? 50 : current < 67 ? 67 : current < 75 ? 75 : current < 80 ? 80 : current < 90 ? 90 : current < 100 ? 100 : current < 110 ? 110 : current < 125 ? 125 : current < 150 ? 150 : current < 175 ? 175 : current < 200 ? 200 : -1
+    }
+    // The step below `current`, or -1 at the bottom.
+    public pure function down(current: int) -> int {
+        current > 200 ? 200 : current > 175 ? 175 : current > 150 ? 150 : current > 125 ? 125 : current > 110 ? 110 : current > 100 ? 100 : current > 90 ? 90 : current > 80 ? 80 : current > 75 ? 75 : current > 67 ? 67 : current > 50 ? 50 : -1
+    }
+}
+
+// The percent between the buttons: a 48 px-wide pill that resets to 100 %.
+component ZoomReset inherits Rectangle {
+    in property <int> percent;
+    callback pressed();
+
+    min-width: Theme.control-height(ControlSize.lg) * 1.5;
+    preferred-width: Math.max(self.min-width, row.preferred-width);
+    height: Theme.control-height(ControlSize.sm);
+    border-radius: self.height / 2;
+    background: touch.has-hover ? Theme.colors.hover : transparent;
+    // gpui gives it no role; it reads as the percent and resets on its default action.
+    accessible-role: button;
+    accessible-label: "\{root.percent}%";
+    accessible-action-default => {
+        root.pressed();
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.pressed();
+        }
+    }
+
+    row := HorizontalLayout {
+        alignment: center;
+        VerticalLayout {
+            alignment: center;
+            AnimatedNumber {
+                value: root.percent;
+                size: TextSize.sm;
+            }
+        }
+
+        TypeText {
+            text: "%";
+            font-size: Theme.text-size(TextSize.sm);
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+}
+
+// Minus, percent, plus (`ZoomControl`). It zooms the window through `WindowChrome.set-zoom`
+// (wired by `wire_window!`), the minus or plus off at the ends; with `owned` it shows the
+// owner's `percent` and hands each press to `zoom`.
+export component ZoomControl inherits HorizontalLayout {
+    // The owner zooms its own content.
+    in property <bool> owned;
+    // The owner's percent.
+    in property <int> percent: 100;
+
+    // An owned control's press.
+    callback zoom(step: ZoomStep);
+
+    private property <int> shown: root.owned ? root.percent : WindowChrome.zoom-percent;
+    private property <int> down: ZoomSteps.down(root.shown);
+    private property <int> up: ZoomSteps.up(root.shown);
+
+    spacing: 2px;
+    alignment: start;
+    horizontal-stretch: 0;
+
+    VerticalLayout {
+        alignment: center;
+        IconButton {
+            icon: Icons.zoom-out;
+            icon-name: "zoom-out";
+            size: ControlSize.sm;
+            enabled: root.owned || root.down >= 0;
+            clicked => {
+                if root.owned {
+                    root.zoom(ZoomStep.out);
+                } else if root.down >= 0 {
+                    WindowChrome.set-zoom(root.down);
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        ZoomReset {
+            percent: root.shown;
+            pressed => {
+                if root.owned {
+                    root.zoom(ZoomStep.reset);
+                } else {
+                    WindowChrome.set-zoom(100);
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        IconButton {
+            icon: Icons.zoom-in;
+            icon-name: "zoom-in";
+            size: ControlSize.sm;
+            variant: ButtonVariant.ghost;
+            enabled: root.owned || root.up >= 0;
+            clicked => {
+                if root.owned {
+                    root.zoom(ZoomStep.in);
+                } else if root.up >= 0 {
+                    WindowChrome.set-zoom(root.up);
+                }
+            }
+        }
+    }
+}

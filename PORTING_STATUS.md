@@ -82,6 +82,8 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | SplashScreen | shell/dialogs.rs | ✓ | n/a | n/a | n/a | ✓ rises in | ✓ | ✓ progress | ✓ `tests/dialogs.rs` | G43 G44 | ✓ |
 | CrashReporter | shell/crash.rs | ✓ | ✓ send, dismiss, copied | n/a | ✓ report opens | ✓ collapse | ✓ | ✓ buttons | ✓ `tests/dialogs.rs` | G44 | ✓ |
 | UpdateBanner / UpdateDialog (UpdateState) | shell/update.rs | ✓ | ✓ download, restart, later | n/a | n/a | ✓ progress glide | ✓ | ✓ buttons | ✓ `tests/dialogs.rs` | | ✓ |
+| OfflineIndicator (Connectivity, ConnectivityDot) | shell/status.rs | ✓ | ✓ changed-state | n/a | n/a | ✓ enter, hold fade, breathing dot | ✓ | ✓ text | ✓ `tests/status.rs` | | ✓ |
+| ZoomControl (ZoomStep, ZoomSteps) | shell/status.rs | ✓ | ✓ zoom (owned), set-zoom (window) | n/a | ✓ reset hover | ✓ rolling percent | ✓ | ✓ buttons, reset named by percent | ✓ `tests/status.rs` | G40 | ✓ |
 | Toolbar / ToolbarGroup / ToolbarSeparator | shell/bars.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | n/a | ✓ `tests/bars.rs` | | ✓ |
 | StatusBar / StatusBarSide / StatusBarItem | shell/bars.rs, status.rs | ✓ | ✓ clicked | n/a | ✓ hover, tooltip | n/a | ✓ | ✓ clickable items are buttons | ✓ `tests/bars.rs` | | ✓ |
 | ActivityBar (ActivityItem) | shell/activity.rs | ✓ | ✓ select | n/a | ✓ hover, tooltip | ✓ mark grows in | ✓ | ✓ tab role, selected | ✓ `tests/bars.rs` | | ✓ |
