@@ -101,6 +101,11 @@ pub fn datetime(at: i32, pattern: &str, zone: &str) -> SharedString {
     }
 }
 
+/// The emoji a shortcode names; empty if unknown.
+pub fn emoji(shortcode: &str) -> SharedString {
+    text::emoji(shortcode).unwrap_or_default().into()
+}
+
 /// The current moment in Unix seconds, as `ely_slint::format::now` reads it.
 pub fn now() -> i32 {
     i32::try_from(format::now().as_second()).unwrap_or(i32::MAX)
@@ -134,6 +139,7 @@ macro_rules! wire_text_format {
         format.on_percent(|ratio, decimals, signed| $crate::wire::percent(ratio, decimals, signed));
         format.on_file_size(|bytes, binary| $crate::wire::file_size(bytes, binary));
         format.on_datetime(|at, pattern, zone| $crate::wire::datetime(at, &pattern, &zone));
+        format.on_emoji(|shortcode| $crate::wire::emoji(&shortcode));
     }};
 }
 

@@ -1,0 +1,21 @@
+// Port of ely-core/src/typography/emoji.rs (`Emoji`).
+// One emoji in the system color font, large unless sized. `shortcode` takes a GitHub name
+// without colons ("tada"); an unknown one shows nothing. Shortcodes need the host
+// (`TextFormat.emoji`); unwired, only `glyph` shows.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat } from "text-format.slint";
+
+export component Emoji inherits TypeText {
+    // The emoji itself.
+    in property <string> glyph;
+    // A GitHub shortcode, used when `glyph` is empty.
+    in property <string> shortcode;
+    in property <TextSize> size: TextSize.lg;
+    // Whether there is an emoji to show.
+    out property <bool> known: self.text != "";
+
+    text: root.glyph != "" ? root.glyph : root.shortcode != "" ? TextFormat.emoji(root.shortcode) : "";
+    font-size: Theme.text-size(root.size);
+}

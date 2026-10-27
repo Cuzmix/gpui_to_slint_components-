@@ -1,0 +1,55 @@
+// Port of ely-core/src/typography/select.rs (`SelectableText`).
+// Read-only text the pointer can select and copy: press to place, drag or shift-press to
+// extend, Ctrl-C (⌘C) copies the selection, Ctrl-A (⌘A) selects it all. The selection sits on
+// the theme's selection fill; a new text clears it.
+//
+// Built on a read-only TextInput, which also selects a word on double press and is a Tab stop
+// (gap G27).
+
+import { Theme, TextSize } from "../theme/theme.slint";
+
+export component SelectableText {
+    in property <string> text;
+    // The text style around it, as gpui hands it down.
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <color> color: Theme.colors.fg;
+    in property <float> leading: 1.618034;
+    // The selection as byte offsets into `text`; equal when nothing is selected.
+    out property <int> anchor: input.anchor-position-byte-offset;
+    out property <int> cursor: input.cursor-position-byte-offset;
+    out property <bool> has-focus: input.has-focus;
+
+    private property <length> line: ceil(root.leading * root.font-size / 1phx - 0.5) * 1phx;
+
+    min-width: 0;
+    preferred-width: input.preferred-width;
+    height: input.preferred-height;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+
+    input := TextInput {
+        width: root.width;
+        text: root.text;
+        read-only: true;
+        wrap: word-wrap;
+        font-family: Theme.font-family;
+        font-size: root.font-size;
+        color: root.color;
+        selection-background-color: Theme.colors.selection;
+        selection-foreground-color: root.color;
+        text-cursor-width: 0;
+        line-height-factor: (root.line - 0.001px) / (root.font-size * Theme.font-line-ratio);
+        accessible-role: none;
+
+        // gpui reads only the copy and select-all keys; moving keys do nothing.
+        key-pressed(event) => {
+            if event.text == Key.LeftArrow || event.text == Key.RightArrow || event.text == Key.UpArrow || event.text == Key.DownArrow || event.text == Key.Home || event.text == Key.End || event.text == Key.PageUp || event.text == Key.PageDown {
+                return accept;
+            }
+            reject
+        }
+        changed text => {
+            self.set-selection-offsets(0, 0);
+        }
+    }
+}

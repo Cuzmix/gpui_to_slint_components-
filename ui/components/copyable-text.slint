@@ -1,0 +1,30 @@
+// Port of ely-core/src/typography/copy.rs (`CopyableText`).
+// Text with a copy button beside it, 4 px apart, centered on the cross axis.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { CopyButton } from "copy-button.slint";
+
+export component CopyableText inherits HorizontalLayout {
+    in property <string> text;
+    // Sets it in the monospace face.
+    in property <bool> mono: false;
+    out property <bool> copied: button.copied;
+
+    spacing: 4px;
+    alignment: start;
+
+    TypeText {
+        text: root.text;
+        font-family: root.mono ? Theme.mono-family : Theme.font-family;
+        line-ratio: root.mono ? Theme.mono-line-ratio : Theme.font-line-ratio;
+        vertical-alignment: center;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        button := CopyButton {
+            text: root.text;
+        }
+    }
+}

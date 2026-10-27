@@ -33,4 +33,6 @@ export global TextFormat {
     // Unix seconds as a strftime pattern in a zone (an IANA name; empty is the system's).
     // Empty if the pattern or zone does not read.
     pure callback datetime(at: int, pattern: string, zone: string) -> string;
+    // The emoji a GitHub shortcode names ("tada" is 🎉); empty if unknown.
+    pure callback emoji(shortcode: string) -> string;
 }

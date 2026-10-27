@@ -36,6 +36,10 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Link, ExternalLink | typography/link.rs | ✓ | ✓ | ✓ Enter/Space rules, Tab stop | ✓ click, no focus on press, hover underline | n/a | ✓ | ✓ pressable, label | ✓ `tests/link.rs` | G9 G24 | ✓ |
 | NumberText, CurrencyText, PercentText, FileSizeText, DateTimeText | typography/formatted.rs, format.rs | ✓ | n/a | n/a | n/a | n/a | ✓ (signed percent ink) | ✓ text role | ✓ `tests/values.rs` | G20 G25 | ✓ |
 | DurationText, PluralText, RelativeTime (Clock, Figures) | typography/formatted.rs, format.rs | ✓ | n/a | n/a | n/a | ✓ 30 s refresh (host clock) | ✓ | ✓ text role | ✓ `tests/values.rs` (matches the Rust port case by case) | G20 G25 G26 | ✓ |
+| CopyButton (chapter 5, ported early) | buttons/copy.rs | ✓ | ✓ | ✓ (IconButton) | ✓ | ✓ check turns in, 1.4 s | ✓ | ✓ (IconButton) | ✓ `tests/copy_select.rs` | | ✓ |
+| CopyableText | typography/copy.rs | ✓ | n/a | ✓ (CopyButton) | ✓ | ✓ | ✓ | ✓ | ✓ `tests/copy_select.rs` | G20 | ✓ |
+| SelectableText | typography/select.rs | ✓ | n/a | ✓ copy, select all | ✓ press, shift, drag | n/a | ✓ selection fill | ✓ text node | ✓ `tests/copy_select.rs` | G27 | ✓ |
+| Emoji | typography/emoji.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/copy_select.rs` | | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
