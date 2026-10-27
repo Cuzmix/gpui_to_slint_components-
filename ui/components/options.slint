@@ -64,6 +64,8 @@ export global Choices {
     pure callback tag-word(text: string) -> string;
     pure callback comma-ends(text: string) -> bool;
     // `selected` with `value` turned on or off, in the order of `choices` (CheckboxGroup).
+    // The index of the row holding `value`; -1 when none does.
+    pure callback index-of(rows: [Choice], value: string) -> int;
     pure callback toggled(choices: [Choice], selected: [string], value: string, on: bool) -> [string];
 }
 

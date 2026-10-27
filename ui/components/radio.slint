@@ -1,0 +1,253 @@
+// Port of ely-core/src/forms/radio.rs: `radio_mark`, `Radio`, `RadioGroup`. One choice of
+// several, with an optional label beside it. A group is one Tab stop (the chosen radio, else the
+// first that is enabled); the arrows move the choice past disabled radios, wrapping.
+//
+// Group moves run in Rust (`Choices.step`, `wire_options!`).
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { ClickKeys } from "click-keys.slint";
+import { Choice, Choices } from "options.slint";
+
+// The circle alone, shared by radios and cards. Turning on springs the dot open over
+// motion-base.
+export component RadioMark {
+    in property <bool> on;
+    in property <bool> focused;
+    in property <bool> enabled: true;
+
+    private property <duration> changed-at;
+    private property <bool> moving;
+    private property <float> t: root.moving ? clamp((animation-tick() - root.changed-at) / Theme.motion-base, 0, 1) : 1;
+
+    changed on => {
+        root.changed-at = animation-tick();
+        root.moving = true;
+        settle.running = true;
+        settle.restart();
+    }
+
+    // Stops the tick once the motion has run.
+    settle := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.moving = false;
+        }
+    }
+
+    width: Theme.check-size;
+    height: Theme.check-size;
+    opacity: root.enabled ? 1 : 0.5;
+    accessible-role: none;
+
+    Rectangle {
+        border-radius: self.width / 2;
+        border-width: 1px;
+        border-color: root.focused ? Theme.colors.focus : root.on ? Theme.colors.accent : Theme.colors.border-strong;
+        background: Theme.colors.surface;
+    }
+
+    if root.on: Rectangle {
+        width: Theme.radio-dot * Theme.spring(root.t);
+        height: self.width;
+        border-radius: self.width / 2;
+        background: Theme.colors.accent;
+    }
+}
+
+// The row alone: it reports presses while off and leaves the state to its owner (Radio and
+// RadioGroup build on it).
+component RadioRow {
+    in property <bool> on;
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <string> unavailable-text;
+    // Whether Tab stops here (a group's other radios take focus by the arrows only).
+    in property <bool> tab-stop: true;
+    // A group's request for focus: each new value at or above 0 focuses it.
+    in property <int> focus-ticket: -1;
+
+    out property <bool> has-focus: keys.has-focus;
+
+    callback pressed();
+    // An arrow while focused: -1 for Up or Left, 1 for Down or Right.
+    callback stepped(by: int);
+
+    changed focus-ticket => {
+        if root.focus-ticket >= 0 {
+            keys.focus();
+        }
+    }
+
+    forward-focus: keys;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+    accessible-role: radio-button;
+    accessible-checkable: true;
+    accessible-checked: root.on;
+    accessible-label: root.label;
+    accessible-description: root.enabled ? "" : root.unavailable-text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled && !root.on {
+            root.pressed();
+        }
+    }
+
+    row := HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+
+            RadioMark {
+                on: root.on;
+                focused: keys.has-focus;
+                enabled: root.enabled;
+            }
+        }
+
+        if root.label != "": TypeText {
+            horizontal-stretch: 1;
+            min-width: 0;
+            text: root.label;
+            font-size: Theme.text-size(TextSize.base);
+            color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+            vertical-alignment: center;
+        }
+    }
+
+    // A press never takes focus, as gpui prevents default on mouse down.
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            if !root.on {
+                root.pressed();
+            }
+        }
+    }
+
+    // Arrows the click keys pass on.
+    FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        key-pressed(event) => {
+            if !keys.has-focus {
+                return reject;
+            }
+            if event.text == Key.UpArrow || event.text == Key.LeftArrow {
+                root.stepped(-1);
+                return accept;
+            }
+            if event.text == Key.DownArrow || event.text == Key.RightArrow {
+                root.stepped(1);
+                return accept;
+            }
+            reject
+        }
+
+        keys := ClickKeys {
+            enabled: root.enabled;
+            focus-on-tab-navigation: root.tab-stop && root.enabled;
+            activated => {
+                if !root.on {
+                    root.pressed();
+                }
+            }
+        }
+    }
+}
+
+export component Radio {
+    in-out property <bool> on;
+    // Text beside the dot; a press on it picks too.
+    in property <string> label;
+    // Dims it and takes no press.
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    out property <bool> has-focus: face.has-focus;
+
+    // Chosen while off.
+    callback selected();
+
+    forward-focus: face;
+    min-width: face.min-width;
+    preferred-width: face.preferred-width;
+    min-height: face.min-height;
+    preferred-height: face.preferred-height;
+
+    face := RadioRow {
+        on: root.on;
+        label: root.label;
+        enabled: root.enabled;
+        unavailable-text: root.unavailable-text;
+        pressed => {
+            root.on = true;
+            root.selected();
+        }
+    }
+}
+
+// Radios for a list of choices, in a column 8 px apart or a row 16 px apart.
+export component RadioGroup {
+    in property <[Choice]> choices;
+    // The value chosen.
+    in-out property <string> selected;
+    // Lays the radios in a row.
+    in property <bool> horizontal;
+    in property <string> unavailable-text: @tr("Unavailable");
+
+    // The value picked, by a press or an arrow.
+    callback selection-changed(value: string);
+
+    private property <int> chosen: root.index-of(root.selected);
+    // The Tab stop: the chosen radio while enabled, else the first enabled one.
+    private property <int> stop: root.chosen >= 0 && !root.choices[root.chosen].disabled ? root.chosen : Choices.step(root.choices, root.choices.length - 1, 1);
+    private property <int> focus-to: -1;
+    private property <int> focus-ticket;
+
+    pure function index-of(value: string) -> int {
+        Choices.index-of(root.choices, value)
+    }
+
+    function pick(value: string) {
+        root.selected = value;
+        root.selection-changed(value);
+    }
+
+    // Slint has no radio group role (G51).
+    accessible-role: groupbox;
+    min-width: column.min-width;
+    preferred-width: column.preferred-width;
+    min-height: column.min-height;
+    preferred-height: column.preferred-height;
+
+    column := FlexboxLayout {
+        flex-direction: root.horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+        spacing: root.horizontal ? 16px : 8px;
+
+        for choice[ix] in root.choices: RadioRow {
+            on: ix == root.chosen;
+            label: choice.label;
+            enabled: !choice.disabled;
+            unavailable-text: root.unavailable-text;
+            tab-stop: ix == root.stop;
+            focus-ticket: ix == root.focus-to ? root.focus-ticket : -1;
+            pressed => {
+                root.pick(choice.value);
+            }
+            stepped(by) => {
+                root.focus-to = Choices.step(root.choices, ix, by);
+                root.focus-ticket += 1;
+                root.pick(root.choices[root.focus-to].value);
+            }
+        }
+    }
+}
