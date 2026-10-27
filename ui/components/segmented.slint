@@ -259,6 +259,16 @@ export component SegmentedControl inherits Rectangle {
         }
     }
 
+    // Ends the trip once the spring has settled, so nothing redraws at rest.
+    arrived := Timer {
+        interval: Theme.motion-slow;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.tripping = false;
+        }
+    }
+
     flick := Flickable {
         x: 3px;
         y: 3px;
@@ -286,6 +296,8 @@ export component SegmentedControl inherits Rectangle {
                     root.from-width = width;
                     root.started = animation-tick();
                     root.tripping = true;
+                    arrived.running = true;
+                    arrived.restart();
                 }
             }
         }

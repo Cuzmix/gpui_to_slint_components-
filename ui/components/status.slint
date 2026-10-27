@@ -57,18 +57,28 @@ export component OfflineIndicator inherits VerticalLayout {
     private property <duration> started;
     private property <bool> fading: root.state == Connectivity.online && !Theme.reduced-motion;
     private property <duration> span: root.fading ? 2400ms : Theme.motion-base;
-    private property <float> t: clamp((animation-tick() - root.started) / root.span, 0, 1);
+    // Reads the tick only while a rise or fade runs, so nothing redraws at rest.
+    private property <bool> moving;
+    private property <float> t: root.moving ? clamp((animation-tick() - root.started) / root.span, 0, 1) : 1;
+
+    function start-moving() {
+        root.started = animation-tick();
+        root.moving = true;
+        settled.interval = root.span;
+        settled.running = true;
+        settled.restart();
+    }
 
     init => {
         root.last = root.state;
-        root.started = animation-tick();
+        root.start-moving();
     }
     changed state => {
         if root.state != root.last {
             root.changed-state(root.last, root.state);
             root.last = root.state;
             root.holding = root.state == Connectivity.online;
-            root.started = animation-tick();
+            root.start-moving();
             hold.running = root.holding;
             if root.holding {
                 hold.restart();
@@ -78,6 +88,15 @@ export component OfflineIndicator inherits VerticalLayout {
 
     alignment: start;
     padding-top: root.showing && !root.fading ? Theme.nudge * (1 - root.t) : 0;
+
+    settled := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.moving = false;
+        }
+    }
 
     hold := Timer {
         interval: 2400ms;

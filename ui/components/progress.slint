@@ -27,6 +27,18 @@ component Glide {
         root.to = root.value;
         root.started = animation-tick();
         root.running = true;
+        done.running = true;
+        done.restart();
+    }
+
+    // Stops reading the tick once the glide is over, so nothing redraws at rest.
+    done := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.running = false;
+        }
     }
 }
 
