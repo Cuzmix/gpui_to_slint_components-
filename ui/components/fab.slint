@@ -1,0 +1,119 @@
+// Port of ely-core/src/buttons/fab.rs (`FloatingActionButton`): a raised round button for a
+// screen's main action; a label makes it a pill. It rises in when it first shows.
+
+import { Theme, Elevation, IconSize, TextSize } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { Icon } from "icon.slint";
+import { TooltipController } from "tooltip.slint";
+import { ClickKeys } from "click-keys.slint";
+
+export component FloatingActionButton {
+    // The icon it shows.
+    in property <image> icon;
+    // Text beside the icon, which widens it to a pill.
+    in property <string> text;
+    // The tip it shows on hover; also its accessible name when it has no text.
+    in property <string> tooltip;
+
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> has-hover: touch.has-hover;
+    out property <bool> tooltip-shown: tip.shown;
+    out property <color> current-fill: touch.has-hover ? Theme.colors.accent-hover : Theme.colors.accent;
+    out property <Elevation> current-elevation: touch.has-hover ? Elevation.modal : Elevation.floating;
+    // How far its entrance has run, 0 to 1.
+    out property <float> entrance: root.rise;
+
+    // Runs on a press, or on Enter or Space released while focused.
+    callback clicked();
+
+    // 0 to 1 over the slow motion, easing out: fades in from 8 px lower.
+    private property <float> rise: 0;
+    animate rise {
+        duration: Theme.motion-slow;
+        easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+    }
+    // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
+    init => {
+        root.rise = 1;
+    }
+
+    accessible-role: button;
+    accessible-label: root.text != "" ? root.text : root.tooltip;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    forward-focus: keys;
+    height: Theme.fab-size;
+    min-width: Theme.fab-size;
+    preferred-width: max(Theme.fab-size, row.preferred-width);
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    face := Elevated {
+        y: Theme.nudge * 2 * (1 - root.rise);
+        width: 100%;
+        height: 100%;
+        opacity: root.rise;
+        elevation: root.current-elevation;
+        border-radius: self.height / 2;
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : transparent;
+        background: root.current-fill;
+
+        row := HorizontalLayout {
+            // Inside the 1 px border: 20 px before the icon, 24 px after the text.
+            padding-left: root.text != "" ? 21px : 0;
+            padding-right: root.text != "" ? 25px : 0;
+            spacing: 8px;
+            alignment: center;
+            cross-axis-alignment: center;
+
+            Icon {
+                source: root.icon;
+                size: IconSize.lg;
+                color: Theme.colors.on-accent;
+            }
+
+            if root.text != "": Text {
+                text: root.text;
+                color: Theme.colors.on-accent;
+                font-size: Theme.text-size(TextSize.md);
+                font-weight: 500;
+                font-family: Theme.font-family;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.tooltip;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.clicked();
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    keys := ClickKeys {
+        activated => {
+            root.clicked();
+        }
+    }
+}
