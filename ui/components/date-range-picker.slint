@@ -1,0 +1,95 @@
+// Port of ely-core/src/forms/date/picker.rs (`DateRangePicker`, `ordered`): a field that picks a
+// first and a last day. The first press sets one end; while the pointer moves the span previews
+// to it; the second press sets the other end and closes.
+//
+// Needs `wire_dates!`. Like Select (G48), `first` and `last` are `in-out`: the second pick sets
+// both, then reports them.
+
+import { ControlSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+import { Calendar } from "calendar.slint";
+import { CivilDate, Dates, DateMath, DateWords } from "dates.slint";
+
+export component DateRangePicker {
+    // The span chosen; none while `first`'s year is 0.
+    in-out property <CivilDate> first;
+    in-out property <CivilDate> last;
+    in property <string> placeholder: @tr("Pick dates");
+    // The day ringed as today.
+    in property <CivilDate> today: Dates.today;
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+    // The first press of this opening, and the day the span previews to; none until then.
+    out property <CivilDate> start;
+    out property <CivilDate> preview;
+
+    // The first and last day, once both are picked.
+    callback range-changed(first: CivilDate, last: CivilDate);
+
+    private property <bool> chosen: DateMath.is-set(root.first) && DateMath.is-set(root.last);
+    private property <CivilDate> end: DateMath.is-set(root.preview) ? root.preview : root.start;
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.calendar-range;
+        shown: root.chosen ? DateWords.span(root.first, root.last) : "";
+        placeholder: root.placeholder;
+        size: root.size;
+        open: popup.is-open;
+        toggled(open) => {
+            root.start = { };
+            root.preview = { };
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            calendar.focus();
+        }
+
+        calendar := Calendar {
+            span-start: DateMath.is-set(root.start) ? DateMath.earlier(root.start, root.end) : root.chosen ? root.first : { };
+            span-end: DateMath.is-set(root.start) ? DateMath.later(root.start, root.end) : root.chosen ? root.last : { };
+            anchor: DateMath.is-set(root.start) ? root.start : root.chosen ? root.first : { };
+            today: root.today;
+            hovered-changed(date) => {
+                root.preview = date;
+            }
+            picked(date) => {
+                if !DateMath.is-set(root.start) {
+                    root.start = date;
+                    return;
+                }
+                root.first = DateMath.earlier(root.start, date);
+                root.last = DateMath.later(root.start, date);
+                root.range-changed(root.first, root.last);
+                root.close();
+            }
+            escape => {
+                root.close();
+                accept
+            }
+        }
+    }
+}

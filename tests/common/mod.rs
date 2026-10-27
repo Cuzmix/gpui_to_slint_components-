@@ -104,3 +104,13 @@ pub fn click_label<C: ComponentHandle + 'static>(c: &C, label: &str) {
     let (at, size) = (e.absolute_position(), e.size());
     click(c.window(), at.x + size.width / 2.0, at.y + size.height / 2.0);
 }
+
+// Clicks the middle of the first element named `label` inside a popup at (`dx`, `dy`) in the
+// window: the testing backend places a popup's elements from the popup's own origin.
+pub fn click_label_in_popup<C: ComponentHandle + 'static>(c: &C, label: &str, dx: f32, dy: f32) {
+    let e = i_slint_backend_testing::ElementHandle::find_by_accessible_label(c, label)
+        .next()
+        .unwrap_or_else(|| panic!("an element named {label}"));
+    let (at, size) = (e.absolute_position(), e.size());
+    click(c.window(), dx + at.x + size.width / 2.0, dy + at.y + size.height / 2.0);
+}

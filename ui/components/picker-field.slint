@@ -1,0 +1,115 @@
+// Port of ely-core/src/forms/date/picker.rs (`picker_field`, `Dropdown`, `toggle`): the trigger
+// of a date or time picker, and the popup it opens.
+//
+// Unlike a select's list, a picker's popup takes focus: opening moves focus into it, and closing
+// (a pick, Escape, a press outside) hands it back to the trigger. So it is a Slint PopupWindow,
+// which does both. A press toggles it; Down, Enter or Space open it.
+//
+//     field := PickerField { icon: Icons.calendar; open: popup.is-open; toggled(open) => { ... } }
+//     popup := PickerPopup { y: field.height; init => { content.focus(); } content := ... }
+
+import { Theme, ControlSize, IconSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { FieldButton, FieldText } from "field-button.slint";
+import { OptionSurface } from "options.slint";
+
+export component PickerField {
+    in property <image> icon;
+    // The value as it reads; empty shows the placeholder.
+    in property <string> shown;
+    // Shown with no value, and the name assistive technology reads.
+    in property <string> placeholder;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+    in property <string> unavailable-text: @tr("Unavailable");
+    // Whether its popup is showing.
+    in property <bool> open;
+
+    out property <bool> has-focus: button.has-focus;
+
+    // Asks to show (true) or close the popup.
+    callback toggled(open: bool);
+
+    forward-focus: button;
+    horizontal-stretch: 1;
+    min-width: button.min-width;
+    preferred-width: button.preferred-width;
+    height: button.height;
+    accessible-role: combobox;
+    accessible-label: root.placeholder;
+    accessible-value: root.shown;
+    accessible-description: root.enabled ? "" : root.unavailable-text;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: root.open;
+    accessible-action-default => {
+        if root.enabled {
+            root.toggled(!root.open);
+        }
+    }
+
+    button := FieldButton {
+        width: root.width;
+        size: root.size;
+        enabled: root.enabled;
+        pressed => {
+            root.toggled(!root.open);
+        }
+        key-pressed(event) => {
+            if !root.open && (event.text == Key.DownArrow || event.text == Key.Return || event.text == " ") {
+                root.toggled(true);
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: root.icon;
+                size: IconSize.sm;
+                color: Theme.colors.fg-subtle;
+            }
+        }
+
+        FieldText {
+            text: root.shown;
+            placeholder: root.placeholder;
+            size: root.size;
+            enabled: root.enabled;
+        }
+    }
+}
+
+// The popup a picker floats under its field: the option surface rising in like a list (opacity,
+// and a gap closing from two nudges to one over motion-fast). A press outside closes it.
+export component PickerPopup inherits PopupWindow {
+    close-policy: PopupClosePolicy.close-on-click-outside;
+
+    property <float> entered: 0;
+    animate entered {
+        duration: Theme.motion-fast;
+        easing: cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+    init => {
+        self.entered = 1;
+    }
+
+    width: surface.width;
+    height: surface.height + Theme.nudge * 2;
+
+    surface := OptionSurface {
+        y: Theme.nudge * (2 - root.entered);
+        width: content.preferred-width + 2px;
+        height: content.preferred-height + 2px;
+        opacity: root.entered;
+
+        content := VerticalLayout {
+            x: 1px;
+            y: 1px;
+
+            @children
+        }
+    }
+}

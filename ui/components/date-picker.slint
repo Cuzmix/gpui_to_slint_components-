@@ -1,0 +1,87 @@
+// Port of ely-core/src/forms/date/picker.rs (`DatePicker`): a field that opens a calendar and
+// shows the day chosen. Picking a day closes it.
+//
+// Needs `wire_dates!`. Like Select (G48), `value` is `in-out`: a pick sets it, then reports it.
+
+import { ControlSize } from "../theme/theme.slint";
+import { Icons } from "../icons/icons.slint";
+import { PickerField, PickerPopup } from "picker-field.slint";
+import { Calendar } from "calendar.slint";
+import { CivilDate, Dates, DateMath, DateWords } from "dates.slint";
+
+export component DatePicker {
+    // The day chosen; none when its year is 0.
+    in-out property <CivilDate> value;
+    in property <string> placeholder: @tr("Pick a date");
+    // The earliest and latest days that can be picked; unset, no limit.
+    in property <CivilDate> minimum;
+    in property <CivilDate> maximum;
+    // The day ringed as today.
+    in property <CivilDate> today: Dates.today;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> open: popup.is-open;
+    out property <bool> has-focus: field.has-focus;
+
+    // The day picked.
+    callback date-changed(date: CivilDate);
+
+    function close() {
+        popup.close();
+        field.focus();
+    }
+
+    changed enabled => {
+        if !root.enabled && popup.is-open {
+            root.close();
+        }
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := PickerField {
+        width: root.width;
+        icon: Icons.calendar;
+        shown: DateMath.is-set(root.value) ? DateWords.day(root.value) : "";
+        placeholder: root.placeholder;
+        size: root.size;
+        enabled: root.enabled;
+        open: popup.is-open;
+        toggled(open) => {
+            if open {
+                popup.show();
+            } else {
+                root.close();
+            }
+        }
+    }
+
+    popup := PickerPopup {
+        x: 0;
+        y: root.height;
+        init => {
+            calendar.focus();
+        }
+
+        calendar := Calendar {
+            selected: root.value;
+            minimum: root.minimum;
+            maximum: root.maximum;
+            today: root.today;
+            picked(date) => {
+                root.value = date;
+                root.date-changed(date);
+                root.close();
+            }
+            escape => {
+                root.close();
+                accept
+            }
+        }
+    }
+}
