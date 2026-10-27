@@ -1,0 +1,165 @@
+// Port of ely-core/src/forms/input.rs: `Input`, `PasswordInput`. A text field's frame: border,
+// focus, and room for things before and after.
+//
+// A prefix icon sits before the text; children sit after it, as the suffix (one children slot,
+// gap G47). A press anywhere on the frame focuses the text.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    Radius,
+    TextSize,
+} from "../theme/theme.slint";
+import { TextField } from "text-field.slint";
+import { Icon } from "icon.slint";
+import { IconButton } from "icon-button.slint";
+import { Icons } from "../icons/icons.slint";
+
+// The text size of a field of each control size.
+export global InputStyle {
+    public pure function text-size(size: ControlSize) -> TextSize {
+        size == ControlSize.sm ? TextSize.sm : size == ControlSize.lg ? TextSize.md : TextSize.base
+    }
+}
+
+export component Input {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <string> description;
+    in-out property <bool> masked;
+    in property <int> rows-min: 0;
+    in property <int> rows-max: root.rows-min;
+    in property <int> max-len: 0;
+    in property <string> fit-kind;
+    in property <bool> enabled: true;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+    // Draws the frame in the danger tone.
+    in property <bool> invalid;
+    // Adds a clear button while there is text.
+    in property <bool> clearable;
+    // Holds room to show this text whole.
+    in property <string> least;
+    // An icon before the text, sm.
+    in property <image> prefix-icon;
+    in property <color> prefix-color: Theme.colors.fg-subtle;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <color> current-border: root.invalid ? Theme.colors.danger : field.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+
+    callback edited(text: string);
+    callback accepted();
+
+    public function select-all() {
+        field.select-all();
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: field.multi-line ? row.preferred-height : Theme.control-height(root.size);
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: root.current-border;
+        background: root.enabled ? Theme.colors.surface : Theme.colors.sunken;
+    }
+
+    TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.default;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                field.focus();
+            }
+        }
+    }
+
+    row := HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: Theme.control-padding(root.size) + 1px;
+        padding-right: self.padding-left;
+        padding-top: field.multi-line ? 7px : 0;
+        padding-bottom: self.padding-top;
+        spacing: 8px;
+        cross-axis-alignment: field.multi-line ? CrossAxisAlignment.start : CrossAxisAlignment.center;
+
+        if root.prefix-icon.width > 0: Icon {
+            source: root.prefix-icon;
+            size: IconSize.sm;
+            color: root.prefix-color;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            min-width: 0;
+
+            field := TextField {
+                text <=> root.text;
+                placeholder: root.placeholder;
+                label: root.label;
+                description: root.description;
+                masked: root.masked;
+                rows-min: root.rows-min;
+                rows-max: root.rows-max;
+                max-len: root.max-len;
+                fit-kind: root.fit-kind;
+                enabled: root.enabled;
+                font-size: Theme.text-size(InputStyle.text-size(root.size));
+                color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
+                edited(text) => {
+                    root.edited(text);
+                }
+                accepted => {
+                    root.accepted();
+                }
+            }
+
+            // A strut keeps room to type `least` in, with the frame's inset.
+            Rectangle {
+                height: 0;
+                preferred-width: least.preferred-width + (Theme.control-padding(root.size) + 1px) * 2;
+
+                least := Text {
+                    visible: false;
+                    text: root.least;
+                    font-family: Theme.font-family;
+                    font-size: Theme.text-size(InputStyle.text-size(root.size));
+                }
+            }
+        }
+
+        if root.clearable && !field.empty && root.enabled: IconButton {
+            icon: Icons.circle-x;
+            icon-name: "circle-x";
+            size: ControlSize.sm;
+            tooltip: @tr("Clear");
+            clicked => {
+                root.text = "";
+                root.edited("");
+                field.focus();
+            }
+        }
+
+        @children
+    }
+}
+
+// A masked field with a lock before it and an eye that shows the text.
+export component PasswordInput inherits Input {
+    masked: true;
+    prefix-icon: Icons.lock;
+
+    IconButton {
+        icon: root.masked ? Icons.eye : Icons.eye-off;
+        icon-name: root.masked ? "eye" : "eye-off";
+        size: ControlSize.sm;
+        tooltip: root.masked ? @tr("Show password") : @tr("Hide password");
+        clicked => {
+            root.masked = !root.masked;
+        }
+    }
+}

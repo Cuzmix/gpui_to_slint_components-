@@ -1,0 +1,156 @@
+// Port of ely-core/src/forms/text (`TextInput`): editable text, one line or several, with
+// selection, undo, input methods and the clipboard, on Slint's builtin TextInput.
+//
+// One line: Enter accepts. Several (`rows-min` above 0): the field grows from `rows-min` rows to
+// `rows-max`, then scrolls to keep the caret in view; Enter and Shift+Enter break the line.
+// Ctrl+Enter (⌘↩) accepts either way. Masked text shows bullets and stays off the clipboard.
+//
+// Filters, `max-len` and fits run in Rust, since Slint cannot walk a string's characters; the
+// host wires the `TextFields` global once (only fields with a `fit-kind` or a `max-len` ask it):
+//     ely_slint::wire_fields!(app);
+
+import { Theme, TextSize } from "../theme/theme.slint";
+
+// An admitted edit: the text, and the caret's byte offset in it.
+export struct TextFit {
+    text: string,
+    caret: int,
+}
+
+// What a text field's edits need from Rust (`ely_slint::fields`).
+export global TextFields {
+    // `before` became `after`, the caret at byte `caret`: what a field of `kind` keeps of it.
+    pure callback admit(before: string, after: string, caret: int, kind: string, max-len: int, multi-line: bool) -> TextFit;
+}
+
+export component TextField {
+    in-out property <string> text;
+    // Shown while empty.
+    in property <string> placeholder;
+    // The name assistive technology reads; the placeholder when empty.
+    in property <string> label;
+    // A line under the name for assistive technology (a form field's note).
+    in property <string> description;
+    // Bullets instead of the text, kept off the clipboard.
+    in property <bool> masked;
+    // Several lines: the least and most rows shown; 0 is one line.
+    in property <int> rows-min: 0;
+    in property <int> rows-max: root.rows-min;
+    // Longest text, in characters; 0 is no limit.
+    in property <int> max-len: 0;
+    // The filter or fit the host registered under this name (`ely_slint::fields`).
+    in property <string> fit-kind;
+    in property <bool> enabled: true;
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <color> color: Theme.colors.fg;
+
+    out property <bool> has-focus: input.has-focus;
+    out property <bool> empty: root.text == "";
+    out property <bool> multi-line: root.rows-min > 0;
+    // The caret and the selection's other end, as byte offsets.
+    out property <int> cursor: input.cursor-position-byte-offset;
+    out property <int> anchor: input.anchor-position-byte-offset;
+
+    // The text changed by an edit (not by setting `text`).
+    callback edited(text: string);
+    // Enter in one line, or Ctrl+Enter (⌘↩).
+    callback accepted();
+
+    // The text the last edit left, to find the next edit in.
+    private property <string> committed;
+    // gpui's line: the window's phi line height, snapped to the pixel.
+    private property <length> line: ceil(1.618034 * root.font-size / 1phx - 0.5) * 1phx;
+    private property <bool> asks: root.fit-kind != "" || root.max-len > 0;
+
+    init => {
+        root.committed = root.text;
+    }
+    changed text => {
+        root.committed = root.text;
+    }
+
+    public function select-all() {
+        input.select-all();
+    }
+
+    // Selects the byte range `start` to `end`.
+    public function select(start: int, end: int) {
+        input.set-selection-offsets(start, end);
+    }
+
+    forward-focus: input;
+    min-width: 0;
+    preferred-width: 0;
+    horizontal-stretch: 1;
+    height: root.multi-line ? clamp(input.preferred-height, root.rows-min * root.line, root.rows-max * root.line) : root.line;
+
+    if root.empty: Text {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.multi-line ? root.line : root.height;
+        text: root.placeholder;
+        color: Theme.colors.fg-subtle;
+        font-family: Theme.font-family;
+        font-size: root.font-size;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+
+    flick := Flickable {
+        interactive: false;
+        content-width: self.width;
+        content-height: max(self.height, input.preferred-height);
+
+        input := TextInput {
+            width: flick.width;
+            height: flick.content-height;
+            text <=> root.text;
+            enabled: root.enabled;
+            input-type: root.masked ? InputType.password : InputType.text;
+            single-line: !root.multi-line;
+            wrap: root.multi-line ? TextWrap.word-wrap : TextWrap.no-wrap;
+            vertical-alignment: root.multi-line ? TextVerticalAlignment.top : TextVerticalAlignment.center;
+            font-family: Theme.font-family;
+            font-size: root.font-size;
+            color: root.color;
+            selection-background-color: Theme.colors.selection;
+            selection-foreground-color: root.color;
+            text-cursor-width: Theme.caret-width;
+            line-height-factor: (root.line - 0.001px) / (root.font-size * Theme.font-line-ratio);
+            accessible-label: root.label != "" ? root.label : root.placeholder;
+            accessible-description: root.description;
+
+            key-pressed(event) => {
+                if event.text == Key.Return && event.modifiers.control {
+                    root.accepted();
+                    return accept;
+                }
+                reject
+            }
+            accepted => {
+                root.accepted();
+            }
+            edited => {
+                if root.asks {
+                    let fit = TextFields.admit(root.committed, self.text, self.cursor-position-byte-offset, root.fit-kind, root.max-len, root.multi-line);
+                    if fit.text != self.text {
+                        self.text = fit.text;
+                        self.set-selection-offsets(fit.caret, fit.caret);
+                    }
+                }
+                root.committed = self.text;
+                root.edited(self.text);
+            }
+            // Keeps the caret's line in view, as gpui's `keep_in_view`.
+            cursor-position-changed(at) => {
+                if at.y < -flick.content-y {
+                    flick.content-y = -at.y;
+                } else if at.y + root.line > -flick.content-y + flick.height {
+                    flick.content-y = -(at.y + root.line - flick.height);
+                }
+            }
+        }
+    }
+}
