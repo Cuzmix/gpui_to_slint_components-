@@ -12,3 +12,7 @@ Source: `ely-core/src/forms/number.rs`, `number/{value,scrub}.rs`.
 ## Slint mapping
 - `NumberInput { value (in-out), minimum, maximum, step, precision, prefix, currency, percent, suffix, label, blank, size }`, `value-changed(value)`, `committed(value)`; out `text`, `current`, `can-step-up`, `can-step-down`. ScrubInput inherits it; its `label` is the scrub label.
 - Parsing, settling and showing run in Rust (`Numbers`, `wire_numbers!`, with `wire_fields!` for the `number` filter). Limits default to ±1e38 (`Numbers.unbounded`); Slint floats are single precision (gap G55). An empty range logs and settles low instead of panicking.
+
+## UnitInput
+Source: `ely-core/src/forms/unit.rs`. A NumberInput with its unit after the digits: 6 px sides, radius sm, fg-muted, pointer, hover fill; a press keeps focus; a click reports the next unit, wrapping (logs). Panics with no units; a unit not among them logs and the next is the first.
+- Slint: `UnitInput inherits NumberInput { units, unit; unit-changed(next) }`; the next unit comes from `Numbers.next-unit`. No units: nothing next (logged).

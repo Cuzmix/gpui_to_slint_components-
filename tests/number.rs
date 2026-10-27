@@ -6,7 +6,7 @@ use slint::ComponentHandle;
 use slint::platform::Key;
 
 slint::slint! {
-    import { NumberInput, ScrubInput, Numbers, ParsedNumber, TextFields, TextFit } from "ui/index.slint";
+    import { NumberInput, ScrubInput, UnitInput, Numbers, ParsedNumber, TextFields, TextFit } from "ui/index.slint";
     export { Numbers, ParsedNumber, TextFields, TextFit }
     export component Harness inherits Window {
         width: 500px;
@@ -14,6 +14,7 @@ slint::slint! {
         in-out property <float> qty: 3;
         in-out property <float> price: 1234.5;
         in-out property <float> width-value: 240;
+        in-out property <string> unit: "px";
         in-out property <int> changes;
         in-out property <int> commits;
         in-out property <float> last-commit: -1;
@@ -38,6 +39,12 @@ slint::slint! {
             price := NumberInput {
                 value <=> root.price;
                 currency: "USD";
+            }
+            UnitInput {
+                value: 240;
+                units: ["px", "%", "em"];
+                unit: root.unit;
+                unit-changed(next) => { root.unit = next; }
             }
             ScrubInput {
                 label: "W";
@@ -158,4 +165,20 @@ fn dragging_the_label_scrubs() {
     mouse_up(h.window(), x, y);
 }
 
-cases!(number: it_shows_its_value, typing_reports_settled_numbers_only, letters_never_go_in, leaving_the_field_settles_it, arrows_step_and_commit, the_stepper_stops_at_the_ends, a_new_value_shows_unless_editing, dragging_the_label_scrubs);
+fn the_unit_clicks_through() {
+    let h = harness();
+    let unit = |label: &str| {
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(&h, label)
+            .find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button))
+    };
+    let px = unit("px").expect("the unit button");
+    let (at, size) = (px.absolute_position(), px.size());
+    click(h.window(), at.x + size.width / 2.0, at.y + size.height / 2.0);
+    assert_eq!(h.get_unit(), "%");
+    unit("%").unwrap().invoke_accessible_default_action();
+    assert_eq!(h.get_unit(), "em");
+    unit("em").unwrap().invoke_accessible_default_action();
+    assert_eq!(h.get_unit(), "px");
+}
+
+cases!(number: the_unit_clicks_through, it_shows_its_value, typing_reports_settled_numbers_only, letters_never_go_in, leaving_the_field_settles_it, arrows_step_and_commit, the_stepper_stops_at_the_ends, a_new_value_shows_unless_editing, dragging_the_label_scrubs);

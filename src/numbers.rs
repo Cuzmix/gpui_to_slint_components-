@@ -44,6 +44,22 @@ pub fn text(value: f64, precision: usize) -> String {
     format::number(value, precision, Separators::EN)
 }
 
+/// The unit after `unit` in `units`, wrapping; the first (logged) when `unit` is not among them,
+/// and nothing when there are no units (where gpui panics).
+pub fn next_unit<S: AsRef<str>>(units: &[S], unit: &str) -> String {
+    let Some(first) = units.first() else {
+        log::error!("unit input has no units");
+        return String::new();
+    };
+    match units.iter().position(|each| each.as_ref() == unit) {
+        Some(at) => units[(at + 1) % units.len()].as_ref().to_string(),
+        None => {
+            log::error!("unit input: {unit} is not among the units");
+            first.as_ref().to_string()
+        }
+    }
+}
+
 /// Slint's `float` is single precision: a value read back through it is first put on the
 /// shortest decimal that rounds to it, so 0.1 stays 0.1.
 pub fn widen(value: f32) -> f64 {
@@ -68,6 +84,11 @@ macro_rules! wire_numbers {
         numbers.on_text(|value, precision| $crate::numbers::text($crate::numbers::widen(value), precision.max(0) as usize).into());
         numbers.on_currency_symbol(|code| $crate::format::currency_parts(&code).0.into());
         numbers.on_currency_places(|code| $crate::format::currency_parts(&code).1 as i32);
+        numbers.on_next_unit(|units, unit| {
+            use ::slint::Model;
+            let units: Vec<::slint::SharedString> = units.iter().collect();
+            $crate::numbers::next_unit(&units, &unit).into()
+        });
     }};
 }
 
@@ -90,6 +111,13 @@ mod tests {
         assert_eq!(settle(12.0, 0.0, 10.0, 0), 10.0);
         assert_eq!(settle(0.0, 0.05, 1.0, 1), 0.1);
         assert_eq!(settle(0.3, 0.1 + 0.2, 1.0, 1), 0.3);
+    }
+
+    #[test]
+    fn units_wrap() {
+        assert_eq!(next_unit(&["px", "%", "em"], "px"), "%");
+        assert_eq!(next_unit(&["px", "%", "em"], "em"), "px");
+        assert_eq!(next_unit(&["px", "%"], "rem"), "px");
     }
 
     #[test]

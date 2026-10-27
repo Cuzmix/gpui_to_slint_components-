@@ -6,7 +6,28 @@
 //! `TextFields` global in `ui/components/text-field.slint` reaches it through a pure callback the
 //! host wires with [`wire_fields!`](crate::wire_fields).
 
-use std::{cell::RefCell, collections::HashMap, ops::Range, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    ops::Range,
+    rc::Rc,
+    sync::LazyLock,
+};
+
+use regex::Regex;
+
+static EMAIL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[^\s@]+@[^\s@]+\.[^\s@]+$").expect("email pattern compiles"));
+static URL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^https?://[^\s/?#]+\.[^\s/?#]+\S*$").expect("url pattern compiles"));
+
+/// Whether `text` reads as one email address (ely `is_email`).
+pub fn is_email(text: &str) -> bool {
+    EMAIL.is_match(text)
+}
+
+/// Whether `text` reads as a web link (ely `is_url`).
+pub fn is_url(text: &str) -> bool {
+    URL.is_match(text)
+}
 
 /// Reshapes an edit: the text before it, the byte range replaced and the typed text in; the text
 /// and the caret's byte offset out (ely `TextInput::set_fit`).
@@ -96,6 +117,8 @@ macro_rules! wire_fields {
             let (text, caret) = $crate::fields::admit(&before, &after, caret.max(0) as usize, &kind, max_len.max(0) as usize, multi_line);
             TextFit { text: text.into(), caret: caret as i32 }
         });
+        $app.global::<TextFields>().on_is_email(|text| $crate::fields::is_email(&text));
+        $app.global::<TextFields>().on_is_url(|text| $crate::fields::is_url(&text));
     }};
 }
 
@@ -121,6 +144,17 @@ mod tests {
         assert_eq!(admit("abc", "abcdef", 6, "", 4, false), ("abcd".into(), 4));
         assert_eq!(admit("a", "a\nb", 3, "", 0, false), ("a b".into(), 3));
         assert_eq!(admit("a", "a\r\nb", 4, "", 0, true), ("a\nb".into(), 3));
+    }
+
+    #[test]
+    fn emails_and_urls() {
+        assert!(is_email("ada@example.com"));
+        assert!(!is_email("ada@example"));
+        assert!(!is_email("ada example.com"));
+        assert!(is_url("https://ely.dev/docs?x=1"));
+        assert!(is_url("http://localhost.test"));
+        assert!(!is_url("ely.dev"));
+        assert!(!is_url("https://nodot"));
     }
 
     #[test]

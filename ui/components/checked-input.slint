@@ -1,0 +1,70 @@
+// Port of ely-core/src/forms/checked.rs: `EmailInput`, `UrlInput`. A field checked once focus
+// leaves it; a note under it explains a miss. The checks run in Rust (`TextFields.is-email`,
+// `is-url`; `wire_fields!`).
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { Input } from "input.slint";
+import { TextFields } from "text-field.slint";
+import { Icons } from "../icons/icons.slint";
+
+// A field over a check: invalid, with `note` under it, once it holds text that misses and
+// focus has left.
+component CheckedInput inherits VerticalLayout {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+    in property <image> icon;
+    in property <string> note;
+    // Whether the text passes; the components below bind it to their check.
+    in property <bool> valid: true;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <bool> miss: !field.has-focus && root.text != "" && !root.valid;
+
+    callback edited(text: string);
+    callback accepted();
+
+    forward-focus: field;
+    spacing: 4px;
+    alignment: start;
+
+    field := Input {
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: root.label;
+        size: root.size;
+        enabled: root.enabled;
+        invalid: root.miss;
+        prefix-icon: root.icon;
+        edited(text) => {
+            root.edited(text);
+        }
+        accepted => {
+            root.accepted();
+        }
+    }
+
+    if root.miss: Text {
+        text: root.note;
+        color: Theme.colors.danger;
+        font-size: Theme.text-size(TextSize.xs);
+        font-family: Theme.font-family;
+        wrap: word-wrap;
+    }
+}
+
+// An email field, checked when focus leaves it.
+export component EmailInput inherits CheckedInput {
+    icon: Icons.at-sign;
+    note: @tr("Enter an address like name@example.com");
+    valid: TextFields.is-email(root.text);
+}
+
+// A link field, checked when focus leaves it.
+export component UrlInput inherits CheckedInput {
+    icon: Icons.link;
+    note: @tr("Enter a link that starts with https://");
+    valid: TextFields.is-url(root.text);
+}

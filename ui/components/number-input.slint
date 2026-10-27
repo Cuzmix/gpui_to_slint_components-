@@ -12,6 +12,7 @@ import {
     Theme,
     ControlSize,
     IconSize,
+    Radius,
     TextSize,
 } from "../theme/theme.slint";
 import { InputFrame, InputText, InputStyle } from "input.slint";
@@ -35,6 +36,8 @@ export global Numbers {
     pure callback text(value: float, precision: int) -> string;
     pure callback currency-symbol(code: string) -> string;
     pure callback currency-places(code: string) -> int;
+    // The unit after `unit` in `units`, wrapping; the first when `unit` is not among them.
+    pure callback next-unit(units: [string], unit: string) -> string;
 }
 
 // Drags sideways move the number one step per notch (`handle-hit`) from where the drag began.
@@ -296,6 +299,8 @@ export component NumberInput {
                     vertical-alignment: center;
                 }
 
+                @children
+
                 // The stepper, full height inside the border, a hairline on its left.
                 Rectangle {
                     width: Theme.icon-size(IconSize.lg) + 1px;
@@ -328,6 +333,44 @@ export component NumberInput {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// A number with a unit you click through, such as px, % and em.
+export component UnitInput inherits NumberInput {
+    // The units, in click order; at least one.
+    in property <[string]> units;
+    // The unit shown, one of `units`.
+    in property <string> unit;
+
+    // The unit was clicked: the next one.
+    callback unit-changed(unit: string);
+
+    Rectangle {
+        width: unit-text.preferred-width + 12px;
+        height: unit-text.preferred-height;
+        border-radius: Theme.radius(Radius.sm);
+        background: unit-touch.has-hover ? Theme.colors.hover : transparent;
+        accessible-role: button;
+        accessible-label: root.unit;
+        accessible-action-default => {
+            root.unit-changed(Numbers.next-unit(root.units, root.unit));
+        }
+
+        unit-text := Text {
+            text: root.unit;
+            color: Theme.colors.fg-muted;
+            font-size: Theme.text-size(InputStyle.text-size(root.size));
+            font-family: Theme.font-family;
+        }
+
+        // Presses never take focus from the field.
+        unit-touch := TouchArea {
+            mouse-cursor: MouseCursor.pointer;
+            clicked => {
+                root.unit-changed(Numbers.next-unit(root.units, root.unit));
             }
         }
     }

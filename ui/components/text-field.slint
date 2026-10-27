@@ -21,6 +21,9 @@ export struct TextFit {
 export global TextFields {
     // `before` became `after`, the caret at byte `caret`: what a field of `kind` keeps of it.
     pure callback admit(before: string, after: string, caret: int, kind: string, max-len: int, multi-line: bool) -> TextFit;
+    // Whether the text reads as one email address, or as a web link (EmailInput, UrlInput).
+    pure callback is-email(text: string) -> bool;
+    pure callback is-url(text: string) -> bool;
 }
 
 export component TextField {
