@@ -1,0 +1,251 @@
+// Page 4, Window & Shell: the window and system stories, after ely-gallery/src/pages/shell/
+// windows.rs and system.rs. The windows themselves are in ../windows.slint; the gallery's Rust
+// opens them.
+
+import { Theme, ControlSize } from "../../theme/theme.slint";
+import { SplashScreen, AboutDialog } from "../../components/dialogs.slint";
+import { ManagedWindows } from "../../components/window-switcher.slint";
+import { Button } from "../../components/button.slint";
+import { ButtonVariant } from "../../components/button-style.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Caption } from "../../components/caption.slint";
+import {
+    Section,
+    Row,
+    Specimen,
+    CodeHint,
+    WindowFrame,
+    Blocked,
+} from "../kit.slint";
+
+// The About content both the page and the About window show (windows.rs `about`).
+export component GalleryAbout inherits AboutDialog {
+    name: "Ely";
+    version: "0.1.0 (2026.09)";
+    description: "A component library for Slint, in light and dark.";
+    links: [
+        { label: "Website", url: "https://github.com/ELY-Open-Source/Ely-GPUI-Components" },
+        {
+            label: "License",
+            url: "https://github.com/ELY-Open-Source/Ely-GPUI-Components#license"
+        },
+    ];
+    copyright: "© 2026 Ely contributors";
+}
+
+// The splash both the page and the splash window show (windows.rs `splash`).
+export component GallerySplash inherits SplashScreen {
+    name: "Ely";
+    tagline: "Components for Slint";
+    status: "Loading workspace…";
+}
+
+// A button that opens a window (windows.rs `trigger`).
+component Trigger inherits Button {
+    variant: ButtonVariant.outline;
+    icon: Icons.app-window;
+}
+
+export component ShellWindows inherits VerticalLayout {
+    // A tray icon shows, and the last pick from its menu.
+    in property <bool> tray-shown;
+    in property <string> tray-note: "nothing yet";
+    // What the Dock shows, or why it cannot.
+    in property <string> dock-reading;
+
+    callback open-window(which: string);
+    callback tray-toggle();
+    callback tray-pick();
+    callback badge(label: string);
+    callback switch-windows();
+
+    Section {
+        title: "SplashScreen";
+        note: "Mark and name rise in; the bar reports progress or sweeps.";
+        Specimen {
+            caption: "Inline, at 62%";
+            HorizontalLayout {
+                alignment: start;
+                WindowFrame {
+                    width: 480px;
+                    height: 280px;
+                    background: Theme.colors.bg;
+                    GallerySplash {
+                        has-progress: true;
+                        progress: 0.62;
+                    }
+                }
+            }
+        }
+
+        Row {
+            Trigger {
+                text: "Show splash window";
+                clicked => {
+                    root.open-window("splash");
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "AboutDialog";
+        note: "Name, version to copy, links, fine print.";
+        Specimen {
+            caption: "Inline";
+            HorizontalLayout {
+                alignment: start;
+                WindowFrame {
+                    width: 360px;
+                    height: 360px;
+                    background: Theme.colors.bg;
+                    VerticalLayout {
+                        padding-top: 24px;
+                        alignment: start;
+                        GalleryAbout { }
+                    }
+                }
+            }
+        }
+
+        Row {
+            Trigger {
+                text: "Open About window";
+                clicked => {
+                    root.open-window("about");
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "TrayIcon / TrayMenu";
+        note: "An icon in the menu bar or tray, with a menu.";
+        Row {
+            Button {
+                text: root.tray-shown ? "Remove tray icon" : "Show tray icon";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.tray-toggle();
+                }
+            }
+
+            Button {
+                text: "Pick “Open gallery”";
+                variant: ButtonVariant.ghost;
+                enabled: root.tray-shown;
+                clicked => {
+                    root.tray-pick();
+                }
+            }
+
+            Caption {
+                text: "Last pick: \{root.tray-note}";
+            }
+        }
+    }
+
+    Section {
+        title: "DockBadge";
+        note: "A count on the app's Dock icon. macOS only.";
+        Row {
+            Button {
+                text: "Badge 3";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.badge("3");
+                }
+            }
+
+            Button {
+                text: "Clear";
+                variant: ButtonVariant.ghost;
+                clicked => {
+                    root.badge("");
+                }
+            }
+
+            Caption {
+                text: root.dock-reading;
+            }
+        }
+    }
+
+    Section {
+        title: "SystemNotification";
+        note: "Notices from the system's own center.";
+        Blocked {
+            text: "Not shown: Slint posts no system notification.";
+        }
+    }
+
+    Section {
+        title: "MultiWindow Manager";
+        note: "Each new window cascades from the last; the manager knows them by name.";
+        Row {
+            Trigger {
+                text: "New window";
+                clicked => {
+                    root.open-window("managed");
+                }
+            }
+        }
+
+        Row {
+            for title[ix] in ManagedWindows.titles: Button {
+                text: title;
+                size: ControlSize.sm;
+                variant: ButtonVariant.subtle;
+                clicked => {
+                    ManagedWindows.focus(ix);
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "WindowSwitcher";
+        note: "Managed windows over a scrim. Arrows or Tab move, Enter goes.";
+        Row {
+            Button {
+                text: "Switch windows";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.switch-windows();
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "QuickLauncher";
+        note: "A search palette in a window above all others.";
+        Caption {
+            text: "It is navigation's QuickLauncher; the Navigation page, chapter 7, opens one.";
+        }
+    }
+
+    Section {
+        title: "MiniWindow / CompactMode / PictureInPicture";
+        note: "Small windows above the rest. Hover for the bar; expand returns to the app.";
+        Row {
+            Trigger {
+                text: "Mini player";
+                clicked => {
+                    root.open-window("mini");
+                }
+            }
+
+            Trigger {
+                text: "Picture in picture";
+                clicked => {
+                    root.open-window("pip");
+                }
+            }
+        }
+
+        CodeHint {
+            text: "MiniWindow is a frameless Window with always-on-top: true.";
+        }
+    }
+}

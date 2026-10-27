@@ -10,7 +10,8 @@
 //         IconButton { icon: Icons.search; }                            // action
 //     }
 // `bar: bar.frame` lets the title center in the whole bar, as gpui's does; unbound, it centers
-// in its own room. The bar's children sit 8 px apart (gap G41 for presses between them).
+// in its own room. The bar's children sit 8 px apart (gap G41 for presses between them),
+// centered across the bar as gpui's `items_center` row.
 
 import { Theme, TextSize, PlatformStyle } from "../theme/theme.slint";
 import { WindowChrome, ChromeStyle } from "window-chrome.slint";
@@ -109,8 +110,10 @@ export component TitleBar inherits Rectangle {
             padding-right: root.style != PlatformStyle.windows ? 8px : 0;
             padding-bottom: 1px;
             spacing: 8px;
+            cross-axis-alignment: center;
 
             if root.lead-controls: WindowControls {
+                cross-axis-self-alignment: stretch;
                 platform: root.style;
                 handles-close: root.handles-close;
                 close-requested => {
@@ -121,6 +124,7 @@ export component TitleBar inherits Rectangle {
             @children
 
             if root.trail-controls: WindowControls {
+                cross-axis-self-alignment: stretch;
                 platform: root.style;
                 handles-close: root.handles-close;
                 close-requested => {

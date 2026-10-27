@@ -40,6 +40,8 @@ fi
 
 echo "== slint-viewer loads every component without warnings =="
 declare -A PREVIEW_PARENT=([ZLayer]=ZStack)
+# Components that are windows, directly or through the library's window bases.
+windows='inherits \(Window\|HostedWindow\|MiniWindow\)\b'
 out=$(mktemp -d)
 root=$(pwd)
 while IFS= read -r file; do
@@ -68,8 +70,17 @@ SLINT
             echo "$log" >&2
             status=1
         fi
-    done < <(grep '^export component' "$file" | grep -v 'inherits Window' | sed 's/^export component \([A-Za-z0-9]*\).*/\1/')
-done < <(find ui -name '*.slint' | sort)
+    done < <(grep '^export component' "$file" | grep -v "$windows" | sed 's/^export component \([A-Za-z0-9]*\).*/\1/')
+    # A window is itself the root: it loads on its own.
+    while IFS= read -r name; do
+        log=$(slint-viewer "$file" --component "$name" --screenshot "$out/shot.png" 2>&1 || true)
+        if [ -n "$log" ]; then
+            echo "$file ($name):" >&2
+            echo "$log" >&2
+            status=1
+        fi
+    done < <(grep '^export component' "$file" | grep "$windows" | sed 's/^export component \([A-Za-z0-9]*\).*/\1/')
+done < <(find ui -name '*.slint' ! -name gallery.slint | sort)
 log=$(slint-viewer ui/gallery.slint --screenshot "$out/gallery.png" 2>&1 || true)
 if [ -n "$log" ]; then
     echo "ui/gallery.slint:" >&2

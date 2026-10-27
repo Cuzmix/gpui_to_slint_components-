@@ -1,0 +1,225 @@
+// Page 4, Window & Shell: the update, crash, connectivity and zoom stories, after
+// ely-gallery/src/pages/shell/status.rs.
+
+import { Theme, ControlSize } from "../../theme/theme.slint";
+import {
+    UpdateBanner,
+    UpdateDialog,
+    UpdateState,
+} from "../../components/update.slint";
+import { CrashReporter } from "../../components/crash-reporter.slint";
+import {
+    OfflineIndicator,
+    Connectivity,
+    ZoomControl,
+} from "../../components/status.slint";
+import { Button } from "../../components/button.slint";
+import { ButtonVariant } from "../../components/button-style.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Section, Row, Specimen, WindowFrame } from "../kit.slint";
+
+// The banner in each state, its actions logged (status.rs `update_banner`).
+component Banner inherits UpdateBanner {
+    callback logged(what: string);
+    version: "0.2.0";
+    offers-download: true;
+    offers-restart: true;
+    offers-later: true;
+    download => {
+        root.logged("update download");
+    }
+    restart => {
+        root.logged("update restart");
+    }
+    later => {
+        root.logged("update later");
+    }
+}
+
+// The update both the page and the update window show (status.rs `update_dialog`).
+export component GalleryUpdate inherits UpdateDialog {
+    name: "Ely";
+    current: "0.1.0";
+    version: "0.2.0";
+    notes: [
+        "Window chrome for macOS, Windows and Linux.",
+        "Docks remember their layout across launches.",
+        "Sticky headers stay inside their scroll area.",
+        "Drawers follow the pointer outside their bounds.",
+    ];
+    offers-download: true;
+    offers-later: true;
+}
+
+// The report both the page and the crash window show (status.rs `crash_reporter`).
+export component GalleryCrash inherits CrashReporter {
+    name: "Ely";
+    summary: "The report says where it stopped. Sending it helps fix it.";
+    report: "Exception Type:  EXC_BAD_ACCESS (SIGSEGV)\nCrashed Thread:  0  main\n0   ely           0x0000000104a1c3f0 layout::dock::restore + 112\n1   ely           0x0000000104a1b9d4 workspace::apply + 88\n2   ely           0x0000000104a0f2a8 app::open_recent + 404\n3   libdyld.dylib 0x000000018f2d4f28 start + 4";
+    sendable: true;
+    dismissable: true;
+}
+
+export component ShellStatus inherits VerticalLayout {
+    in-out property <Connectivity> connectivity: Connectivity.online;
+
+    callback logged(what: string);
+    callback open-window(which: string);
+
+    Section {
+        title: "UpdateBanner";
+        note: "Offer, download, restart. One slim bar, three states.";
+        HorizontalLayout {
+            alignment: start;
+            WindowFrame {
+                width: 560px;
+                height: 126px;
+                background: Theme.colors.bg;
+                VerticalLayout {
+                    alignment: start;
+                    Banner {
+                        state: UpdateState.available;
+                        logged(what) => {
+                            root.logged(what);
+                        }
+                    }
+
+                    Banner {
+                        state: UpdateState.downloading;
+                        progress: 0.42;
+                        logged(what) => {
+                            root.logged(what);
+                        }
+                    }
+
+                    Banner {
+                        state: UpdateState.ready;
+                        logged(what) => {
+                            root.logged(what);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "UpdateDialog";
+        note: "What changed, then one clear action.";
+        Specimen {
+            caption: "Inline";
+            HorizontalLayout {
+                alignment: start;
+                WindowFrame {
+                    width: 400px;
+                    height: 380px;
+                    background: Theme.colors.bg;
+                    VerticalLayout {
+                        padding-top: 24px;
+                        GalleryUpdate {
+                            download => {
+                                root.logged("update download");
+                            }
+                            later => {
+                                root.logged("update later");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Row {
+            Button {
+                text: "Open update window";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.open-window("update");
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "CrashReporter";
+        note: "Plain words first. The report waits behind a disclosure.";
+        Specimen {
+            caption: "Inline, report shown";
+            HorizontalLayout {
+                alignment: start;
+                WindowFrame {
+                    width: 420px;
+                    height: 520px;
+                    background: Theme.colors.bg;
+                    VerticalLayout {
+                        padding-top: 24px;
+                        GalleryCrash {
+                            details: true;
+                            send => {
+                                root.logged("crash report sent");
+                            }
+                            dismiss => {
+                                root.logged("crash report dismissed");
+                            }
+                            copied => {
+                                root.logged("crash report copied");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Row {
+            Button {
+                text: "Open crash window";
+                variant: ButtonVariant.outline;
+                clicked => {
+                    root.open-window("crash");
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "OfflineIndicator";
+        note: "Quiet while it matters, gone soon after the network returns.";
+        Row {
+            for choice in [
+                { label: "Online", state: Connectivity.online },
+                { label: "Offline", state: Connectivity.offline },
+                { label: "Reconnecting", state: Connectivity.reconnecting },
+            ]: Button {
+                text: choice.label;
+                size: ControlSize.sm;
+                variant: root.connectivity == choice.state ? ButtonVariant.subtle : ButtonVariant.ghost;
+                clicked => {
+                    root.connectivity = choice.state;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            height: Theme.control-height(ControlSize.lg);
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                OfflineIndicator {
+                    state: root.connectivity;
+                    changed-state(from, to) => {
+                        root.logged("connectivity changed");
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ZoomControl";
+        note: "Scales the whole window. Click the number to reset.";
+        HorizontalLayout {
+            alignment: start;
+            ZoomControl { }
+        }
+    }
+}

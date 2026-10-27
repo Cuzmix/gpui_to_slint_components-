@@ -1,0 +1,265 @@
+// Page 4, Window & Shell: the bar stories, after ely-gallery/src/pages/shell/bars.rs. The tabs
+// live in a Rust model (the gallery's wire.rs) so new ones rise in alone.
+
+import { Theme, ControlSize, TextSize } from "../../theme/theme.slint";
+import {
+    Toolbar,
+    ToolbarGroup,
+    ToolbarSeparator,
+    StatusBar,
+    StatusBarSide,
+    StatusBarItem,
+} from "../../components/bars.slint";
+import { ActivityBar } from "../../components/activity-bar.slint";
+import { TabBar, WindowTab } from "../../components/tab-bar.slint";
+import { Button } from "../../components/button.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Caption } from "../../components/caption.slint";
+import { TypeText } from "../../components/type-text.slint";
+import { Section, WindowFrame } from "../kit.slint";
+
+// A small tool (bars.rs `tool`).
+component Tool inherits IconButton {
+    size: ControlSize.sm;
+}
+
+export component ShellBars inherits VerticalLayout {
+    // The window tabs, a model the host edits in place.
+    in property <[WindowTab]> tabs;
+    in-out property <string> selected-tab: "roadmap";
+    in-out property <string> activity: "files";
+
+    callback logged(what: string);
+    callback tab-close(id: string);
+    callback tab-add();
+    callback tab-reorder(from: int, to: int);
+
+    Section {
+        title: "Toolbar / ToolbarGroup / ToolbarSeparator";
+        note: "Tools in groups, hairlines between, one action apart.";
+        HorizontalLayout {
+            alignment: start;
+            WindowFrame {
+                width: 560px;
+                height: 44px;
+                background: Theme.colors.bg;
+                VerticalLayout {
+                    alignment: center;
+                    Toolbar {
+                        ToolbarGroup {
+                            Tool {
+                                icon: Icons.undo-2;
+                                icon-name: "undo-2";
+                            }
+
+                            Tool {
+                                icon: Icons.redo-2;
+                                icon-name: "redo-2";
+                            }
+                        }
+
+                        ToolbarSeparator { }
+
+                        ToolbarGroup {
+                            Tool {
+                                icon: Icons.bold;
+                                icon-name: "bold";
+                            }
+
+                            Tool {
+                                icon: Icons.italic;
+                                icon-name: "italic";
+                            }
+
+                            Tool {
+                                icon: Icons.underline;
+                                icon-name: "underline";
+                            }
+                        }
+
+                        ToolbarSeparator { }
+
+                        ToolbarGroup {
+                            Tool {
+                                icon: Icons.align-left;
+                                icon-name: "align-left";
+                            }
+
+                            Tool {
+                                icon: Icons.align-center;
+                                icon-name: "align-center";
+                            }
+
+                            Tool {
+                                icon: Icons.align-right;
+                                icon-name: "align-right";
+                            }
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        Button {
+                            text: "Share";
+                            size: ControlSize.sm;
+                            icon: Icons.share-2;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "StatusBar / StatusBarItem";
+        note: "Small type at the foot. Items that act show it on hover.";
+        HorizontalLayout {
+            alignment: start;
+            WindowFrame {
+                width: 560px;
+                height: 96px;
+                VerticalLayout {
+                    alignment: end;
+                    StatusBar {
+                        StatusBarSide {
+                            StatusBarItem {
+                                icon: Icons.git-branch;
+                                has-icon: true;
+                                label: "main";
+                                tooltip: "Switch branch";
+                                clickable: true;
+                                clicked => {
+                                    root.logged("branch");
+                                }
+                            }
+
+                            StatusBarItem {
+                                icon: Icons.refresh-cw;
+                                has-icon: true;
+                                label: "Synced";
+                            }
+                        }
+
+                        StatusBarSide {
+                            end: true;
+                            StatusBarItem {
+                                label: "Ln 12, Col 4";
+                            }
+
+                            StatusBarItem {
+                                label: "UTF-8";
+                            }
+
+                            StatusBarItem {
+                                icon: Icons.bell;
+                                has-icon: true;
+                                icon-name: "bell";
+                                tooltip: "No notifications";
+                                clickable: true;
+                                clicked => {
+                                    root.logged("notifications");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Section {
+        title: "ActivityBar / NavigationRail";
+        note: "An icon rail. The mark grows in beside the chosen view.";
+        HorizontalLayout {
+            alignment: start;
+            WindowFrame {
+                width: 560px;
+                height: 400px;
+                HorizontalLayout {
+                    ActivityBar {
+                        items: [
+                            { id: "files", icon: Icons.folder, label: "Explorer" },
+                            { id: "search", icon: Icons.search, label: "Search" },
+                            { id: "git", icon: Icons.git-branch, label: "Source Control", badge: 3 },
+                            { id: "debug", icon: Icons.bug, label: "Run and Debug" },
+                            { id: "extensions", icon: Icons.puzzle, label: "Extensions" },
+                        ];
+                        footer: [
+                            { id: "account", icon: Icons.user, label: "Account" },
+                            { id: "settings", icon: Icons.settings, label: "Settings" },
+                        ];
+                        selected: root.activity;
+                        select(id) => {
+                            root.activity = id;
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: Theme.colors.bg;
+                        VerticalLayout {
+                            padding: 20px;
+                            alignment: start;
+                            TypeText {
+                                text: "View: \{root.activity}";
+                                font-size: Theme.text-size(TextSize.sm);
+                                color: Theme.colors.fg-muted;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Caption {
+            text: "NavigationRail is the same rail.";
+        }
+    }
+
+    Section {
+        title: "TabBar";
+        note: "Window tabs. New ones rise in; drag one onto another to reorder.";
+        HorizontalLayout {
+            alignment: start;
+            WindowFrame {
+                width: 560px;
+                height: 120px;
+                VerticalLayout {
+                    VerticalLayout {
+                        padding: 6px;
+                        HorizontalLayout {
+                            alignment: start;
+                            TabBar {
+                                width: 548px;
+                                tabs: root.tabs;
+                                selected: root.selected-tab;
+                                closable: true;
+                                addable: true;
+                                reorderable: true;
+                                select(id) => {
+                                    root.selected-tab = id;
+                                }
+                                close(id) => {
+                                    root.tab-close(id);
+                                }
+                                add => {
+                                    root.tab-add();
+                                }
+                                reorder(from, to) => {
+                                    root.tab-reorder(from, to);
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: Theme.colors.bg;
+                    }
+                }
+            }
+        }
+    }
+}

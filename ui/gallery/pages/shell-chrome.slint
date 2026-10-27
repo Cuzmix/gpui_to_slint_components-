@@ -1,0 +1,487 @@
+// Page 4, Window & Shell: the chrome and column stories, after ely-gallery/src/pages/shell/
+// chrome.rs and columns.rs. Close buttons here only log, as the source's demo closes do.
+
+import {
+    Theme,
+    ControlSize,
+    IconSize,
+    TextSize,
+    Radius,
+    PlatformStyle,
+} from "../../theme/theme.slint";
+import { TitleBar, TitleBarTitle } from "../../components/title-bar.slint";
+import { ChromeStyle } from "../../components/window-chrome.slint";
+import {
+    WindowControls,
+    WindowDragArea,
+} from "../../components/window-controls.slint";
+import {
+    ColumnShell,
+    ShellColumnHeader,
+    ShellColumnTitle,
+    ShellColumnBody,
+} from "../../components/column-shell.slint";
+import { IconButton } from "../../components/icon-button.slint";
+import { Icon } from "../../components/icon.slint";
+import { Icons } from "../../icons/icons.slint";
+import { Caption } from "../../components/caption.slint";
+import { Paragraph } from "../../components/paragraph.slint";
+import { TypeText } from "../../components/type-text.slint";
+import {
+    Section,
+    Row,
+    Specimens,
+    Specimen,
+    CodeHint,
+    WindowFrame,
+} from "../kit.slint";
+
+// A demo title bar (chrome.rs `demo_bar`): a panel button, the title, a search action.
+component DemoBar inherits TitleBar {
+    callback logged(what: string);
+    handles-close: true;
+    close-requested => {
+        root.logged("demo close refused");
+    }
+    IconButton {
+        icon: Icons.panel-left;
+        icon-name: "panel-left";
+        size: ControlSize.sm;
+    }
+
+    TitleBarTitle {
+        text: "Ely — Projects";
+        bar: root.frame;
+    }
+
+    IconButton {
+        icon: Icons.search;
+        icon-name: "search";
+        size: ControlSize.sm;
+    }
+}
+
+// A stand-in for navigation's NavItem (chapter 7) as columns.rs `sidebar` uses it: 28 px rows,
+// the first active with the accent mark.
+component NavRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active;
+    private property <color> ink: root.active || touch.has-hover ? Theme.colors.fg : Theme.colors.fg-muted;
+    height: Theme.control-height(ControlSize.md);
+    border-radius: Theme.radius(Radius.md);
+    background: root.active || touch.has-hover ? Theme.colors.hover : transparent;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.label;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.active;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+    }
+
+    if root.active: Rectangle {
+        x: 0;
+        y: 6px;
+        width: Theme.tab-indicator;
+        height: parent.height - 12px;
+        border-radius: self.width / 2;
+        background: Theme.colors.accent;
+    }
+
+    HorizontalLayout {
+        padding-left: 1px + 8px;
+        padding-right: 1px + 8px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                size: IconSize.sm;
+                color: root.ink;
+            }
+        }
+
+        TypeText {
+            text: root.label;
+            font-size: Theme.text-size(TextSize.sm);
+            font-weight: root.active ? 500 : 400;
+            color: root.ink;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            accessible-role: none;
+        }
+    }
+}
+
+struct NavEntry {
+    icon: image,
+    label: string,
+}
+
+// The sidebar column's links (columns.rs `sidebar`), 8 px in, 2 px apart.
+component SideNav inherits VerticalLayout {
+    in property <[NavEntry]> items;
+    padding: 8px;
+    spacing: 2px;
+    alignment: start;
+    for item[ix] in root.items: NavRow {
+        icon: item.icon;
+        label: item.label;
+        active: ix == 0;
+    }
+}
+
+// A sidebar header's leading buttons (columns.rs `sidebar`).
+component SideLeading inherits HorizontalLayout {
+    spacing: 8px;
+    IconButton {
+        icon: Icons.panel-left;
+        icon-name: "panel-left";
+        size: ControlSize.sm;
+    }
+
+    IconButton {
+        icon: Icons.arrow-left;
+        icon-name: "arrow-left";
+        size: ControlSize.sm;
+    }
+
+    IconButton {
+        icon: Icons.arrow-right;
+        icon-name: "arrow-right";
+        size: ControlSize.sm;
+    }
+}
+
+export component ShellChrome inherits VerticalLayout {
+    callback logged(what: string);
+
+    Section {
+        title: "TitleBar";
+        note: "Title centered, system buttons in their place, empty space drags.";
+        VerticalLayout {
+            spacing: 24px;
+            alignment: start;
+            for style in [
+                { platform: ChromeStyle.mac, name: "macOS" },
+                { platform: ChromeStyle.windows, name: "Windows" },
+                { platform: ChromeStyle.linux, name: "Linux" },
+            ]: Specimen {
+                caption: style.name;
+                HorizontalLayout {
+                    alignment: start;
+                    WindowFrame {
+                        width: 560px;
+                        height: 120px;
+                        VerticalLayout {
+                            alignment: start;
+                            DemoBar {
+                                platform: style.platform;
+                                logged(what) => {
+                                    root.logged(what);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "TitleBar { platform: ChromeStyle.system; } leaves room for the real macOS lights.";
+        }
+    }
+}
+
+export component ShellColumns inherits VerticalLayout {
+    callback logged(what: string);
+
+    Section {
+        title: "ColumnShell / ShellColumn";
+        note: "The sidebar runs to the window's top; each column brings a header that drags.";
+        VerticalLayout {
+            spacing: 24px;
+            alignment: start;
+            Specimen {
+                caption: "Two columns";
+                HorizontalLayout {
+                    alignment: start;
+                    WindowFrame {
+                        width: 640px;
+                        height: 280px;
+                        two := ColumnShell {
+                            platform: ChromeStyle.system;
+                            handles-close: true;
+                            columns: [{ fills: false }, { fills: true }];
+                            widths: [Theme.sidebar-width(false), 0];
+                            close-requested => {
+                                root.logged("demo close refused");
+                            }
+                            ShellColumnHeader {
+                                column: two.frames[0];
+                                SideLeading { }
+                            }
+
+                            ShellColumnBody {
+                                column: two.frames[0];
+                                SideNav {
+                                    items: [
+                                        { icon: Icons.square-pen, label: "New task" },
+                                        { icon: Icons.search, label: "Search" },
+                                        { icon: Icons.inbox, label: "Inbox" },
+                                    ];
+                                }
+                            }
+
+                            ShellColumnHeader {
+                                column: two.frames[1];
+                                ShellColumnTitle {
+                                    text: "New task";
+                                }
+
+                                IconButton {
+                                    icon: Icons.info;
+                                    icon-name: "info";
+                                    size: ControlSize.sm;
+                                }
+
+                                IconButton {
+                                    icon: Icons.panel-right;
+                                    icon-name: "panel-right";
+                                    size: ControlSize.sm;
+                                }
+                            }
+
+                            ShellColumnBody {
+                                column: two.frames[1];
+                                VerticalLayout {
+                                    alignment: center;
+                                    Paragraph {
+                                        text: "What should we build?";
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Specimen {
+                caption: "Three columns";
+                HorizontalLayout {
+                    alignment: start;
+                    WindowFrame {
+                        width: 760px;
+                        height: 280px;
+                        three := ColumnShell {
+                            platform: ChromeStyle.system;
+                            handles-close: true;
+                            columns: [{ fills: false }, { fills: false }, { fills: true }];
+                            widths: [Theme.sidebar-width(false), 220px, 0];
+                            close-requested => {
+                                root.logged("demo close refused");
+                            }
+                            ShellColumnHeader {
+                                column: three.frames[0];
+                                SideLeading { }
+                            }
+
+                            ShellColumnBody {
+                                column: three.frames[0];
+                                SideNav {
+                                    items: [
+                                        { icon: Icons.inbox, label: "Inbox" },
+                                        { icon: Icons.send, label: "Sent" },
+                                        { icon: Icons.archive, label: "Archive" },
+                                    ];
+                                }
+                            }
+
+                            ShellColumnHeader {
+                                column: three.frames[1];
+                                ShellColumnTitle {
+                                    text: "Inbox";
+                                }
+
+                                IconButton {
+                                    icon: Icons.search;
+                                    icon-name: "search";
+                                    size: ControlSize.sm;
+                                }
+                            }
+
+                            ShellColumnBody {
+                                column: three.frames[1];
+                                VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 12px;
+                                    alignment: start;
+                                    for mail in [
+                                        { subject: "Quarterly review", line: "Numbers, notes and the next three moves." },
+                                        { subject: "Design sync", line: "Tokens for the new sidebar." },
+                                        { subject: "Launch plan", line: "Dates for the beta." },
+                                    ]: VerticalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        spacing: 2px;
+                                        Paragraph {
+                                            text: mail.subject;
+                                        }
+
+                                        Caption {
+                                            text: mail.line;
+                                        }
+                                    }
+                                }
+                            }
+
+                            ShellColumnHeader {
+                                column: three.frames[2];
+                                ShellColumnTitle {
+                                    text: "Quarterly review";
+                                }
+
+                                IconButton {
+                                    icon: Icons.reply;
+                                    icon-name: "reply";
+                                    size: ControlSize.sm;
+                                }
+
+                                IconButton {
+                                    icon: Icons.archive;
+                                    icon-name: "archive";
+                                    size: ControlSize.sm;
+                                }
+                            }
+
+                            ShellColumnBody {
+                                column: three.frames[2];
+                                VerticalLayout {
+                                    padding: 20px;
+                                    alignment: start;
+                                    Paragraph {
+                                        text: "Revenue rose eight percent. Three moves come next: hire, ship the beta, close the books.";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "ColumnShell { platform: ChromeStyle.system; } leaves the first header room for the real macOS lights.";
+        }
+    }
+}
+
+// The controls on a plate (chrome.rs `window_controls`): the title bar's height, 12 px sides
+// (none for Windows), radius md, hairline, on `bg`.
+component Plate inherits Rectangle {
+    in property <bool> flush;
+    height: Theme.titlebar-height;
+    border-radius: Theme.radius(Radius.md);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.bg;
+    clip: true;
+    HorizontalLayout {
+        padding-left: root.flush ? 1px : 1px + 12px;
+        padding-right: root.flush ? 1px : 1px + 12px;
+        padding-top: 1px;
+        padding-bottom: 1px;
+        @children
+    }
+}
+
+export component ShellWindowBits inherits VerticalLayout {
+    callback logged(what: string);
+
+    Section {
+        title: "WindowControls / TrafficLights";
+        note: "Three manners. Hover the lights for their glyphs.";
+        Specimens {
+            for style in [
+                { platform: PlatformStyle.mac, name: "Mac" },
+                { platform: PlatformStyle.windows, name: "Windows" },
+                { platform: PlatformStyle.linux, name: "Linux" },
+            ]: Specimen {
+                caption: style.name;
+                HorizontalLayout {
+                    alignment: start;
+                    Plate {
+                        flush: style.platform == PlatformStyle.windows;
+                        VerticalLayout {
+                            alignment: center;
+                            WindowControls {
+                                platform: style.platform;
+                                handles-close: true;
+                                close-requested => {
+                                    root.logged("demo close refused");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "Minimize and zoom act on this window. Close here only logs.";
+        }
+    }
+
+    Section {
+        title: "WindowDragRegion";
+        note: "Windows hit-tests it natively, Linux moves by hand, double-click zooms.";
+        HorizontalLayout {
+            alignment: start;
+            // gpui dashes the border; Slint draws it solid (G34).
+            Rectangle {
+                width: 420px;
+                height: Theme.control-height(ControlSize.lg);
+                border-radius: Theme.radius(Radius.md);
+                border-width: 1px;
+                border-color: Theme.colors.border-strong;
+                WindowDragArea {
+                    TypeText {
+                        width: parent.width;
+                        height: parent.height;
+                        text: "Double-click to zoom this window";
+                        font-size: Theme.text-size(TextSize.sm);
+                        color: Theme.colors.fg-subtle;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        CodeHint {
+            text: "WindowDragArea { }";
+        }
+    }
+
+    Section {
+        title: "WindowResizeBorder";
+        note: "A margin to resize from, a hairline, a shadow, for client-drawn windows.";
+        Caption {
+            text: "Linux draws its own edges. This window keeps the system's, so the border lays out only.";
+        }
+
+        CodeHint {
+            text: "ResizeBorder { App { } }";
+        }
+    }
+
+    Section {
+        title: "NativeMenu / MenuBar / JumpList";
+        note: "One menu model: the system bar, the Dock, and later the window.";
+        Caption {
+            text: "MenuBar draws the same menus inside the window. It lands with Menus, chapter 8.";
+        }
+    }
+}

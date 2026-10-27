@@ -2,6 +2,8 @@
 
 import { Theme, TextSize, Radius } from "../theme/theme.slint";
 import { TypeText } from "../components/type-text.slint";
+import { Elevated } from "../components/elevated.slint";
+import { Elevation } from "../theme/theme.slint";
 
 // Titled block of demos.
 export component Section inherits VerticalLayout {
@@ -154,5 +156,49 @@ export component DemoFrame inherits Rectangle {
         border-radius: max(0, Theme.radius(Radius.lg) - 1px);
         clip: true;
         @children
+    }
+}
+
+// A window drawn inside the page (shell/chrome.rs `window_frame`): sunken, hairline, radius lg,
+// raised shadow; it clips, and its children fill the room inside the line.
+export component WindowFrame inherits Elevated {
+    elevation: Elevation.raised;
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.sunken;
+
+    Rectangle {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        border-radius: max(0, Theme.radius(Radius.lg) - 1px);
+        clip: true;
+        @children
+    }
+}
+
+// An honest note for an entry the port cannot show (ui.rs `blocked`): a warning dot and words.
+export component Blocked inherits HorizontalLayout {
+    in property <string> text;
+    spacing: 8px;
+    alignment: start;
+    VerticalLayout {
+        padding-top: 6px;
+        alignment: start;
+        Rectangle {
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: Theme.colors.warning;
+        }
+    }
+
+    TypeText {
+        text: root.text;
+        font-size: Theme.text-size(TextSize.sm);
+        color: Theme.colors.warning;
+        horizontal-stretch: 1;
     }
 }

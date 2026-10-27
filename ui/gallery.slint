@@ -7,6 +7,9 @@ import { ButtonsPage } from "gallery/pages/buttons.slint";
 import { PrimitivesPage } from "gallery/pages/primitives.slint";
 import { TypographyPage } from "gallery/pages/typography.slint";
 import { LayoutPage } from "gallery/pages/layout.slint";
+import { ShellPage } from "gallery/pages/shell.slint";
+import { WindowSwitcher } from "components/window-switcher.slint";
+import { WindowTab } from "components/tab-bar.slint";
 import { Sheet, Drawer } from "components/sheet.slint";
 import { FloatingPanel } from "components/floating-panel.slint";
 import { Paragraph } from "components/paragraph.slint";
@@ -33,6 +36,29 @@ export {
     PaneDivider,
 } from "components/workspace-model.slint";
 export { Icons, IconEntry } from "icons/icons.slint";
+export {
+    WindowChrome,
+    ResizeEdge,
+    ChromeStyle,
+} from "components/window-chrome.slint";
+export {
+    ColumnShells,
+    ShellColumnSpec,
+    ShellRoom,
+    ShellColumnFrame,
+} from "components/column-shell.slint";
+export { ManagedWindows } from "components/window-switcher.slint";
+export { MiniWindowActs } from "components/mini-window.slint";
+export { WindowTab } from "components/tab-bar.slint";
+export {
+    AboutWindow,
+    SplashWindow,
+    UpdateWindow,
+    CrashWindow,
+    DraftWindow,
+    MiniPlayer,
+    PipWindow,
+} from "gallery/windows.slint";
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-Medium.ttf";
 import "fonts/Inter-SemiBold.ttf";
@@ -72,6 +98,12 @@ export component Gallery inherits Window {
             summary: "Stacks, grids, splits, docks. Structure that stays out of the way."
         },
         {
+            number: 4,
+            slug: "shell",
+            title: "Window & Shell",
+            summary: "Title bars, rails, tabs, and the windows around an app."
+        },
+        {
             number: 5,
             slug: "buttons",
             title: "Buttons & Actions",
@@ -95,6 +127,21 @@ export component Gallery inherits Window {
     // The current page's full height, so a capture can show it all.
     out property <length> capture-height: page-body.preferred-height;
     callback clicked(string);
+    // The Window & Shell page's state and acts (gallery wire.rs).
+    in property <[WindowTab]> tabs;
+    in-out property <string> selected-tab: "roadmap";
+    in property <bool> tray-shown;
+    in property <string> tray-note: "nothing yet";
+    in property <string> dock-reading;
+    in-out property <bool> switcher-open: false;
+    callback logged(string);
+    callback tab-close(string);
+    callback tab-add();
+    callback tab-reorder(int, int);
+    callback open-window(string);
+    callback tray-toggle();
+    callback tray-pick();
+    callback badge(string);
 
     changed start-dark => {
         Theme.set-mode-now(start-dark ? Mode.dark : Mode.light);
@@ -171,6 +218,40 @@ export component Gallery inherits Window {
                     }
                     workspace-restore => {
                         root.workspace-restore();
+                    }
+                }
+                if root.pages[root.current].slug == "shell": ShellPage {
+                    tabs: root.tabs;
+                    selected-tab <=> root.selected-tab;
+                    tray-shown: root.tray-shown;
+                    tray-note: root.tray-note;
+                    dock-reading: root.dock-reading;
+                    logged(what) => {
+                        root.logged(what);
+                    }
+                    tab-close(id) => {
+                        root.tab-close(id);
+                    }
+                    tab-add => {
+                        root.tab-add();
+                    }
+                    tab-reorder(from, to) => {
+                        root.tab-reorder(from, to);
+                    }
+                    open-window(which) => {
+                        root.open-window(which);
+                    }
+                    tray-toggle => {
+                        root.tray-toggle();
+                    }
+                    tray-pick => {
+                        root.tray-pick();
+                    }
+                    badge(label) => {
+                        root.badge(label);
+                    }
+                    switch-windows => {
+                        root.switcher-open = true;
                     }
                 }
                 if root.pages[root.current].slug == "buttons": ButtonsPage {
@@ -257,6 +338,12 @@ export component Gallery inherits Window {
                     }
                 }
             }
+        }
+    }
+
+    if root.switcher-open: WindowSwitcher {
+        close => {
+            root.switcher-open = false;
         }
     }
 }

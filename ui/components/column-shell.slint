@@ -86,19 +86,23 @@ export component ShellColumnHeader {
         content-height: self.height;
         row := HorizontalLayout {
             spacing: 8px;
+            // gpui `items_center`.
+            cross-axis-alignment: center;
             @children
         }
     }
 }
 
 // A header's title, or a spacer without text: it fills between the leading items and the
-// actions, drags the window, and adds no width.
+// actions, drags the window across the header's full height, and adds no width.
 export component ShellColumnTitle inherits WindowDragArea {
     in property <string> text;
 
     horizontal-stretch: 1;
     min-width: 0;
     preferred-width: 0;
+    // The header's full height (`h_full`) in its centered row.
+    preferred-height: Theme.titlebar-height;
 
     Ellipsis {
         x: 0;
@@ -236,7 +240,10 @@ export component ColumnShell inherits Rectangle {
 
     if root.room.lead > 0 && root.frames.length > 0: WindowControls {
         x: root.room.first-pad;
-        y: (Theme.titlebar-height - self.preferred-height) / 2;
+        // The bar's height above its hairline, as in TitleBar.
+        y: 0;
+        width: self.preferred-width;
+        height: Theme.titlebar-height - 1px;
         platform: root.style;
         handles-close: root.handles-close;
         close-requested => {
@@ -247,7 +254,10 @@ export component ColumnShell inherits Rectangle {
     if root.room.trail > 0 && root.frames.length > 0: WindowControls {
         private property <ShellColumnFrame> last: root.frames[root.frames.length - 1];
         x: self.last.x + self.last.width - (root.room.flush ? 0 : 12px) - self.preferred-width;
-        y: (Theme.titlebar-height - self.preferred-height) / 2;
+        // The bar's height above its hairline, as in TitleBar.
+        y: 0;
+        width: self.preferred-width;
+        height: Theme.titlebar-height - 1px;
         platform: root.style;
         handles-close: root.handles-close;
         close-requested => {

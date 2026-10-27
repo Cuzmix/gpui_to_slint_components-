@@ -1,0 +1,92 @@
+// Page 4, Window & Shell, after ely-gallery/src/pages/shell/mod.rs: every story in the source's
+// order.
+
+import { WindowTab } from "../../components/tab-bar.slint";
+import { Connectivity } from "../../components/status.slint";
+import { ShellChrome, ShellColumns, ShellWindowBits } from "shell-chrome.slint";
+import { ShellBars } from "shell-bars.slint";
+import { ShellWindows } from "shell-windows.slint";
+import { ShellStatus } from "shell-status.slint";
+
+export component ShellPage inherits VerticalLayout {
+    in property <[WindowTab]> tabs;
+    in-out property <string> selected-tab: "roadmap";
+    in property <bool> tray-shown;
+    in property <string> tray-note: "nothing yet";
+    in property <string> dock-reading;
+
+    callback logged(what: string);
+    callback tab-close(id: string);
+    callback tab-add();
+    callback tab-reorder(from: int, to: int);
+    callback open-window(which: string);
+    callback tray-toggle();
+    callback tray-pick();
+    callback badge(label: string);
+    callback switch-windows();
+
+    ShellChrome {
+        logged(what) => {
+            root.logged(what);
+        }
+    }
+
+    ShellColumns {
+        logged(what) => {
+            root.logged(what);
+        }
+    }
+
+    ShellWindowBits {
+        logged(what) => {
+            root.logged(what);
+        }
+    }
+
+    ShellBars {
+        tabs: root.tabs;
+        selected-tab <=> root.selected-tab;
+        logged(what) => {
+            root.logged(what);
+        }
+        tab-close(id) => {
+            root.tab-close(id);
+        }
+        tab-add => {
+            root.tab-add();
+        }
+        tab-reorder(from, to) => {
+            root.tab-reorder(from, to);
+        }
+    }
+
+    ShellWindows {
+        tray-shown: root.tray-shown;
+        tray-note: root.tray-note;
+        dock-reading: root.dock-reading;
+        open-window(which) => {
+            root.open-window(which);
+        }
+        tray-toggle => {
+            root.tray-toggle();
+        }
+        tray-pick => {
+            root.tray-pick();
+        }
+        badge(label) => {
+            root.badge(label);
+        }
+        switch-windows => {
+            root.switch-windows();
+        }
+    }
+
+    ShellStatus {
+        logged(what) => {
+            root.logged(what);
+        }
+        open-window(which) => {
+            root.open-window(which);
+        }
+    }
+}

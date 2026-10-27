@@ -1,0 +1,190 @@
+// The windows the Window & Shell page opens, after ely-gallery/src/pages/shell/windows.rs and
+// status.rs. The gallery's Rust shows them (`open_hosted`, `open_splash`, `WindowManager`,
+// `open_mini`) and wires each one's `WindowChrome`.
+
+import { Theme, ControlSize, TextSize, Radius } from "../theme/theme.slint";
+import { HostedWindow } from "../components/hosted-window.slint";
+import { MiniWindow } from "../components/mini-window.slint";
+import { TitleBar, TitleBarTitle } from "../components/title-bar.slint";
+import { WindowChrome } from "../components/window-chrome.slint";
+import { Title } from "../components/title.slint";
+import { Caption } from "../components/caption.slint";
+import { Label } from "../components/label.slint";
+import { TypeText } from "../components/type-text.slint";
+import { Button } from "../components/button.slint";
+import { IconButton } from "../components/icon-button.slint";
+import { Picture } from "../components/picture.slint";
+import { Icons } from "../icons/icons.slint";
+import { GalleryAbout, GallerySplash } from "pages/shell-windows.slint";
+import { GalleryUpdate, GalleryCrash } from "pages/shell-status.slint";
+
+export component AboutWindow inherits HostedWindow {
+    heading: "About Ely";
+    window-width: Theme.about-window-width;
+    window-height: Theme.about-window-height;
+    GalleryAbout { }
+}
+
+export component SplashWindow inherits HostedWindow {
+    heading: "Ely";
+    window-width: Theme.splash-window-width;
+    window-height: Theme.splash-window-height;
+    framed: false;
+    movable: false;
+    GallerySplash { }
+}
+
+export component UpdateWindow inherits HostedWindow {
+    callback logged(what: string);
+    heading: @tr("Software Update");
+    GalleryUpdate {
+        download => {
+            root.logged("update download");
+        }
+        // The window's own Later closes it (status.rs `update_dialog`).
+        later => {
+            WindowChrome.close();
+        }
+    }
+}
+
+export component CrashWindow inherits HostedWindow {
+    callback logged(what: string);
+    heading: "Ely crashed";
+    GalleryCrash {
+        send => {
+            root.logged("crash report sent");
+        }
+        dismiss => {
+            root.logged("crash report dismissed");
+        }
+        copied => {
+            root.logged("crash report copied");
+        }
+    }
+}
+
+// A window the manager opened (windows.rs `Managed`): its title bar asks before the first close.
+export component DraftWindow inherits Window {
+    in property <string> heading;
+    in-out property <bool> asked;
+
+    title: root.heading;
+    preferred-width: 420px;
+    preferred-height: 280px;
+    background: Theme.colors.bg;
+    default-font-family: Theme.font-family;
+
+    VerticalLayout {
+        bar := TitleBar {
+            handles-close: !root.asked;
+            close-requested => {
+                root.asked = true;
+            }
+            TitleBarTitle {
+                text: root.heading;
+                bar: bar.frame;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 12px;
+            Title {
+                text: root.heading;
+                horizontal-alignment: center;
+            }
+
+            Caption {
+                text: root.asked ? "The title bar caught the close. The next one goes through." : "Opened by WindowManager. Its close button asks first.";
+                horizontal-alignment: center;
+            }
+
+            if root.asked: HorizontalLayout {
+                alignment: center;
+                Button {
+                    text: "Close anyway";
+                    size: ControlSize.sm;
+                    clicked => {
+                        WindowChrome.close();
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The mini player (windows.rs `Player`): art, the track, play and pause.
+export component MiniPlayer inherits MiniWindow {
+    in-out property <bool> playing: true;
+    heading: "Now playing";
+    window-width: 320px;
+    window-height: 96px;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Picture {
+                width: Theme.control-height(ControlSize.lg) * 2;
+                height: self.width;
+                border-radius: Theme.radius(Radius.md);
+                source: @image-url("assets/dunes.jpg");
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Label {
+                text: "Quiet Hours";
+            }
+
+            Caption {
+                text: "Low Tide · 2:41";
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: root.playing ? Icons.pause : Icons.play;
+                icon-name: root.playing ? "pause" : "play";
+                clicked => {
+                    root.playing = !root.playing;
+                }
+            }
+        }
+    }
+}
+
+// Picture in picture (windows.rs `Picture`): the frame, and the time over its corner.
+export component PipWindow inherits MiniWindow {
+    heading: "Picture in picture";
+    window-width: 384px;
+    window-height: 216px;
+
+    Picture {
+        width: 100%;
+        height: 100%;
+        source: @image-url("assets/atrium.jpg");
+    }
+
+    Rectangle {
+        x: 12px;
+        y: parent.height - 12px - self.height;
+        width: time.preferred-width + 16px;
+        height: time.preferred-height;
+        border-radius: Theme.radius(Radius.sm);
+        background: Theme.opacity(Theme.colors.tooltip-bg, 0.85);
+        time := TypeText {
+            x: 8px;
+            y: 0;
+            text: "12:04 / 48:10";
+            font-size: Theme.text-size(TextSize.xs);
+            color: Theme.colors.tooltip-fg;
+        }
+    }
+}

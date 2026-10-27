@@ -96,7 +96,7 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Badge / CountBadge / DotBadge / Tag (Tone) | data_display/badge.rs (chapter 12, early) | ✓ | ✓ remove | n/a | ✓ x hover | ✓ count rolls | ✓ | ✓ text, remove button | ✓ `tests/bars.rs` | | ✓ |
 | ProgressBar / ProgressRing | motion/progress.rs (chapter 6, early) | ✓ | n/a | n/a | n/a | ✓ glide, sweep | ✓ | ✓ progress-indicator, value | ✓ `tests/progress.rs` | G43 | ✓ |
 
-Gallery: pages 1–3 (Foundations, Typography, Layout) mirror the story app; `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
+Gallery: pages 1–4 (Foundations, Typography, Layout, Window & Shell) mirror the story app; page 4's sidebar rows are a stand-in until NavRow lands with Navigation (chapter 7), and its window buttons open the real windows (about, splash, update, crash, managed, mini, picture in picture; the tray and Dock badge with `--features desktop`); `examples/capture.rs` renders any page headless. Layout regressions found there are pinned in `tests/squeeze.rs`.
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 
