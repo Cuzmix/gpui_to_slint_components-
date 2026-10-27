@@ -54,6 +54,8 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | Panel, PanelHeader | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
 | Section, SectionHeader | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
 | Fieldset (Group), Frame, Well | layout/surface.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ text role | ✓ `tests/surface.rs` | | ✓ |
+| Collapsible | layout/collapse.rs | ✓ | n/a | n/a | n/a | ✓ 200 ms ease-in-out, restarts from the far end | ✓ | ✓ (no node) | ✓ `tests/collapse.rs` | | ✓ |
+| Accordion, AccordionItem | layout/collapse.rs | ✓ | ✓ | ✓ Enter/Space, Tab stop | ✓ | ✓ (Collapsible, Disclosure) | ✓ | ✓ button, expanded | ✓ `tests/collapse.rs` | G21 G32 | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

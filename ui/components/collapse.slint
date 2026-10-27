@@ -1,0 +1,200 @@
+// Port of ely-core/src/layout/collapse.rs: `Collapsible`, `Accordion`, `AccordionItem`.
+
+import { Theme, TextSize, IconSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { Disclosure } from "disclosure.slint";
+import { FocusRing } from "focus-ring.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// A region that opens and shuts by animating its height to the content's (`Collapsible`).
+// Each change runs `motion-base` (200 ms) with ease-in-out-cubic from the far end: opening grows
+// from nothing, shutting falls from the full height, even when the last change had not finished.
+// Shut and settled, the content is gone (not drawn, no Tab stop). The first paint is still.
+export component Collapsible inherits Rectangle {
+    in property <bool> open: true;
+    // The change has run its course.
+    out property <bool> settled: true;
+
+    private property <length> natural: body.preferred-height;
+    private property <duration> began;
+    private property <float> t: root.settled ? 1 : clamp((animation-tick() - root.began) / Theme.motion-base, 0, 1);
+    private property <float> eased: Theme.ease-in-out-cubic(root.t);
+
+    clip: true;
+    height: root.settled ? (root.open ? root.natural : 0) : root.natural * (root.open ? root.eased : 1 - root.eased);
+
+    changed open => {
+        root.began = animation-tick();
+        root.settled = false;
+        done.running = true;
+        done.restart();
+    }
+
+    done := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.settled = true;
+        }
+    }
+
+    body := VerticalLayout {
+        y: 0;
+        width: root.width;
+        height: root.natural;
+        visible: root.open || !root.settled;
+        @children
+    }
+}
+
+// Stacked items that fold, one open at a time unless `multiple` (`Accordion`). Slint cannot hand
+// state to children it has not made, so each AccordionItem asks the accordion by its index:
+//     faq := Accordion {
+//         first-open: true;
+//         AccordionItem { title: "What is Ely?"; open: faq.is-open(0); toggled => { faq.toggle(0); } text: "…"; }
+//         AccordionItem { title: "Does it animate?"; open: faq.is-open(1); toggled => { faq.toggle(1); } text: "…"; }
+//     }
+// It keeps up to 31 items' state.
+export component Accordion inherits VerticalLayout {
+    // Lets more than one item stay open.
+    in property <bool> multiple: false;
+    // Starts with the first item open.
+    in property <bool> first-open: false;
+    // Which items are open, one bit per index (bit 0 is the first item).
+    in-out property <int> open-items: root.first-open ? 1 : 0;
+
+    // Whether item `index` is open.
+    public pure function is-open(index: int) -> bool {
+        index >= 0 && index < 31 && Math.mod(floor(root.open-items / Math.pow(2, index)), 2) == 1
+    }
+
+    // Opens or shuts item `index`; opening one shuts the others unless `multiple`.
+    public function toggle(index: int) {
+        if index < 0 || index >= 31 {
+            return;
+        }
+        let bit = Math.pow(2, index);
+        if root.is-open(index) {
+            root.open-items -= bit;
+        } else if root.multiple {
+            root.open-items += bit;
+        } else {
+            root.open-items = bit;
+        }
+    }
+
+    padding-top: 1px;
+
+    // The hairline on top, in the padding above the first item.
+    Rectangle {
+        height: 0;
+        Rectangle {
+            x: 0;
+            y: -1px;
+            width: parent.width;
+            height: 1px;
+            background: Theme.colors.border;
+        }
+    }
+
+    @children
+}
+
+// One titled, foldable row of an Accordion (`AccordionItem`): a header button with the title and
+// a turning chevron, and the body under it in a Collapsible, in the muted ink. `text` draws a
+// plain body; children follow it, and can bind `ink` for the body's color.
+export component AccordionItem inherits VerticalLayout {
+    in property <string> title;
+    // A plain body line.
+    in property <string> text;
+    in property <bool> open: false;
+    // The body's ink, for children to bind.
+    out property <color> ink: Theme.colors.fg-muted;
+    out property <bool> has-focus: keys.has-focus;
+    // The header was pressed, or Enter or Space released on it.
+    callback toggled();
+
+    forward-focus: keys;
+    padding-bottom: 1px;
+
+    header := Rectangle {
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-expandable: true;
+        accessible-expanded: root.open;
+        accessible-action-default => {
+            root.toggled();
+        }
+        accessible-action-expand => {
+            root.toggled();
+        }
+
+        ring := FocusRing {
+            focused: keys.has-focus;
+        }
+
+        HorizontalLayout {
+            padding-left: 1px + 4px;
+            padding-right: 1px + 4px;
+            padding-top: 1px + 12px;
+            padding-bottom: 1px + 12px;
+            TypeText {
+                text: root.title;
+                font-size: Theme.text-size(TextSize.base);
+                font-weight: 500;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+                Disclosure {
+                    open: root.open;
+                    size: IconSize.sm;
+                    color: Theme.colors.fg-muted;
+                }
+            }
+        }
+
+        TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.toggled();
+            }
+        }
+
+        keys := ClickKeys {
+            activated => {
+                root.toggled();
+            }
+        }
+    }
+
+    Collapsible {
+        open: root.open;
+        VerticalLayout {
+            padding-left: 4px;
+            padding-right: 4px;
+            padding-bottom: 16px;
+            if root.text != "": TypeText {
+                text: root.text;
+                color: root.ink;
+            }
+            @children
+        }
+    }
+
+    // The hairline under the item, in the padding below it.
+    Rectangle {
+        height: 0;
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: 1px;
+            background: Theme.colors.border;
+        }
+    }
+}
