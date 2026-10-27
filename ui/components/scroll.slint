@@ -14,6 +14,7 @@ import { Elevated } from "elevated.slint";
 import { IconButton } from "icon-button.slint";
 import { ButtonVariant } from "button-style.slint";
 import { Icons } from "../icons/icons.slint";
+import { DragTouch } from "drag-touch.slint";
 
 // Shown while the scroll moves, then 900 ms idle, then a fade over `motion-slow` (`presence`).
 component Activity {
@@ -71,7 +72,7 @@ export component Scrollbar {
     // pointer rests on it lets go on the pointer's next move.
     out property <bool> on-bar: track.has-hover;
     // The thumb is held by a drag.
-    out property <bool> dragging: thumb-touch.pressed;
+    out property <bool> dragging: thumb-touch.dragging;
 
     private property <bool> vertical: root.orientation == Orientation.vertical;
     private property <length> span: root.vertical ? root.height : root.width;
@@ -116,19 +117,17 @@ export component Scrollbar {
             width: root.vertical ? root.thickness : root.length;
             height: root.vertical ? root.length : root.thickness;
             border-radius: root.thickness / 2;
-            background: Theme.opacity(Theme.colors.fg, thumb-touch.has-hover || thumb-touch.pressed ? 0.42 : 0.22);
+            background: Theme.opacity(Theme.colors.fg, thumb-touch.has-hover || thumb-touch.dragging ? 0.42 : 0.22);
 
-            thumb-touch := TouchArea {
-                pointer-event(event) => {
-                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                        root.grab-start = root.start;
-                        root.anchored = false;
-                    }
+            thumb-touch := DragTouch {
+                drag-started => {
+                    root.grab-start = root.start;
+                    root.anchored = false;
                 }
-                moved => {
-                    if self.pressed && root.travel > 0 {
-                        // The pointer along the track.
-                        let along = root.vertical ? parent.y + self.mouse-y : parent.x + self.mouse-x;
+                drag-moved(x, y) => {
+                    if root.travel > 0 {
+                        // The pointer along the track; the first drag position anchors.
+                        let along = root.vertical ? y : x;
                         if !root.anchored {
                             root.anchor = along;
                             root.anchored = true;

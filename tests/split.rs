@@ -97,6 +97,19 @@ fn a_drag_moves_one_divider() {
     assert_eq!(h.get_reports(), 3);
 }
 
+// gpui starts a drag only past 2 px from the press; the drag then counts from there.
+fn a_drag_starts_past_two_pixels() {
+    let h = harness();
+    mouse_down(h.window(), 183.0, 100.0);
+    mouse_move(h.window(), 185.0, 100.0);
+    assert_eq!(h.get_reports(), 0);
+    mouse_move(h.window(), 186.0, 100.0);
+    assert_eq!(h.get_reports(), 1);
+    mouse_move(h.window(), 196.0, 100.0);
+    assert!(close(h.get_last_share(), 0.3 + 10.0 / 606.0));
+    mouse_up(h.window(), 196.0, 100.0);
+}
+
 fn new_sizes_replace_the_drag() {
     let h = harness();
     mouse_down(h.window(), 183.0, 100.0);
@@ -116,4 +129,4 @@ fn bad_weights_fall_back_to_even() {
     assert!(close(h.get_left_w(), 300.0));
 }
 
-cases!(split: panes_take_their_shares, a_drag_moves_one_divider, new_sizes_replace_the_drag, bad_weights_fall_back_to_even);
+cases!(split: panes_take_their_shares, a_drag_moves_one_divider, a_drag_starts_past_two_pixels, new_sizes_replace_the_drag, bad_weights_fall_back_to_even);

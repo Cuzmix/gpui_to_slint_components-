@@ -13,6 +13,7 @@ import {
 } from "../theme/theme.slint";
 import { Elevated } from "elevated.slint";
 import { TypeText } from "type-text.slint";
+import { DragTouch } from "drag-touch.slint";
 
 export component FloatingPanel {
     in property <string> title;
@@ -75,32 +76,26 @@ export component FloatingPanel {
         column := VerticalLayout {
             padding: 1px;
             alignment: start;
-            bar := TouchArea {
+            bar := DragTouch {
                 height: Theme.control-height(ControlSize.md);
-                mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
-                pointer-event(event) => {
-                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                        root.carry-x = root.at-x;
-                        root.carry-y = root.at-y;
-                        root.anchored = false;
-                    }
+                mouse-cursor: self.dragging ? MouseCursor.grabbing : MouseCursor.grab;
+                drag-started => {
+                    root.carry-x = root.at-x;
+                    root.carry-y = root.at-y;
+                    root.anchored = false;
                 }
-                moved => {
-                    if self.pressed {
-                        let px = self.absolute-position.x + self.mouse-x;
-                        let py = self.absolute-position.y + self.mouse-y;
-                        if !root.anchored {
-                            root.anchor-x = px;
-                            root.anchor-y = py;
-                            root.anchored = true;
-                        }
-                        let nx = root.keep-x(root.carry-x + px - root.anchor-x);
-                        let ny = root.keep-y(root.carry-y + py - root.anchor-y);
-                        root.moved(nx, ny);
-                        root.moved-x = nx;
-                        root.moved-y = ny;
-                        root.dragged = true;
+                drag-moved(px, py) => {
+                    if !root.anchored {
+                        root.anchor-x = px;
+                        root.anchor-y = py;
+                        root.anchored = true;
                     }
+                    let nx = root.keep-x(root.carry-x + px - root.anchor-x);
+                    let ny = root.keep-y(root.carry-y + py - root.anchor-y);
+                    root.moved(nx, ny);
+                    root.moved-x = nx;
+                    root.moved-y = ny;
+                    root.dragged = true;
                 }
 
                 HorizontalLayout {

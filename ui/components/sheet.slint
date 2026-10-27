@@ -8,6 +8,7 @@ import { Elevated } from "elevated.slint";
 import { IconButton } from "icon-button.slint";
 import { Icons } from "../icons/icons.slint";
 import { TypeText } from "type-text.slint";
+import { DragTouch } from "drag-touch.slint";
 
 // A panel that slides in from an edge over a scrim (`Sheet`): 380 px across, the title and a
 // close button, then the children, 20 px apart. It slides in over `motion-base` with
@@ -166,26 +167,22 @@ export component Drawer inherits Backdrop {
                 spacing: 16px;
                 alignment: start;
 
-                grab := TouchArea {
-                    mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+                grab := DragTouch {
+                    mouse-cursor: self.dragging ? MouseCursor.grabbing : MouseCursor.grab;
                     height: 12px + Theme.grip-height + 8px;
-                    pointer-event(event) => {
-                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                            root.anchored = false;
-                        } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                            root.finish();
-                        }
+                    drag-started => {
+                        root.anchored = false;
                     }
-                    moved => {
-                        if self.pressed {
-                            let y = self.absolute-position.y + self.mouse-y;
-                            if !root.anchored {
-                                root.anchor = y;
-                                root.anchored = true;
-                            }
-                            root.pulling = true;
-                            root.offset = max(0, y - root.anchor);
+                    drag-moved(x, y) => {
+                        if !root.anchored {
+                            root.anchor = y;
+                            root.anchored = true;
                         }
+                        root.pulling = true;
+                        root.offset = max(0, y - root.anchor);
+                    }
+                    drag-ended => {
+                        root.finish();
                     }
 
                     Rectangle {

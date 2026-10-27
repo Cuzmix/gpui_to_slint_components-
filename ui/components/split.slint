@@ -20,6 +20,7 @@
 
 import { Theme } from "../theme/theme.slint";
 import { LayoutMath } from "layout-math.slint";
+import { DragTouch } from "drag-touch.slint";
 
 // A thin line with a wide grab (`resize_handle`); `orientation` is the split's direction, so a
 // horizontal split's handle is a vertical line. The line lights while hovered.
@@ -31,11 +32,11 @@ export component ResizeHandle inherits Rectangle {
     // The grab is held.
     out property <bool> pressed: touch.pressed;
     out property <bool> has-hover: touch.has-hover;
-    // A press on the grab.
+    // A drag of the grab began (the pointer went 2 px from the press).
     callback grabbed();
-    // The pointer moved during the press: its position along the split, in window coordinates.
+    // Each pointer position along the split during the drag, in window coordinates.
     callback moved(along: length);
-    // The press ended.
+    // The drag ended.
     callback released();
 
     private property <bool> across: root.orientation == Orientation.horizontal;
@@ -55,19 +56,16 @@ export component ResizeHandle inherits Rectangle {
         background: touch.has-hover ? Theme.colors.focus : root.line;
     }
 
-    touch := TouchArea {
+    touch := DragTouch {
         mouse-cursor: root.across ? MouseCursor.col-resize : MouseCursor.row-resize;
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.grabbed();
-            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                root.released();
-            }
+        drag-started => {
+            root.grabbed();
         }
-        moved => {
-            if self.pressed {
-                root.moved(root.across ? root.absolute-position.x + self.mouse-x : root.absolute-position.y + self.mouse-y);
-            }
+        drag-moved(x, y) => {
+            root.moved(root.across ? x : y);
+        }
+        drag-ended => {
+            root.released();
         }
     }
 }
