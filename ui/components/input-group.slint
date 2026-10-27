@@ -1,0 +1,133 @@
+// Port of ely-core/src/forms/group.rs: `InputGroup`, `InputAddon`. A field with addons joined
+// before and after it, in one frame.
+//
+// Text addons come as `before` and `after` lists. Other addons are children, each in an
+// `InputAddon`, and sit after the field (one children slot, gap G47).
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { InputText, InputStyle } from "input.slint";
+
+// A block joined to a field's side: sunken, muted, control padding, a hairline toward the field.
+export component InputAddon inherits Rectangle {
+    // Text such as `https://`; or children instead.
+    in property <string> text;
+    // Before the field: the hairline on its right; after it, on its left.
+    in property <bool> before;
+    in property <ControlSize> size: ControlSize.md;
+
+    horizontal-stretch: 0;
+    preferred-width: row.preferred-width;
+    min-width: row.min-width;
+    background: Theme.colors.sunken;
+
+    Rectangle {
+        x: root.before ? parent.width - 1px : 0;
+        width: 1px;
+        background: Theme.colors.border-strong;
+    }
+
+    row := HorizontalLayout {
+        padding-left: Theme.control-padding(root.size) + (root.before ? 0 : 1px);
+        padding-right: Theme.control-padding(root.size) + (root.before ? 1px : 0);
+        cross-axis-alignment: center;
+
+        if root.text != "": Text {
+            text: root.text;
+            color: Theme.colors.fg-muted;
+            font-size: Theme.text-size(InputStyle.text-size(root.size));
+            font-family: Theme.font-family;
+            vertical-alignment: center;
+        }
+
+        @children
+    }
+}
+
+export component InputGroup {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    // Text addons joined before and after the field.
+    in property <[string]> before;
+    in property <[string]> after;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+
+    callback edited(text: string);
+    callback accepted();
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: row.min-width + 2px;
+    preferred-width: row.preferred-width + 2px;
+    height: Theme.control-height(root.size);
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        background: Theme.colors.surface;
+    }
+
+    TouchArea {
+        mouse-cursor: MouseCursor.text;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                field.focus();
+            }
+        }
+    }
+
+    // Clipped inside the border's rounding.
+    Rectangle {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        border-radius: max(0, Theme.radius(Radius.md) - 1px);
+        clip: true;
+
+        row := HorizontalLayout {
+            for addon in root.before: InputAddon {
+                text: addon;
+                before: true;
+                size: root.size;
+            }
+
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                min-width: 0;
+                padding-left: Theme.control-padding(root.size);
+                padding-right: self.padding-left;
+                cross-axis-alignment: center;
+
+                field := InputText {
+                    text <=> root.text;
+                    placeholder: root.placeholder;
+                    label: root.label;
+                    size: root.size;
+                    enabled: root.enabled;
+                    edited(text) => {
+                        root.edited(text);
+                    }
+                    accepted => {
+                        root.accepted();
+                    }
+                }
+            }
+
+            for addon in root.after: InputAddon {
+                text: addon;
+                size: root.size;
+            }
+
+            @children
+        }
+    }
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: field.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+    }
+}
