@@ -1,0 +1,29 @@
+// Port of ely-core/src/forms/structure.rs (`FormSection`): a titled group of fields, 16 px
+// apart, under an h4 title and an optional caption 4 px below it.
+
+import { Heading, HeadingLevel } from "heading.slint";
+import { Caption } from "caption.slint";
+
+export component FormSection inherits VerticalLayout {
+    in property <string> title;
+    // The line under the title; empty for none.
+    in property <string> description;
+
+    spacing: 16px;
+    alignment: start;
+
+    VerticalLayout {
+        spacing: 4px;
+
+        Heading {
+            text: root.title;
+            level: HeadingLevel.h4;
+        }
+
+        if root.description != "": Caption {
+            text: root.description;
+        }
+    }
+
+    @children
+}

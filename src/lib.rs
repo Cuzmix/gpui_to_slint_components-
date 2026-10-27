@@ -19,6 +19,7 @@ pub mod fields;
 pub mod files;
 pub mod focus;
 pub mod format;
+pub mod forms;
 pub mod glyphs;
 pub mod highlight;
 pub mod keys;

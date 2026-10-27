@@ -1,0 +1,7 @@
+// What the form structure needs from Rust: a log of submits. The host wires it once:
+//     ely_slint::wire_forms!(app);
+
+export global Forms {
+    // Logs that the form `owner` was submitted.
+    callback submitted(owner: string);
+}

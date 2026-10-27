@@ -1,0 +1,69 @@
+// Port of ely-core/src/forms/structure.rs (`DirtyIndicator`): a warning dot and a word, 6 px
+// apart in sm fg-muted, while there are unsaved changes; nothing, and no room, once saved. It
+// fades in over `motion-base` (ease-out-cubic) each time it shows.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+
+export component DirtyIndicator inherits HorizontalLayout {
+    in property <bool> dirty;
+    in property <string> label: @tr("Unsaved changes");
+
+    // How far it has faded in, 0 to 1.
+    out property <float> entrance: root.easing;
+
+    private property <duration> shown-at;
+    private property <bool> entering;
+    private property <float> easing: root.entering ? Theme.ease-out-cubic(clamp((animation-tick() - root.shown-at) / Theme.motion-base, 0, 1)) : 1;
+
+    function enter() {
+        root.shown-at = animation-tick();
+        root.entering = true;
+        settled.running = true;
+        settled.restart();
+    }
+
+    init => {
+        if root.dirty {
+            root.enter();
+        }
+    }
+    changed dirty => {
+        if root.dirty {
+            root.enter();
+        }
+    }
+
+    spacing: 6px;
+    alignment: start;
+
+    if root.dirty: VerticalLayout {
+        alignment: center;
+        opacity: root.easing;
+
+        Rectangle {
+            width: Theme.status-dot;
+            height: Theme.status-dot;
+            border-radius: self.width / 2;
+            background: Theme.colors.warning;
+        }
+    }
+
+    if root.dirty: TypeText {
+        text: root.label;
+        font-size: Theme.text-size(TextSize.sm);
+        color: Theme.colors.fg-muted;
+        opacity: root.easing;
+        vertical-alignment: center;
+        wrap: no-wrap;
+    }
+
+    settled := Timer {
+        interval: Theme.motion-base;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.entering = false;
+        }
+    }
+}

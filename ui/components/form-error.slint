@@ -1,0 +1,72 @@
+// Port of ely-core/src/forms/structure.rs (`FormError`): why a field failed, in sm danger after
+// an xs alert icon 4 px away. Each new message eases in over `motion-fast` (ease-out-cubic):
+// it fades up from clear and settles from a nudge (4 px) above.
+
+import { Theme, IconSize, TextSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+
+export component FormError {
+    in property <string> text;
+
+    // How far the newest message has eased in, 0 to 1.
+    out property <float> entrance: root.easing;
+
+    private property <duration> shown-at;
+    private property <bool> entering;
+    private property <float> easing: root.entering ? Theme.ease-out-cubic(clamp((animation-tick() - root.shown-at) / Theme.motion-fast, 0, 1)) : 1;
+
+    function enter() {
+        root.shown-at = animation-tick();
+        root.entering = true;
+        settled.running = true;
+        settled.restart();
+    }
+
+    init => {
+        root.enter();
+    }
+    changed text => {
+        root.enter();
+    }
+
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+
+    row := HorizontalLayout {
+        y: Theme.nudge * (root.easing - 1);
+        width: root.width;
+        height: root.height;
+        spacing: 4px;
+        opacity: root.easing;
+
+        VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: Icons.circle-alert;
+                size: IconSize.xs;
+                color: Theme.colors.danger;
+            }
+        }
+
+        TypeText {
+            text: root.text;
+            font-size: Theme.text-size(TextSize.sm);
+            color: Theme.colors.danger;
+            vertical-alignment: center;
+        }
+    }
+
+    settled := Timer {
+        interval: Theme.motion-fast;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.entering = false;
+        }
+    }
+}

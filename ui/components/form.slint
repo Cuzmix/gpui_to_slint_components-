@@ -1,0 +1,43 @@
+// Port of ely-core/src/forms/structure.rs (`Form`): sections stacked 32 px apart. The secondary
+// key and Enter (Command-Enter on the Mac, Control-Enter elsewhere) on any field or control
+// inside submits it, once, before the control sees the key.
+//
+// Submits log through `Forms` (`wire_forms!`). gpui leaves the key to the controls when no
+// `on_submit` is set; here `can-submit: false` does.
+
+import { Forms } from "forms.slint";
+
+export component Form inherits FocusScope {
+    // Names it in the log.
+    in property <string> owner: "form";
+    // Takes the secondary key and Enter from the controls inside.
+    in property <bool> can-submit: true;
+
+    // The secondary key and Enter reached it.
+    callback submitted();
+
+    focus-on-click: false;
+    focus-on-tab-navigation: false;
+    min-width: column.min-width;
+    preferred-width: column.preferred-width;
+    min-height: column.min-height;
+    preferred-height: column.preferred-height;
+    capture-key-pressed(event) => {
+        // Slint reports the Mac's Command key as `control`, so this is gpui's `secondary-enter`.
+        if root.can-submit && event.text == Key.Return && event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta {
+            Forms.submitted(root.owner);
+            root.submitted();
+            return accept;
+        }
+        reject
+    }
+
+    column := VerticalLayout {
+        width: root.width;
+        height: root.height;
+        spacing: 32px;
+        alignment: start;
+
+        @children
+    }
+}

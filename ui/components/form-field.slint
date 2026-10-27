@@ -1,0 +1,43 @@
+// Port of ely-core/src/forms/structure.rs (`FormField`): a labeled control, 6 px apart, with a
+// caption beneath, or the error once it fails.
+//
+// gpui hands the label and the line under it to the control inside as its accessible name and
+// description; Slint passes nothing down (gap G66), so the owner names the control, for example
+// `Input { label: field.label; description: field.note; }`.
+
+import { Caption } from "caption.slint";
+import { FormLabel } from "form-label.slint";
+import { FormError } from "form-error.slint";
+
+export component FormField inherits VerticalLayout {
+    in property <string> label;
+    in property <bool> required;
+    // The help mark's tip; empty for no mark.
+    in property <string> help;
+    // The line under the control; empty for none.
+    in property <string> description;
+    // Shown in place of the description; empty while the field holds.
+    in property <string> error;
+
+    // What the control reads as its description: the error, else the description.
+    out property <string> note: root.error != "" ? root.error : root.description;
+
+    spacing: 6px;
+    alignment: start;
+
+    FormLabel {
+        text: root.label;
+        required: root.required;
+        help: root.help;
+    }
+
+    @children
+
+    if root.error != "": FormError {
+        text: root.error;
+    }
+
+    if root.error == "" && root.description != "": Caption {
+        text: root.description;
+    }
+}

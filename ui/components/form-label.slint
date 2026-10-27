@@ -1,0 +1,45 @@
+// Port of ely-core/src/forms/structure.rs (`FormLabel`): a field's name, 4 px from a danger
+// "*" when required and a help mark whose tip shows on hover.
+
+import { Theme, TextSize } from "../theme/theme.slint";
+import { Label } from "label.slint";
+import { TypeText } from "type-text.slint";
+import { HelpTooltip } from "tooltip.slint";
+
+export component FormLabel inherits HorizontalLayout {
+    in property <string> text;
+    in property <bool> required;
+    // The help mark's tip; empty for no mark.
+    in property <string> help;
+
+    spacing: 4px;
+    alignment: start;
+
+    VerticalLayout {
+        alignment: center;
+
+        Label {
+            text: root.text;
+            wrap: no-wrap;
+        }
+    }
+
+    if root.required: VerticalLayout {
+        alignment: center;
+
+        TypeText {
+            text: "*";
+            color: Theme.colors.danger;
+            wrap: no-wrap;
+            accessible-role: none;
+        }
+    }
+
+    if root.help != "": VerticalLayout {
+        alignment: center;
+
+        HelpTooltip {
+            text: root.help;
+        }
+    }
+}
