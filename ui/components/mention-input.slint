@@ -1,0 +1,154 @@
+// Port of ely-core/src/forms/mention.rs (`MentionInput`, `Suggestions`, `mention_highlights`):
+// a field where a trigger such as `@` or `#`, typed at a word's start, offers handles under it.
+// Up and Down choose, Enter or a press puts the handle in with a space after, Escape hides the
+// list until that trigger ends. Mentions and tags show in the link color.
+//
+// Finding triggers, matching and coloring run in Rust (`Mentions`, `wire_mentions!`); the field
+// needs `wire_fields!` and the list an `OptionLayer` (options.slint).
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { InputFrame, InputText, InputStyle } from "input.slint";
+import { TextFit } from "text-field.slint";
+import { Choice, Choices, OptionAnchor } from "options.slint";
+
+// The handles offered after `mark`, each one word.
+export struct MentionTrigger {
+    mark: string,
+    handles: [string],
+}
+
+// The trigger being typed: where it starts (bytes), its mark, and the handles that hold its query.
+export struct MentionAt {
+    found: bool,
+    at: int,
+    mark: string,
+    rows: [Choice],
+}
+
+// What mention fields need from Rust (`ely_slint::mentions`).
+export global Mentions {
+    // The trigger whose word ends at byte `caret`, if any.
+    pure callback active(text: string, caret: int, triggers: [MentionTrigger]) -> MentionAt;
+    // `text` with bytes `at` to `caret` replaced by `insert`, and the caret after it.
+    pure callback splice(text: string, at: int, caret: int, insert: string) -> TextFit;
+    // The text before byte `at`.
+    pure callback prefix(text: string, at: int) -> string;
+    pure callback colors(text: string, link: color, plain: color) -> styled-text;
+}
+
+export component MentionInput {
+    in-out property <string> text;
+    // Names the field's list; unique among the fields that show lists.
+    in property <string> owner: "mention";
+    in property <[MentionTrigger]> triggers;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <MentionAt> active: Mentions.active(root.text, field.cursor, root.triggers);
+    out property <bool> open: field.has-focus && root.active.found && root.active.rows.length > 0 && root.dismissed != root.active.at;
+    out property <int> highlighted: root.chosen < root.active.rows.length ? root.chosen : 0;
+
+    callback edited(text: string);
+    callback accepted();
+
+    private property <int> chosen;
+    // The trigger Escape hid, while it is still the one being typed; -1 for none.
+    private property <int> dismissed: -1;
+    private property <int> trigger-at: root.active.found ? root.active.at : -1;
+    // Where the trigger sits in the field.
+    private property <length> trigger-x: field.absolute-position.x - root.absolute-position.x + measure.preferred-width;
+
+    changed trigger-at => {
+        if root.dismissed != root.trigger-at {
+            root.dismissed = -1;
+        }
+        root.chosen = 0;
+    }
+
+    function pick(index: int) {
+        let fit = Mentions.splice(root.text, root.active.at, field.cursor, root.active.mark + root.active.rows[index].value + " ");
+        root.text = fit.text;
+        field.select(fit.caret, fit.caret);
+        root.edited(root.text);
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: frame.min-width;
+    preferred-width: frame.preferred-width;
+    height: frame.height;
+
+    frame := InputFrame {
+        width: root.width;
+        size: root.size;
+        enabled: root.enabled;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        field := InputText {
+            text <=> root.text;
+            placeholder: root.placeholder;
+            label: root.label;
+            size: root.size;
+            enabled: root.enabled;
+            highlighting: true;
+            highlights: Mentions.colors(root.text, Theme.colors.link, root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled);
+            edited(text) => {
+                root.edited(text);
+            }
+            accepted => {
+                root.accepted();
+            }
+            key-pressed(event) => {
+                if root.open && event.text == Key.UpArrow {
+                    root.chosen = Choices.step(root.active.rows, root.highlighted, -1);
+                    return accept;
+                }
+                if root.open && event.text == Key.DownArrow {
+                    root.chosen = Choices.step(root.active.rows, root.highlighted, 1);
+                    return accept;
+                }
+                if root.open && event.text == Key.Return {
+                    root.pick(root.highlighted);
+                    return accept;
+                }
+                if root.open && event.text == Key.Escape {
+                    root.dismissed = root.active.at;
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+
+    // Measures the text before the trigger, in the field's text.
+    measure := Text {
+        visible: false;
+        text: root.active.found ? Mentions.prefix(root.text, root.active.at) : "";
+        font-family: Theme.font-family;
+        font-size: Theme.text-size(InputStyle.text-size(root.size));
+    }
+
+    // The trigger's line box: the list floats under it.
+    Rectangle {
+        x: root.trigger-x;
+        y: field.absolute-position.y - root.absolute-position.y;
+        width: 1px;
+        height: field.height;
+
+        OptionAnchor {
+            owner: root.owner;
+            open: root.open;
+            rows: root.active.rows;
+            highlighted: root.highlighted;
+            picked(ix) => {
+                root.pick(ix);
+            }
+        }
+    }
+}

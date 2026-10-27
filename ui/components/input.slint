@@ -108,6 +108,11 @@ export component InputText inherits VerticalLayout {
         field.select-all();
     }
 
+    // Selects the byte range `start` to `end`.
+    public function select(start: int, end: int) {
+        field.select(start, end);
+    }
+
     forward-focus: field;
     horizontal-stretch: 1;
     min-width: 0;

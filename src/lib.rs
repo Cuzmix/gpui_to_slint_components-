@@ -15,6 +15,7 @@ pub mod format;
 pub mod highlight;
 pub mod keys;
 pub mod layout;
+pub mod mentions;
 pub mod numbers;
 pub mod open;
 pub mod options;
