@@ -1,0 +1,159 @@
+// Port of ely-core/src/forms/knob.rs (`Knob`): a dial for audio-style values. Drag up or down,
+// or use the arrow keys (and Page Up, Page Down, Home and End, as a slider's).
+//
+// The dial runs clockwise from lower left, three quarters of a turn: a rail, the value's arc in
+// the accent, and a tick at the value. Dragging four diameters turns it end to end.
+//
+// Like Slider (G48), `value` is `in-out`: a drag or key sets it, then reports it.
+
+import { Theme, Elevation } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { SliderMath } from "slider-track.slint";
+
+export component Knob {
+    in-out property <float> value;
+    // Its least and greatest value, and the grain a drag snaps to and a key moves.
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    // Dims it and takes no turn.
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: keys.has-focus;
+
+    // Each new value.
+    callback value-changed(value: float);
+
+    private property <float> turned: SliderMath.fraction(root.value, root.minimum, root.maximum);
+    // Drawn in pixels, inside the 1 px border: center, radius and stroke.
+    private property <float> side: root.width / 1px;
+    private property <float> stroke: Theme.knob-arc / 1px;
+    private property <float> center: root.side / 2;
+    private property <float> radius: (root.side - 2) / 2 - root.stroke * 1.5;
+    // Where the dial starts, and the value's angle.
+    private property <angle> start: 135deg;
+    private property <angle> at: root.start + 270deg * root.turned;
+    // A drag's first point and the value there; unset until the pointer first moves.
+    private property <bool> anchored;
+    private property <length> anchor-y;
+    private property <float> from;
+
+    function commit(next: float) {
+        if next != root.value {
+            root.value = next;
+            root.value-changed(next);
+        }
+    }
+
+    function step-by(by: float) {
+        if root.enabled {
+            root.commit(clamp(root.value + by, root.minimum, root.maximum));
+        }
+    }
+
+    // A point `r` out from the center at angle `a`, as path coordinates.
+    pure function point(r: float, a: angle) -> string {
+        (root.center + r * cos(a)) + " " + (root.center + r * sin(a))
+    }
+
+    // An arc clockwise from `from` to `to`.
+    pure function arc(from: angle, to: angle) -> string {
+        "M " + root.point(root.radius, from) + " A " + root.radius + " " + root.radius + " 0 " + (to - from > 180deg ? "1" : "0") + " 1 " + root.point(root.radius, to)
+    }
+
+    forward-focus: keys;
+    width: Theme.knob-diameter;
+    height: Theme.knob-diameter;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-enabled: root.enabled;
+    accessible-action-increment => {
+        root.step-by(root.step);
+    }
+    accessible-action-decrement => {
+        root.step-by(-root.step);
+    }
+
+    Elevated {
+        elevation: Elevation.raised;
+        border-radius: self.height / 2;
+        background: Theme.colors.surface;
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border;
+        opacity: root.enabled ? 1 : 0.5;
+
+        for part in [
+            {
+                draw: true,
+                commands: root.arc(root.start, root.start + 270deg),
+                color: Theme.colors.border
+            },
+            {
+                draw: root.turned > 0,
+                commands: root.arc(root.start, root.at),
+                color: Theme.colors.accent
+            },
+            {
+                draw: true,
+                commands: "M " + root.point(root.radius * 0.3, root.at) + " L " + root.point(root.radius * 0.62, root.at),
+                color: Theme.colors.fg,
+            },
+        ]: Path {
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+            viewbox-x: 0;
+            viewbox-y: 0;
+            viewbox-width: root.side;
+            viewbox-height: root.side;
+            visible: part.draw;
+            commands: part.commands;
+            stroke: part.color;
+            stroke-width: Theme.knob-arc;
+            accessible-role: none;
+        }
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.ns-resize;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                keys.focus();
+                root.anchored = false;
+            }
+        }
+        moved => {
+            if !self.pressed {
+                return;
+            }
+            if !root.anchored {
+                root.anchored = true;
+                root.anchor-y = self.mouse-y;
+                root.from = root.value;
+            }
+            let turn = (root.anchor-y - self.mouse-y) / (root.width * 4);
+            root.commit(SliderMath.value-at(SliderMath.fraction(root.from, root.minimum, root.maximum) + turn, root.minimum, root.maximum, root.step));
+        }
+    }
+
+    keys := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            let key = SliderMath.keyed(event, root.value, root.minimum, root.maximum, root.step);
+            if !key.taken {
+                return reject;
+            }
+            root.commit(key.value);
+            accept
+        }
+    }
+}
