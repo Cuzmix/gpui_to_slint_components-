@@ -66,19 +66,19 @@ component ActivityEntry inherits Rectangle {
     }
 
     // gpui's mark grows from nothing to the large icon's height over BASE, each time it shows.
-    if root.selected: Rectangle {
-        private property <bool> grown;
+    if root.selected: mark := Rectangle {
         x: 0;
         y: (parent.height - self.height) / 2;
         width: 2px;
-        height: self.grown ? Theme.icon-size(IconSize.lg) : 0;
+        height: 0;
         background: Theme.colors.fg;
         animate height {
             duration: Theme.motion-base;
             easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
         }
+        // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
         init => {
-            self.grown = true;
+            self.height = Theme.icon-size(IconSize.lg);
         }
     }
 

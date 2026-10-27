@@ -142,14 +142,14 @@ export component SplashScreen inherits VerticalLayout {
     in property <bool> has-progress;
     in property <float> progress;
 
-    private property <bool> risen;
-    private property <float> rise: root.risen ? 1 : 0;
+    private property <float> rise: 0;
     animate rise {
         duration: Theme.motion-slow;
         easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
     }
+    // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
     init => {
-        root.risen = true;
+        root.rise = 1;
     }
 
     alignment: center;

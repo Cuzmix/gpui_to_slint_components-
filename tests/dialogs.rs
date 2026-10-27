@@ -185,6 +185,16 @@ fn the_splash_shows_its_progress() {
     assert!(bars().contains(&String::new()), "{:?}", bars());
 }
 
+// The mark and name rise in: the column starts 4 px low and eases into place over SLOW.
+fn the_splash_rises_in() {
+    let h = harness();
+    let start = one(&h, "Nimbus").y;
+    advance(400);
+    let rest = one(&h, "Nimbus").y;
+    // 16 ms in: (1 − 16/320)³ of the way left.
+    assert!((start - rest - 4.0 * 0.95f32.powi(3)).abs() < 0.1, "{}", start - rest);
+}
+
 // The report opens and shuts from its link button, copies, and offers Send and Don't send only
 // with their handlers.
 fn the_crash_reporter_shows_copies_and_sends() {
@@ -271,4 +281,4 @@ fn a_hosted_window_closes_on_escape() {
     assert_eq!(*closes.borrow(), 1);
 }
 
-cases!(dialogs: the_about_dialog_reads_its_credits, the_splash_shows_its_progress, the_crash_reporter_shows_copies_and_sends, the_update_banner_follows_the_state, the_update_dialog_lists_the_notes, a_hosted_window_closes_on_escape);
+cases!(dialogs: the_splash_rises_in, the_about_dialog_reads_its_credits, the_splash_shows_its_progress, the_crash_reporter_shows_copies_and_sends, the_update_banner_follows_the_state, the_update_dialog_lists_the_notes, a_hosted_window_closes_on_escape);

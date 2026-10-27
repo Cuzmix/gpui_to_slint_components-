@@ -39,7 +39,7 @@ component Tab inherits Rectangle {
     callback drag-moved(x: length, y: length);
     callback drag-ended();
 
-    private property <bool> risen;
+    private property <float> rise: 0;
 
     height: Theme.control-height(ControlSize.md);
     border-radius: Theme.radius(Radius.md);
@@ -55,13 +55,14 @@ component Tab inherits Rectangle {
     }
 
     // Each tab rises in over BASE when it first shows.
-    opacity: root.risen ? 1 : 0;
-    animate opacity {
+    opacity: root.rise;
+    animate rise {
         duration: Theme.motion-base;
         easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
     }
+    // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
     init => {
-        root.risen = true;
+        root.rise = 1;
     }
 
     touch := DragTouch {
@@ -88,11 +89,7 @@ component Tab inherits Rectangle {
     }
 
     row := HorizontalLayout {
-        y: root.risen ? 0 : Theme.nudge;
-        animate y {
-            duration: Theme.motion-base;
-            easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
-        }
+        y: Theme.nudge * (1 - root.rise);
         padding-left: 12px;
         padding-right: 4px;
         spacing: 8px;

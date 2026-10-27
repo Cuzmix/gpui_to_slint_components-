@@ -45,8 +45,7 @@ export component WindowSwitcher inherits Backdrop {
     private property <int> count: ManagedWindows.titles.length;
     private property <int> chosen;
     private property <int> selected: Math.min(root.chosen, Math.max(0, root.count - 1));
-    private property <bool> risen;
-    private property <float> rise: root.risen ? 1 : 0;
+    private property <float> rise: 0;
     animate rise {
         duration: Theme.motion-base;
         easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
@@ -54,7 +53,8 @@ export component WindowSwitcher inherits Backdrop {
 
     init => {
         ManagedWindows.list();
-        root.risen = true;
+        // Set, not bound: a binding flipped in `init` is first read at its end value, unanimated.
+        root.rise = 1;
         keys.focus();
     }
 

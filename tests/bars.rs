@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use common::*;
-use i_slint_backend_testing::ElementHandle;
+use i_slint_backend_testing::{AccessibleRole, ElementHandle};
 use slint::{ComponentHandle, ModelRc, VecModel};
 
 slint::slint! {
@@ -222,6 +222,37 @@ fn the_activity_bar_picks_and_marks() {
     assert!(settings.y > search.y + 100.0);
 }
 
+// The chosen item's mark grows from nothing to the icon's height over BASE.
+fn the_activity_mark_grows_in() {
+    let (h, _, _) = harness();
+    let mark = || ElementHandle::find_by_element_id(&h, "ActivityEntry::mark").next().expect("a mark").size().height;
+    // 16 ms in: 1 − (1 − 16/200)³ of 20 px.
+    assert!((mark() - 20.0 * (1.0 - 0.92f32.powi(3))).abs() < 0.05, "16 ms in: {}", mark());
+    advance(234);
+    assert_eq!(mark(), 20.0);
+}
+
+// A new tab's title rises 4 px into place over BASE.
+fn a_new_tab_rises_in() {
+    let (h, tabs, _) = harness();
+    let title_y = |label: &str| {
+        ElementHandle::find_by_accessible_label(&h, label)
+            .find(|e| e.accessible_role() == Some(AccessibleRole::Text))
+            .expect("a title")
+            .absolute_position()
+            .y
+    };
+    tabs.push(tab("f", "Fresh"));
+    advance(0);
+    let start = title_y("Fresh");
+    advance(100);
+    let mid = title_y("Fresh");
+    advance(150);
+    let rest = title_y("Fresh");
+    assert!((start - rest - 4.0).abs() < 0.01, "starts 4 px low: {}", start - rest);
+    assert!(mid > rest && mid < start - 2.0, "eases out: {}", mid - rest);
+}
+
 // A press picks a tab; the chosen tab's close closes it; the plus adds one.
 fn tabs_pick_close_and_add() {
     let (h, _, heard) = harness();
@@ -274,4 +305,4 @@ fn a_dragged_tab_reorders_on_drop() {
     assert_eq!(heard.borrow().moved.len(), 1);
 }
 
-cases!(bars: bars_keep_their_sizes_and_items_act, a_count_badge_caps_and_hides, the_activity_bar_picks_and_marks, tabs_pick_close_and_add, tabs_share_the_width_within_their_limits, a_dragged_tab_reorders_on_drop);
+cases!(bars: the_activity_mark_grows_in, a_new_tab_rises_in, bars_keep_their_sizes_and_items_act, a_count_badge_caps_and_hides, the_activity_bar_picks_and_marks, tabs_pick_close_and_add, tabs_share_the_width_within_their_limits, a_dragged_tab_reorders_on_drop);

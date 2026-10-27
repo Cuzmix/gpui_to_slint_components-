@@ -152,6 +152,18 @@ fn the_switcher_closes_on_escape_and_the_scrim() {
     }
 }
 
+// The panel rises into place over BASE: 4 px of top margin in the centered scrim, so 2 px.
+fn the_switcher_rises_in() {
+    let h = Harness::new().unwrap();
+    ely_slint::wire_managed_windows!(h);
+    show(&h);
+    advance(0);
+    let start = bounds(&find(&h, "Windows")[0]).y;
+    advance(300);
+    let rest = bounds(&find(&h, "Windows")[0]).y;
+    assert!((start - rest - 2.0).abs() < 0.01, "{}", start - rest);
+}
+
 // With none open it says so.
 fn an_empty_switcher_says_so() {
     let h = open_switcher();
@@ -204,4 +216,4 @@ fn the_mini_window_bar_shows_on_hover() {
     opener.hide().unwrap();
 }
 
-cases!(switcher: the_manager_keeps_open_windows_oldest_first, the_switcher_steps_and_switches_on_enter, the_switcher_closes_on_escape_and_the_scrim, an_empty_switcher_says_so, the_mini_window_bar_shows_on_hover);
+cases!(switcher: the_switcher_rises_in, the_manager_keeps_open_windows_oldest_first, the_switcher_steps_and_switches_on_enter, the_switcher_closes_on_escape_and_the_scrim, an_empty_switcher_says_so, the_mini_window_bar_shows_on_hover);
