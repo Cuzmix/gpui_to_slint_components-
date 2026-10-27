@@ -1,0 +1,195 @@
+// Port of ely-core/src/buttons/confirm.rs (`ConfirmButton`, `ConfirmMode`): a destructive
+// button that asks twice, by holding it down or by a second click. Keys always press twice.
+//
+// One pending expiry at a time, as gpui keeps one timer task: a new step replaces it, and a
+// release during a hold drops it.
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { ButtonVariant, ButtonTone, ButtonStyle } from "button-style.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// How a ConfirmButton asks.
+export enum ConfirmMode {
+    // Holding the button down for 1.2 s confirms.
+    hold,
+    // A second click within 3 s confirms.
+    twice,
+}
+
+// What the one pending expiry does when it fires.
+enum ConfirmExpiry { none, disarm, undone, held }
+
+export component ConfirmButton {
+    // What it reads.
+    in property <string> text;
+    // What it reads while waiting for the second press; a hint by mode when empty.
+    in property <string> armed-text;
+    in property <ConfirmMode> mode: ConfirmMode.twice;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+
+    // Waiting for the second press, for 3 s.
+    out property <bool> armed;
+    // Held down in hold mode, for up to 1.2 s.
+    out property <bool> holding;
+    // Confirmed, for 1.4 s; presses do nothing meanwhile.
+    out property <bool> done;
+    out property <bool> has-focus: keys.has-focus;
+    out property <color> current-fill: touch.has-hover ? root.tone.hover : root.tone.bg;
+    out property <color> current-border: keys.has-focus ? Theme.colors.focus : root.holding ? Theme.colors.danger : root.tone.border;
+    // How much of the hold has run, 0 to 1.
+    out property <float> hold-progress: root.holding ? clamp((animation-tick() - root.held-at) / 1200ms, 0, 1) : 0;
+
+    // Held long enough, or pressed again.
+    callback confirmed();
+
+    private property <ButtonVariant> variant: root.armed ? ButtonVariant.danger : ButtonVariant.outline;
+    private property <ButtonTone> tone: ButtonStyle.tone(root.variant);
+    private property <string> label: !root.armed ? root.text : root.armed-text != "" ? root.armed-text : root.mode == ConfirmMode.hold ? @tr("Press again to confirm") : @tr("Click again to confirm");
+    private property <ConfirmExpiry> expiry: ConfirmExpiry.none;
+    private property <duration> expires-after: 1s;
+    private property <duration> held-at;
+
+    function expire-in(what: ConfirmExpiry, after: duration) {
+        root.expiry = what;
+        root.expires-after = after;
+        timer.running = true;
+        timer.restart();
+    }
+
+    function confirm-now() {
+        root.holding = false;
+        root.armed = false;
+        root.done = true;
+        root.expire-in(ConfirmExpiry.undone, 1400ms);
+        root.confirmed();
+    }
+
+    // gpui's click: the mouse's in twice mode, the keyboard's in either.
+    function press(keyboard: bool) {
+        if (root.mode == ConfirmMode.hold && !keyboard) || root.done {
+            return;
+        }
+        if root.armed {
+            root.confirm-now();
+            return;
+        }
+        root.armed = true;
+        root.expire-in(ConfirmExpiry.disarm, 3000ms);
+    }
+
+    function let-go() {
+        if !root.holding {
+            return;
+        }
+        root.holding = false;
+        root.expiry = ConfirmExpiry.none;
+        timer.running = false;
+    }
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.press(true);
+    }
+
+    forward-focus: keys;
+    height: Theme.control-height(root.size);
+    horizontal-stretch: 0;
+
+    Rectangle {
+        clip: true;
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: root.current-border;
+        background: root.current-fill;
+
+        if root.holding: Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width * root.hold-progress;
+            height: parent.height;
+            background: Theme.opacity(Theme.colors.danger, 0.16);
+        }
+    }
+
+    HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: Theme.control-padding(root.size) + 1px;
+        padding-right: self.padding-left;
+        spacing: 6px;
+        alignment: center;
+        cross-axis-alignment: center;
+
+        if root.done: Icon {
+            property <float> turned: 0;
+            animate turned {
+                duration: Theme.motion-fast;
+                easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+            }
+            init => {
+                self.turned = 1;
+            }
+            source: Icons.check;
+            size: ButtonStyle.icon-size(root.size);
+            color: Theme.colors.success;
+            rotation: (1 - self.turned) * -0.6rad;
+        }
+
+        Text {
+            text: root.label;
+            color: root.holding ? Theme.colors.danger : root.tone.fg;
+            font-size: Theme.text-size(ButtonStyle.text-size(root.size));
+            font-weight: 500;
+            font-family: Theme.font-family;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.button != PointerEventButton.left {
+                return;
+            }
+            if event.kind == PointerEventKind.down {
+                if root.mode != ConfirmMode.hold || root.done {
+                    return;
+                }
+                root.holding = true;
+                root.held-at = animation-tick();
+                root.expire-in(ConfirmExpiry.held, 1200ms);
+            } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                root.let-go();
+            }
+        }
+        clicked => {
+            root.press(false);
+        }
+    }
+
+    keys := ClickKeys {
+        activated => {
+            root.press(true);
+        }
+    }
+
+    timer := Timer {
+        interval: root.expires-after;
+        running: false;
+        triggered => {
+            self.running = false;
+            if root.expiry == ConfirmExpiry.disarm {
+                root.armed = false;
+            } else if root.expiry == ConfirmExpiry.undone {
+                root.done = false;
+            } else if root.expiry == ConfirmExpiry.held && root.holding {
+                root.confirm-now();
+                return;
+            }
+            root.expiry = ConfirmExpiry.none;
+        }
+    }
+}
