@@ -1,0 +1,96 @@
+// Port of ely-core/src/forms/stepper.rs (`Stepper`): minus and plus around a number that cannot
+// be typed. Each press moves it a step, held to its range; a button at its end is disabled.
+//
+// The number is formatted in Rust (`TextFormat.number`, `wire_text_format!`); unwired it shows
+// Slint's own rendering of the value. Like Slider (G48), `value` is `in-out`: a press sets it,
+// then reports it.
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Icons } from "../icons/icons.slint";
+import { TextFormat } from "text-format.slint";
+import { TypeText } from "type-text.slint";
+import { Numbers } from "number-input.slint";
+
+export component Stepper {
+    in-out property <float> value;
+    // Its least and greatest value; unbounded by default.
+    in property <float> minimum: -Numbers.unbounded;
+    in property <float> maximum: Numbers.unbounded;
+    // How far a press moves it.
+    in property <float> step: 1;
+    // Decimal places shown.
+    in property <int> precision: 0;
+
+    // Each new value.
+    callback value-changed(value: float);
+
+    private property <string> formatted: TextFormat.number(root.value, root.precision);
+
+    function nudge(by: float) {
+        root.value = clamp(root.value + by, root.minimum, root.maximum);
+        root.value-changed(root.value);
+    }
+
+    height: Theme.control-height(ControlSize.md);
+    min-width: row.min-width + 2px;
+    preferred-width: row.preferred-width + 2px;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: Theme.colors.border-strong;
+        background: Theme.colors.surface;
+    }
+
+    row := HorizontalLayout {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        // Inside the 1 px border.
+        padding: 2px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+
+            IconButton {
+                icon: Icons.minus;
+                icon-name: "minus";
+                variant: ButtonVariant.ghost;
+                size: ControlSize.sm;
+                enabled: root.value > root.minimum;
+                clicked => {
+                    root.nudge(-root.step);
+                }
+            }
+        }
+
+        TypeText {
+            min-width: Theme.control-height(ControlSize.md);
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            wrap: no-wrap;
+            font-size: Theme.text-size(TextSize.base);
+            color: Theme.colors.fg;
+            text: root.formatted != "" ? root.formatted : root.value;
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            IconButton {
+                icon: Icons.plus;
+                icon-name: "plus";
+                variant: ButtonVariant.ghost;
+                size: ControlSize.sm;
+                enabled: root.value < root.maximum;
+                clicked => {
+                    root.nudge(root.step);
+                }
+            }
+        }
+    }
+}
