@@ -22,4 +22,15 @@ export global TextFormat {
     // `text` split into runs that alternate plain and marked, first plain, marking every
     // case-insensitive match of `query`.
     pure callback highlight-runs(text: string, query: string) -> [string];
+    // Grouped digits at fixed precision with a typographic minus: 1,234.50, −3.
+    pure callback number(value: float, decimals: int) -> string;
+    // An amount in an ISO 4217 currency, at its minor units: $19.99, ¥1,200, CHF 5.00.
+    pure callback currency(amount: float, code: string) -> string;
+    // A ratio as percent: 0.25 reads 25.0%; `signed` adds a plus to gains.
+    pure callback percent(ratio: float, decimals: int, signed: bool) -> string;
+    // Bytes in KB, MB, GB (1000), or KiB, MiB, GiB (1024) when `binary`.
+    pure callback file-size(bytes: float, binary: bool) -> string;
+    // Unix seconds as a strftime pattern in a zone (an IANA name; empty is the system's).
+    // Empty if the pattern or zone does not read.
+    pure callback datetime(at: int, pattern: string, zone: string) -> string;
 }

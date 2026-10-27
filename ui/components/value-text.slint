@@ -1,0 +1,177 @@
+// Port of ely-core/src/typography/formatted.rs and format.rs: numbers, amounts, sizes, spans
+// and moments as text, in the text style around them.
+//
+// Durations, plurals and relative times are pure Slint. Grouping a float, currencies, file
+// sizes and dates need the host: `TextFormat` (`ely_slint::wire_text_format!`). Unwired, those
+// fall back to Slint's own `to-fixed`. RelativeTime reads `Clock.now`, which the host sets and
+// moves every 30 s (`ely_slint::wire_clock!`).
+//
+// Slint numbers are 32-bit: floats keep about seven significant digits and whole numbers stop
+// at 2,147,483,647, so Unix seconds run out in 2038 (gap G25).
+
+import { Theme } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { TextFormat } from "text-format.slint";
+
+// How a span of seconds reads.
+export enum DurationStyle {
+    // 01:23:45, or 23:45 under an hour.
+    clock,
+    // 1h 23m, 4m 5s.
+    compact,
+}
+
+// The moment now, in Unix seconds, as RelativeTime reads it.
+export global Clock {
+    in-out property <int> now;
+}
+
+// The formatting `.slint` can do itself (ely format.rs `duration`, `plural`, `relative`).
+export global Figures {
+    // Two digits, zero first.
+    public pure function pad2(n: int) -> string {
+        n < 10 ? "0\{n}" : "\{n}"
+    }
+
+    // Three digits, zeros first.
+    public pure function pad3(n: int) -> string {
+        n < 10 ? "00\{n}" : n < 100 ? "0\{n}" : "\{n}"
+    }
+
+    // A whole number with a comma every three digits; negatives read as none.
+    public pure function group(n: int) -> string {
+        if n < 1000 {
+            return "\{max(0, n)}";
+        }
+        if n < 1000000 {
+            return "\{floor(n / 1000)},\{pad3(Math.mod(n, 1000))}";
+        }
+        if n < 1000000000 {
+            return "\{floor(n / 1000000)},\{pad3(Math.mod(floor(n / 1000), 1000))},\{pad3(Math.mod(n, 1000))}";
+        }
+        "\{floor(n / 1000000000)},\{pad3(Math.mod(floor(n / 1000000), 1000))},\{pad3(Math.mod(floor(n / 1000), 1000))},\{pad3(Math.mod(n, 1000))}"
+    }
+
+    // `seconds` written in `style`.
+    public pure function duration(seconds: int, style: DurationStyle) -> string {
+        let s = max(0, seconds);
+        let days = floor(s / 86400);
+        let hours = floor(s / 3600);
+        let minutes = Math.mod(floor(s / 60), 60);
+        let secs = Math.mod(s, 60);
+        if style == DurationStyle.clock {
+            return hours > 0 ? "\{pad2(hours)}:\{pad2(minutes)}:\{pad2(secs)}" : "\{pad2(minutes)}:\{pad2(secs)}";
+        }
+        days > 0 ? "\{days}d \{Math.mod(hours, 24)}h" : hours > 0 ? "\{hours}h \{minutes}m" : minutes > 0 ? "\{minutes}m \{secs}s" : "\{secs}s"
+    }
+
+    // "1 file", "12,345 files".
+    public pure function plural(count: int, one: string, other: string) -> string {
+        "\{group(count)} \{count == 1 ? one : other}"
+    }
+
+    // "just now", "3 minutes ago", "in 2 days": the distance from `then` to `now`, rounded.
+    public pure function relative(then: int, now: int) -> string {
+        let delta = now - then;
+        let s = abs(delta);
+        if s < 45 {
+            return @tr("just now");
+        }
+        let span = s < 90 ? @tr("{n} minute" | "{n} minutes" % 1)
+            : s < 45 * 60 ? @tr("{n} minute" | "{n} minutes" % round-to(s, 60))
+            : s < 90 * 60 ? @tr("{n} hour" | "{n} hours" % 1)
+            : s < 22 * 3600 ? @tr("{n} hour" | "{n} hours" % round-to(s, 3600))
+            : s < 36 * 3600 ? @tr("{n} day" | "{n} days" % 1)
+            : s < 26 * 86400 ? @tr("{n} day" | "{n} days" % round-to(s, 86400))
+            : s < 45 * 86400 ? @tr("{n} month" | "{n} months" % 1)
+            : s < 320 * 86400 ? @tr("{n} month" | "{n} months" % round-to(s, 30 * 86400))
+            : s < 548 * 86400 ? @tr("{n} year" | "{n} years" % 1)
+            : @tr("{n} year" | "{n} years" % round-to(s, 365 * 86400));
+        delta < 0 ? @tr("in {}", span) : @tr("{} ago", span)
+    }
+
+    // `s` in whole `unit`s, halves up.
+    pure function round-to(s: int, unit: int) -> int {
+        floor((s + floor(unit / 2)) / unit)
+    }
+}
+
+// Grouped digits at fixed precision: `NumberText { value: 3.14159; decimals: 2; }` reads 3.14.
+export component NumberText inherits TypeText {
+    in property <float> value;
+    // Places after the point.
+    in property <int> decimals: 0;
+
+    private property <string> formatted: TextFormat.number(root.value, root.decimals);
+
+    text: root.formatted != "" ? root.formatted : root.value.to-fixed(root.decimals);
+}
+
+// An amount in an ISO 4217 currency: `CurrencyText { amount: 19.99; code: "USD"; }` reads $19.99.
+export component CurrencyText inherits TypeText {
+    in property <float> amount;
+    in property <string> code;
+
+    private property <string> formatted: TextFormat.currency(root.amount, root.code);
+
+    text: root.formatted != "" ? root.formatted : "\{root.code} \{root.amount.to-fixed(2)}";
+}
+
+// A ratio as percent, to one place: 0.25 reads 25.0%. `signed` shows the direction with a
+// plus and in color: success for gains, danger for losses.
+export component PercentText inherits TypeText {
+    in property <float> ratio;
+    in property <int> decimals: 1;
+    in property <bool> signed: false;
+
+    private property <string> formatted: TextFormat.percent(root.ratio, root.decimals, root.signed);
+
+    text: root.formatted != "" ? root.formatted : "\{(root.ratio * 100).to-fixed(root.decimals)}%";
+    color: root.signed && root.ratio > 0 ? Theme.colors.success : root.signed && root.ratio < 0 ? Theme.colors.danger : Theme.colors.fg;
+}
+
+// Bytes in KB, MB, GB, or KiB, MiB, GiB when `binary`.
+export component FileSizeText inherits TypeText {
+    in property <float> bytes;
+    in property <bool> binary: false;
+
+    private property <string> formatted: TextFormat.file-size(root.bytes, root.binary);
+
+    text: root.formatted != "" ? root.formatted : "\{root.bytes.to-fixed(0)} B";
+}
+
+// Seconds as a clock or a compact span.
+export component DurationText inherits TypeText {
+    in property <int> seconds;
+    in property <DurationStyle> style: DurationStyle.clock;
+
+    text: Figures.duration(root.seconds, root.style);
+}
+
+// A count with the right noun: `PluralText { count: 3; one: "file"; other: "files"; }`.
+export component PluralText inherits TypeText {
+    in property <int> count;
+    in property <string> one;
+    in property <string> other;
+
+    text: Figures.plural(root.count, root.one, root.other);
+}
+
+// "3 minutes ago", kept fresh by `Clock.now`.
+export component RelativeTime inherits TypeText {
+    // The moment, in Unix seconds.
+    in property <int> at;
+
+    text: Figures.relative(root.at, Clock.now);
+}
+
+// A moment as a strftime pattern, in the system zone unless `zone` names one.
+export component DateTimeText inherits TypeText {
+    // The moment, in Unix seconds.
+    in property <int> at;
+    in property <string> pattern: "%b %-d, %Y · %H:%M";
+    // An IANA zone such as "UTC" or "Europe/Paris"; empty is the system's.
+    in property <string> zone;
+
+    text: TextFormat.datetime(root.at, root.pattern, root.zone);
+}
