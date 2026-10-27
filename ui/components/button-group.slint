@@ -74,7 +74,10 @@ component ToggleFace {
     }
 
     forward-focus: keys;
-    height: Theme.control-height(root.size);
+    // Spelled out so FlexboxLayout sees it too.
+    min-height: Theme.control-height(root.size);
+    preferred-height: Theme.control-height(root.size);
+    max-height: Theme.control-height(root.size);
     min-width: Theme.control-height(root.size);
     horizontal-stretch: 0;
     opacity: root.enabled ? 1 : 0.45;

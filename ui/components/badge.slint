@@ -185,7 +185,10 @@ export component Tag inherits Rectangle {
 
     private property <color> ink: root.tone == Tone.neutral ? Theme.colors.fg : Tones.text(root.tone);
 
-    height: Theme.control-height(ControlSize.sm);
+    // Spelled out: FlexboxLayout (TagInput, MultiSelect) reads layout info, not a plain `height`.
+    min-height: Theme.control-height(ControlSize.sm);
+    preferred-height: Theme.control-height(ControlSize.sm);
+    max-height: Theme.control-height(ControlSize.sm);
     border-radius: Theme.radius(Radius.sm);
     background: Tones.fill(root.tone);
     horizontal-stretch: 0;

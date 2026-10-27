@@ -84,7 +84,8 @@ fn backspace_drops_the_last_chosen() {
 fn chips_wrap_and_grow_the_field() {
     let h = harness();
     let one_line = h.get_multi_height();
-    assert_eq!(one_line, 28.0);
+    // A 24 px chip, 2 px above and below, a 1 px border: past the 28 px least, as in gpui.
+    assert_eq!(one_line, 30.0);
     h.set_labels(slint::ModelRc::new(slint::VecModel::from(vec!["bug".into(), "docs".into(), "ui".into(), "wip".into()])));
     advance(0);
     assert!(h.get_multi_height() >= one_line);

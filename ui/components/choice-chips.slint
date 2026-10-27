@@ -1,0 +1,148 @@
+// Port of ely-core/src/forms/chips.rs (`ChoiceChips`): pills for a short set of choices. One is
+// on at a time, or several with `multiple` (filter chips, which show a check while on). Each
+// enabled chip is a tab stop; a click, or Enter or Space while focused, presses it.
+//
+// List edits run in Rust (`Choices`, `wire_options!`, with `wire_toggles!`). Like ToggleGroup
+// (G48), `selected` is `in-out`.
+
+import { Theme, ControlSize, IconSize, TextSize } from "../theme/theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { TypeText } from "type-text.slint";
+import { ClickKeys } from "click-keys.slint";
+import { Choice, Choices } from "options.slint";
+import { Toggles } from "button-group.slint";
+
+component ChoiceChip {
+    in property <Choice> choice;
+    in property <bool> on;
+    in property <bool> multiple;
+
+    callback pressed();
+
+    private property <color> ink: root.choice.disabled ? Theme.colors.fg-disabled : root.on ? Theme.colors.on-accent : Theme.colors.fg-muted;
+
+    // Spelled out: FlexboxLayout reads the chip's layout info, not a plain `height`.
+    min-height: Theme.control-height(ControlSize.sm);
+    preferred-height: Theme.control-height(ControlSize.sm);
+    max-height: Theme.control-height(ControlSize.sm);
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    // A radio chip sets radio-button.
+    accessible-role: checkbox;
+    accessible-label: root.choice.label;
+    accessible-checkable: true;
+    accessible-checked: root.on;
+    accessible-enabled: !root.choice.disabled;
+    accessible-action-default => {
+        if !root.choice.disabled {
+            root.pressed();
+        }
+    }
+
+    Rectangle {
+        border-radius: self.height / 2;
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : root.on ? Theme.colors.accent : Theme.colors.border-strong;
+        background: root.on ? Theme.colors.accent : !root.choice.disabled && touch.has-hover ? Theme.colors.hover : Theme.colors.surface;
+    }
+
+    row := HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: 13px;
+        padding-right: 13px;
+        spacing: 6px;
+
+        if root.on && root.multiple: VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: Icons.check;
+                size: IconSize.xs;
+                color: root.ink;
+            }
+        }
+
+        if root.choice.icon.width > 0: VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: root.choice.icon;
+                size: IconSize.xs;
+                color: root.ink;
+            }
+        }
+
+        TypeText {
+            text: root.choice.label;
+            font-size: Theme.text-size(TextSize.sm);
+            color: root.ink;
+            vertical-alignment: center;
+            wrap: no-wrap;
+        }
+    }
+
+    // A press never takes focus, as gpui prevents default on mouse down.
+    touch := TouchArea {
+        enabled: !root.choice.disabled;
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.pressed();
+        }
+    }
+
+    keys := ClickKeys {
+        enabled: !root.choice.disabled;
+        activated => {
+            root.pressed();
+        }
+    }
+}
+
+component RadioChip inherits ChoiceChip {
+    accessible-role: radio-button;
+}
+
+export component ChoiceChips {
+    in property <[Choice]> choices;
+    // The values of the chips that are on.
+    in-out property <[string]> selected;
+    // Filter chips: each toggles, and chosen ones show a check.
+    in property <bool> multiple;
+
+    // The values on after each press.
+    callback selection-changed(selected: [string]);
+
+    function press(value: string) {
+        root.selected = root.multiple ? Choices.toggled(root.choices, root.selected, value, !Toggles.contains(root.selected, value)) : [value];
+        root.selection-changed(root.selected);
+    }
+
+    min-width: 0;
+    preferred-width: flow.preferred-width;
+    min-height: flow.min-height;
+    preferred-height: flow.preferred-height;
+
+    flow := FlexboxLayout {
+        flex-wrap: wrap;
+        spacing: 8px;
+
+        // Filter chips are check boxes, single chips radios: Slint's role must be constant.
+        for choice in root.multiple ? root.choices : []: ChoiceChip {
+            choice: choice;
+            on: Toggles.contains(root.selected, choice.value);
+            multiple: true;
+            pressed => {
+                root.press(choice.value);
+            }
+        }
+
+        for choice in root.multiple ? [] : root.choices: RadioChip {
+            choice: choice;
+            on: Toggles.contains(root.selected, choice.value);
+            pressed => {
+                root.press(choice.value);
+            }
+        }
+    }
+}

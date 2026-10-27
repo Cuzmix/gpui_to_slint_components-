@@ -41,7 +41,10 @@ export component Button {
     callback clicked();
 
     forward-focus: frame;
-    height: Theme.control-height(size);
+    // Spelled out so FlexboxLayout sees it too.
+    min-height: Theme.control-height(size);
+    preferred-height: Theme.control-height(size);
+    max-height: Theme.control-height(size);
     // Never grows; shrinks only when a row cannot fit it.
     horizontal-stretch: full-width ? 1 : 0;
     min-width: 0;

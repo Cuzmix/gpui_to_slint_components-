@@ -32,7 +32,10 @@ export component IconButton {
 
     forward-focus: frame;
     width: Theme.control-height(size);
-    height: Theme.control-height(size);
+    // Spelled out so FlexboxLayout sees it too.
+    min-height: Theme.control-height(size);
+    preferred-height: Theme.control-height(size);
+    max-height: Theme.control-height(size);
 
     frame := ButtonFrame {
         width: 100%;
