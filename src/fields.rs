@@ -191,6 +191,12 @@ macro_rules! wire_fields {
         });
         $app.global::<TextFields>().on_is_email(|text| $crate::fields::is_email(&text));
         $app.global::<TextFields>().on_is_url(|text| $crate::fields::is_url(&text));
+        $crate::fields::register_filter("digits", |ch| ch.is_ascii_digit());
+        $crate::fields::register_filter("alnum", |ch| ch.is_ascii_alphanumeric());
+        $app.global::<TextFields>().on_chars(|text| {
+            let chars: Vec<::slint::SharedString> = text.chars().map(|ch| ch.to_string().into()).collect();
+            ::slint::ModelRc::new(::slint::VecModel::from(chars))
+        });
         $app.global::<TextFields>().on_mask_hint(|mask| $crate::fields::mask_hint(&mask).into());
         $app.global::<TextFields>().on_remask(|old, new, text| $crate::fields::remask(&old, &new, &text).into());
     }};

@@ -6,7 +6,8 @@
 // Ctrl+Enter (⌘↩) accepts either way. Masked text shows bullets and stays off the clipboard.
 //
 // Filters, `max-len` and fits run in Rust, since Slint cannot walk a string's characters; the
-// host wires the `TextFields` global once (only fields with a `fit-kind` or a `max-len` ask it):
+// host wires the `TextFields` global once (only fields with a `fit-kind` or a `max-len` ask it;
+// it registers the kinds `digits` and `alnum`):
 //     ely_slint::wire_fields!(app);
 
 import { Theme, TextSize } from "../theme/theme.slint";
@@ -27,6 +28,8 @@ export global TextFields {
     // A mask's hint while empty, slots as underscores; and `text`, fitted to `old` (empty: none
     // yet), refitted to `new` (MaskedInput).
     pure callback mask-hint(mask: string) -> string;
+    // Each character of `text` (PinInput's boxes).
+    pure callback chars(text: string) -> [string];
     pure callback remask(old: string, new: string, text: string) -> string;
 }
 

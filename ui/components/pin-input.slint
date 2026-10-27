@@ -1,0 +1,111 @@
+// Port of ely-core/src/forms/pin.rs (`PinInput`): boxes for a one-time code. Typing moves
+// along; a paste fills them all. The text sits in an unseen field over the boxes, which keeps
+// its caret at the end unless all of it is selected.
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { TextField, TextFields } from "text-field.slint";
+
+export component PinInput {
+    // How many boxes; at least one.
+    in property <int> length: 6;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+    // Accepts letters as well as digits.
+    in property <bool> letters;
+    // Shows bullets in filled boxes.
+    in property <bool> masked;
+    // Clears the boxes whenever it changes, so a code that failed makes way for the next.
+    in property <int> attempt;
+    in property <bool> enabled: true;
+
+    // The code typed so far, upper case.
+    out property <string> code: field.text.to-uppercase();
+    out property <bool> has-focus: field.has-focus;
+
+    // Every box is filled.
+    callback completed(code: string);
+
+    private property <int> boxes: max(1, root.length);
+    private property <[string]> filled: TextFields.chars(root.code);
+    private property <int> active: min(root.filled.length, root.boxes - 1);
+    // The filters let only ASCII through, so characters and bytes count alike.
+    private property <int> end: field.text.character-count;
+    private property <bool> whole: field.has-focus && root.end > 0 && min(field.cursor, field.anchor) == 0 && max(field.cursor, field.anchor) == root.end;
+    private property <bool> caret-on: true;
+    private property <int> selection: field.cursor * 65536 + field.anchor;
+
+    // The caret stays at the end unless all is selected.
+    changed selection => {
+        if field.has-focus && !root.whole && (field.cursor != root.end || field.anchor != root.end) {
+            field.select(root.end, root.end);
+        }
+    }
+    changed attempt => {
+        field.text = "";
+    }
+
+    forward-focus: field;
+    width: row.preferred-width;
+    height: row.preferred-height;
+
+    blink := Timer {
+        interval: 530ms;
+        running: field.has-focus && !Theme.reduced-motion;
+        triggered => {
+            root.caret-on = !root.caret-on;
+        }
+    }
+
+    row := HorizontalLayout {
+        spacing: 8px;
+
+        for ix in root.boxes: Rectangle {
+            property <bool> current: field.has-focus && ix == root.active;
+            property <string> glyph: ix < root.filled.length ? (root.masked ? "•" : root.filled[ix]) : "";
+
+            width: Theme.control-height(ControlSize.lg) * 1.25;
+            height: self.width;
+            border-radius: Theme.radius(Radius.md);
+            border-width: 1px;
+            border-color: self.current ? Theme.colors.focus : Theme.colors.border-strong;
+            background: root.whole && self.glyph != "" ? Theme.colors.selection : Theme.colors.surface;
+
+            if self.glyph != "": Text {
+                text: parent.glyph;
+                color: Theme.colors.fg;
+                font-size: Theme.text-size(TextSize.xl);
+                font-weight: 500;
+                font-family: Theme.font-family;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+
+            if self.current && self.glyph == "" && root.caret-on: Rectangle {
+                width: Theme.caret-width;
+                height: Theme.text-size(TextSize.xl);
+                background: Theme.colors.focus;
+            }
+        }
+    }
+
+    // The unseen field over the boxes takes the typing, the paste and the pointer.
+    field := TextField {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        opacity: 0;
+        label: root.label;
+        enabled: root.enabled;
+        max-len: root.boxes;
+        fit-kind: root.letters ? "alnum" : "digits";
+        edited(text) => {
+            root.caret-on = true;
+            blink.restart();
+            if text.character-count == root.boxes {
+                root.completed(text.to-uppercase());
+            }
+        }
+    }
+}
