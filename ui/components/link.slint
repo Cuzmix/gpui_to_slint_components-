@@ -1,0 +1,124 @@
+// Port of ely-core/src/typography/link.rs (`Link`, `ExternalLink`).
+// An inline link in the link color, underlined while hovered, with a focus ring. A press runs
+// `clicked`; so do Enter and Space while focused. A mouse press never takes focus.
+//
+// ExternalLink opens its address through the host: `Links.open`, wired once per window (Rust):
+//
+//     ely_slint::wire_links!(app);
+//
+// The host exports `Links` from its root `.slint` file.
+
+import { Theme, TextSize, Radius, IconSize } from "../theme/theme.slint";
+import { TypeText } from "type-text.slint";
+import { FocusRing } from "focus-ring.slint";
+import { ClickKeys } from "click-keys.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+
+// The host's address opener, as gpui's `open_url`.
+export global Links {
+    callback open(url: string);
+}
+
+export component Link {
+    // What it reads.
+    in property <string> text;
+    // The text size around it.
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    // Marks it as leaving the app with an arrow after the text.
+    in property <bool> external: false;
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> has-hover: touch.has-hover;
+    // The ring drawn now: transparent at rest, focus-colored while focused.
+    out property <color> current-border: ring.border-color;
+    // Runs on a press, or on Enter or Space released while focused.
+    callback clicked();
+
+    forward-focus: keys;
+    width: content.preferred-width;
+    height: content.preferred-height;
+    // Slint 1.18 has no link role; a button is the nearest that reads as pressable (gap G24).
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    ring := FocusRing {
+        border-radius: Theme.radius(Radius.sm);
+        focused: keys.has-focus;
+    }
+
+    content := HorizontalLayout {
+        // 2 px padding inside the 1 px ring.
+        padding-left: 1px + 2px;
+        padding-right: 1px + 2px;
+        padding-top: 1px;
+        padding-bottom: 1px;
+        spacing: 2px;
+        label := TypeText {
+            text: root.text;
+            font-size: root.font-size;
+            color: Theme.colors.link;
+            wrap: no-wrap;
+            vertical-alignment: center;
+            accessible-role: none;
+            // gpui underlines the text while hovered (gap G9).
+            if touch.has-hover: Rectangle {
+                x: 0;
+                width: parent.width;
+                y: (parent.height + parent.font-size) / 2;
+                height: Theme.underline-thickness;
+                background: Theme.colors.link;
+            }
+        }
+
+        if root.external: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: Icons.arrow-up-right;
+                size: IconSize.xs;
+                color: Theme.colors.link;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    keys := ClickKeys {
+        activated => {
+            root.clicked();
+        }
+    }
+}
+
+// A link that leaves the app: an arrow after the text, and a press opens `url`.
+export component ExternalLink {
+    in property <string> text;
+    // The address it opens.
+    in property <string> url;
+    in property <length> font-size: Theme.text-size(TextSize.base);
+    out property <bool> has-focus: link.has-focus;
+    // Runs after the address is handed to the host.
+    callback opened();
+
+    forward-focus: link;
+    width: link.width;
+    height: link.height;
+    accessible-role: none;
+
+    link := Link {
+        text: root.text;
+        font-size: root.font-size;
+        external: true;
+        clicked => {
+            Links.open(root.url);
+            root.opened();
+        }
+    }
+}

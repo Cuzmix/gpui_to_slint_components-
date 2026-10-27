@@ -7,8 +7,12 @@
 pub mod focus;
 pub mod format;
 pub mod keys;
+pub mod open;
 pub mod text;
 #[doc(hidden)]
 pub mod wire;
+
+#[doc(hidden)]
+pub use log;
 
 pub use keys::{Keystroke, KeystrokeError, Platform, key_label, keystroke, keystroke_labels, shortcut_text};
