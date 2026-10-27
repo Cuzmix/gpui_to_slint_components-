@@ -90,3 +90,8 @@ macro_rules! cases {
         }
     };
 }
+
+// One wheel notch at (x, y); negative `dy` scrolls down, as Slint's deltas run.
+pub fn wheel(w: &slint::Window, x: f32, y: f32, dx: f32, dy: f32) {
+    w.dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(x, y), delta_x: dx, delta_y: dy });
+}

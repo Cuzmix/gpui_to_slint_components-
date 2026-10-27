@@ -47,6 +47,9 @@ Visuals: compared state by state against the GPUI source values (no GPUI capture
 | ZStack, ZLayer | layout/stack.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs` | | ✓ |
 | AspectRatio, Container | layout/stack.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs` | | ✓ |
 | SimpleGrid, Masonry | layout/grid.rs | ✓ | n/a | n/a | n/a | n/a | ✓ | ✓ (no node) | ✓ `tests/layout.rs`, `src/layout.rs` | | ✓ |
+| Scrollbar | layout/scroll.rs | ✓ | n/a | n/a | ✓ thumb drag, track blocks presses | ✓ 900 ms idle, 320 ms fade | ✓ | ✓ (no node) | ✓ `tests/scroll.rs` | | ✓ |
+| ScrollArea | layout/scroll.rs | ✓ | n/a | n/a | ✓ wheel, hover shows bars | ✓ (Scrollbar) | ✓ | ✓ (no node) | ✓ `tests/scroll.rs` | G31 | ✓ |
+| ScrollShadow, ScrollToTop, StickyHeader | layout/scroll_aids.rs | ✓ | ✓ | ✓ (IconButton) | ✓ | ✓ 320 ms ease back | ✓ | ✓ button label | ✓ `tests/scroll.rs` | G10 | ✓ |
 
 Chapter 1 entries that need no component of their own (Slint builtins or aliases) are marked in `INVENTORY.md`.
 

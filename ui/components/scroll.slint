@@ -1,0 +1,335 @@
+// Port of ely-core/src/layout/scroll.rs (`Scrollbar`, `ScrollArea`) and scroll_aids.rs
+// (`ScrollShadow`, `ScrollToTop`, `StickyHeader`).
+//
+// gpui's scroll handle is a Flickable here. Each aid reads the scroll through plain properties
+// in Flickable's own terms, so the owner binds them straight to it:
+//     flick := Flickable { ... }
+//     Scrollbar { content-length: flick.content-height; offset <=> flick.content-y; }
+// `offset` is the viewport's position, 0 at the start and negative once scrolled, as
+// Flickable's `content-y` is. An aid fills its parent, so put it beside the Flickable in the
+// box the Flickable fills.
+
+import { Theme, Elevation } from "../theme/theme.slint";
+import { Elevated } from "elevated.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant } from "button-style.slint";
+import { Icons } from "../icons/icons.slint";
+
+// Shown while the scroll moves, then 900 ms idle, then a fade over `motion-slow` (`presence`).
+component Activity {
+    in property <length> offset-x;
+    in property <length> offset-y;
+    // Holds it fully shown, as hovering does.
+    in property <bool> held;
+    out property <float> presence: root.held ? 1 : root.lit;
+
+    private property <bool> awake: false;
+    private property <float> lit: root.awake ? 1 : 0;
+    animate lit {
+        duration: root.awake ? 0ms : Theme.motion-slow;
+        easing: linear;
+    }
+
+    changed offset-x => {
+        root.wake();
+    }
+    changed offset-y => {
+        root.wake();
+    }
+
+    function wake() {
+        root.awake = true;
+        // restart() alone leaves a stopped timer stopped.
+        idle.running = true;
+        idle.restart();
+    }
+
+    idle := Timer {
+        interval: 900ms;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.awake = false;
+        }
+    }
+}
+
+// An overlay thumb along one edge of a scroll box (`Scrollbar`); drag it to scroll. It fills
+// its parent and draws its track along the right edge (vertical) or the bottom (horizontal).
+export component Scrollbar {
+    in property <Orientation> orientation: Orientation.vertical;
+    // The content's length along the axis: the Flickable's `content-height` or `-width`.
+    in property <length> content-length;
+    // The viewport's position along the axis: bind it to `content-y` or `content-x`.
+    in-out property <length> offset;
+    // How visible the thumb is, 0 to 1; at 0 it is not there at all.
+    in property <float> presence: 1;
+    // Shows while the scroll moves or the pointer is on the track, then fades (gpui `.auto()`);
+    // `presence` is then ignored.
+    in property <bool> auto: false;
+    // The pointer is on the track. A track is only there while drawn; one that goes while the
+    // pointer rests on it lets go on the pointer's next move.
+    out property <bool> on-bar: track.has-hover;
+    // The thumb is held by a drag.
+    out property <bool> dragging: thumb-touch.pressed;
+
+    private property <bool> vertical: root.orientation == Orientation.vertical;
+    private property <length> span: root.vertical ? root.height : root.width;
+    private property <length> reach: max(0, root.content-length - root.span);
+    private property <float> shown: root.span / (root.span + root.reach);
+    private property <float> passed: root.reach > 0 ? clamp(-root.offset / root.reach, 0, 1) : 0;
+    private property <length> length: min(max(root.span * root.shown, Theme.scrollbar-min-thumb), root.span);
+    private property <length> travel: root.span - root.length;
+    private property <length> start: root.travel * root.passed;
+    private property <float> seen: root.dragging ? 1 : root.auto ? activity.presence : clamp(root.presence, 0, 1);
+    private property <bool> drawn: root.reach > 0 && root.travel > 0 && (root.auto || root.seen > 0 || root.dragging);
+    private property <length> thickness: Theme.scrollbar-thickness;
+    // Where the thumb started and where the pointer first moved, for one drag.
+    private property <length> grab-start;
+    private property <length> anchor;
+    private property <bool> anchored: false;
+
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    activity := Activity {
+        offset-x: root.vertical ? 0 : root.offset;
+        offset-y: root.vertical ? root.offset : 0;
+        held: track.has-hover;
+    }
+
+    track := TouchArea {
+        visible: root.drawn;
+        x: root.vertical ? root.width - root.thickness * 2 : 0;
+        y: root.vertical ? 0 : root.height - root.thickness * 2;
+        width: root.vertical ? root.thickness * 2 : root.width;
+        height: root.vertical ? root.height : root.thickness * 2;
+        opacity: root.seen;
+        // Nothing beneath sees its presses; the wheel passes on.
+        mouse-cursor: default;
+
+        Rectangle {
+            x: root.vertical ? root.thickness * 0.5 : root.start;
+            y: root.vertical ? root.start : root.thickness * 0.5;
+            width: root.vertical ? root.thickness : root.length;
+            height: root.vertical ? root.length : root.thickness;
+            border-radius: root.thickness / 2;
+            background: Theme.opacity(Theme.colors.fg, thumb-touch.has-hover || thumb-touch.pressed ? 0.42 : 0.22);
+
+            thumb-touch := TouchArea {
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.grab-start = root.start;
+                        root.anchored = false;
+                    }
+                }
+                moved => {
+                    if self.pressed && root.travel > 0 {
+                        // The pointer along the track.
+                        let along = root.vertical ? parent.y + self.mouse-y : parent.x + self.mouse-x;
+                        if !root.anchored {
+                            root.anchor = along;
+                            root.anchored = true;
+                        }
+                        let ratio = clamp((root.grab-start + along - root.anchor) / root.travel, 0, 1);
+                        root.offset = -(root.reach * ratio);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Soft shade at each edge where content continues (`ScrollShadow`): at the top once scrolled,
+// at the bottom while more waits. It fills its parent and takes no input.
+export component ScrollShadow {
+    // The content's height: the Flickable's `content-height`.
+    in property <length> content-length;
+    // The viewport's position: bind it to `content-y`.
+    in property <length> offset;
+
+    // Which edges are shaded.
+    out property <bool> top-shaded: root.scrolled > 0;
+    out property <bool> bottom-shaded: root.scrolled < root.reach;
+
+    private property <length> scrolled: -root.offset;
+    private property <length> reach: root.content-length - root.height;
+
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    Rectangle {
+        clip: true;
+
+        if root.top-shaded: Elevated {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: 0;
+            elevation: Elevation.floating;
+        }
+
+        if root.bottom-shaded: Elevated {
+            x: 0;
+            y: parent.height;
+            width: parent.width;
+            height: 0;
+            elevation: Elevation.floating;
+        }
+    }
+}
+
+// A floating button that eases the scroll back to the top once the reader is half a view down
+// (`ScrollToTop`). It fills its parent and floats 16 px in from the bottom right.
+export component ScrollToTop {
+    // The viewport's position: bind it two-way to `content-y`.
+    in-out property <length> offset;
+    // Whether the button shows.
+    out property <bool> shown: root.height > 0 && -root.offset >= root.height / 2;
+
+    // Where the ease began, and when.
+    private property <length> from;
+    private property <duration> began;
+
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    if root.shown: Elevated {
+        x: root.width - self.width - 16px;
+        y: root.height - self.height - 16px;
+        width: button.width;
+        height: button.height;
+        elevation: Elevation.floating;
+        border-radius: self.height / 2;
+        background: Theme.colors.surface;
+
+        button := IconButton {
+            icon: Icons.arrow-up;
+            icon-name: "arrow-up";
+            variant: ButtonVariant.secondary;
+            clicked => {
+                root.from = root.offset;
+                root.began = animation-tick();
+                ease.running = true;
+            }
+        }
+    }
+
+    // gpui's 8 ms frame loop: each frame takes the offset nearer the top along ease-out-cubic.
+    ease := Timer {
+        interval: 8ms;
+        running: false;
+        triggered => {
+            let t = min(1, (animation-tick() - root.began) / Theme.motion-slow);
+            root.offset = root.from * (1 - Theme.ease-out-cubic(t));
+            if t >= 1 {
+                self.running = false;
+            }
+        }
+    }
+}
+
+// The header of a section that pins to the top of a scroll box while the section crosses it,
+// until the section's end pushes it off (`StickyHeader`). Put it first in the section, give it
+// the section's height and the box's top, and put the header's content inside:
+//     section := VerticalLayout {
+//         StickyHeader {
+//             box-top: flick.absolute-position.y;
+//             section-height: section.height;
+//             Text { text: "Today"; }
+//         }
+//         // the section's rows
+//     }
+// It keeps its place in the section; the content moves and draws over the rows on the page
+// background.
+export component StickyHeader inherits Rectangle {
+    // The scroll box's top in window coordinates: the Flickable's `absolute-position.y`.
+    in property <length> box-top;
+    // The height of the section this header leads.
+    in property <length> section-height;
+    // How far the header has moved down from its place.
+    out property <length> pinned: clamp(root.box-top - root.absolute-position.y, 0, max(0, root.section-height - root.height));
+
+    z: 1;
+    preferred-height: content.preferred-height;
+    min-height: content.min-height;
+
+    content := Rectangle {
+        y: root.pinned;
+        width: root.width;
+        height: root.height;
+        background: Theme.colors.bg;
+
+        VerticalLayout {
+            @children
+        }
+    }
+}
+
+// A scroll region with overlay scrollbars that show while it scrolls or the pointer is on it
+// (`ScrollArea`). Children stack top to bottom, as gpui's block children do.
+export component ScrollArea {
+    // Scrolls down only; children keep the area's width, so rows wrap.
+    in property <bool> vertical: false;
+    // Soft edges where the content continues.
+    in property <bool> shadows: false;
+    // The viewport's position, for an owner that moves the scroll (gpui `track_scroll`).
+    in-out property <length> content-x <=> flick.content-x;
+    in-out property <length> content-y <=> flick.content-y;
+    out property <length> content-width: flick.content-width;
+    out property <length> content-height: flick.content-height;
+    // How visible the bars are.
+    out property <float> presence: activity.presence;
+
+    // Fills its parent, as gpui's `size_full()` areas do; a layout sizes it like any item.
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    activity := Activity {
+        offset-x: flick.content-x;
+        offset-y: flick.content-y;
+        held: hover.has-hover || bar-y.on-bar || bar-x.on-bar;
+    }
+
+    hover := TouchArea {
+        flick := Flickable {
+            // gpui scrolls by wheel and trackpad only; a mouse drag selects or drags instead.
+            mouse-drag-pan-enabled: false;
+            content-width: root.vertical ? self.width : max(self.width, body.min-width);
+            content-height: max(self.height, body.preferred-height);
+
+            body := VerticalLayout {
+                width: flick.content-width;
+                height: flick.content-height;
+                alignment: start;
+                @children
+            }
+        }
+    }
+
+    if root.shadows: ScrollShadow {
+        content-length: flick.content-height;
+        offset: flick.content-y;
+    }
+
+    bar-y := Scrollbar {
+        orientation: Orientation.vertical;
+        content-length: flick.content-height;
+        offset <=> flick.content-y;
+        presence: activity.presence;
+    }
+
+    bar-x := Scrollbar {
+        visible: !root.vertical;
+        orientation: Orientation.horizontal;
+        content-length: root.vertical ? 0 : flick.content-width;
+        offset <=> flick.content-x;
+        presence: activity.presence;
+    }
+}
