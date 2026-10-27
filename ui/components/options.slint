@@ -50,6 +50,19 @@ export global Choices {
     pure callback step(rows: [Choice], from: int, by: int) -> int;
     // Rows whose value and label are each of `labels`.
     pure callback plain(labels: [string]) -> [Choice];
+    // Rows whose label or note holds `query`, ignoring case (all for an empty query), less those
+    // whose value is in `except`.
+    pure callback matching(rows: [Choice], query: string, except: [string]) -> [Choice];
+    // The label of the row holding `value`; `value` when none does.
+    pure callback label-of(rows: [Choice], value: string) -> string;
+    // `values` with `value` appended (unless empty or there already), or without the one at
+    // `index`.
+    pure callback with(values: [string], value: string) -> [string];
+    pure callback without(values: [string], index: int) -> [string];
+    // A tag field's word: trimmed, a trailing comma dropped; and whether the text ends with a
+    // comma outside quotes.
+    pure callback tag-word(text: string) -> string;
+    pure callback comma-ends(text: string) -> bool;
 }
 
 // One row: a check column when `checks`, then indent, icon, label and note.

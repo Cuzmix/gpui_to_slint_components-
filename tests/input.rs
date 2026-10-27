@@ -127,8 +127,10 @@ fn several_lines_grow_from_least_to_most_rows() {
     let at_least = h.get_notes_height();
     assert_eq!(at_least, line * 2.0 + 14.0);
     h.set_notes("1\n2\n3".into());
+    advance(0);
     assert_eq!(h.get_notes_height(), line * 3.0 + 14.0);
     h.set_notes("1\n2\n3\n4\n5\n6".into());
+    advance(0);
     assert_eq!(h.get_notes_height(), line * 4.0 + 14.0);
 }
 

@@ -72,10 +72,18 @@ export component TextField {
     private property <string> committed;
     // gpui's line: the window's phi line height, snapped to the pixel.
     private property <length> line: ceil(1.618034 * root.font-size / 1phx - 0.5) * 1phx;
+    // The text's wrapped height, copied when it changes: a binding would tie a one-line field's
+    // height to its width, a loop inside a wrapping row.
+    private property <length> content;
+    private property <length> wrapped: input.preferred-height;
+    changed wrapped => {
+        root.content = root.wrapped;
+    }
     private property <bool> asks: root.fit-kind != "" || root.max-len > 0;
 
     init => {
         root.committed = root.text;
+        root.content = root.wrapped;
     }
     changed text => {
         root.committed = root.text;
@@ -94,7 +102,7 @@ export component TextField {
     min-width: 0;
     preferred-width: 0;
     horizontal-stretch: 1;
-    height: root.multi-line ? clamp(input.preferred-height, root.rows-min * root.line, root.rows-max * root.line) : root.line;
+    height: root.multi-line ? clamp(root.content, root.rows-min * root.line, root.rows-max * root.line) : root.line;
 
     if root.empty: Text {
         x: 0;

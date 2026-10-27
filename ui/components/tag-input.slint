@@ -1,0 +1,159 @@
+// Port of ely-core/src/forms/tags.rs (`TagInput`): tag chips and a field; Enter or a comma
+// outside quotes adds the word as a tag. Suggestions that hold the typed text float under it:
+// Up and Down choose, Enter or a press adds, Escape hides them until the next keystroke.
+// Backspace in the empty field drops the last tag.
+//
+// The tags are the owner's: it gets each new list from `tags-changed`. List edits and matching
+// run in Rust (`Choices`, `wire_options!`); the list needs an `OptionLayer` (options.slint).
+
+import { Theme, ControlSize, Radius, TextSize } from "../theme/theme.slint";
+import { TextField } from "text-field.slint";
+import { Tag, Tone } from "badge.slint";
+import { Choice, Choices, OptionAnchor } from "options.slint";
+
+export component TagInput {
+    // Names the field's suggestion list; unique among the fields that show lists.
+    in property <string> owner: "tags";
+    in property <[string]> tags;
+    in property <string> placeholder: @tr("Add a tag");
+    in property <string> label;
+    // Rows offered as you type, each adding its value; a chip shows the label of the row whose
+    // value it holds.
+    in property <[Choice]> suggestions;
+    // Whether a tag passes; failing tags, and a typed word once focus has left, show as danger.
+    pure callback check(tag: string) -> bool;
+    check(tag) => {
+        true
+    }
+
+    out property <bool> has-focus: field.has-focus;
+    // The words in the field.
+    out property <string> typed: field.text;
+    out property <bool> open: field.has-focus && !root.dismissed && root.rows.length > 0;
+    out property <int> highlighted: root.chosen < root.rows.length ? root.chosen : 0;
+    // A typed word that fails the check, once focus has left.
+    out property <bool> unaccepted: !field.has-focus && Choices.tag-word(field.text) != "" && !root.check(Choices.tag-word(field.text));
+
+    // Every tag after each change.
+    callback tags-changed(tags: [string]);
+    // The words in the field changed.
+    callback typing(text: string);
+
+    private property <[Choice]> rows: field.text == "" ? [] : Choices.matching(root.suggestions, field.text, root.tags);
+    private property <int> chosen;
+    private property <bool> dismissed;
+
+    changed open => {
+        root.chosen = 0;
+    }
+
+    // Adds `value` and clears the field, unless blank or there already.
+    function add(value: string) {
+        field.text = "";
+        if value == "" || Choices.with(root.tags, value).length == root.tags.length {
+            return;
+        }
+        root.tags-changed(Choices.with(root.tags, value));
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: Theme.pane-min / 2 + 10px;
+    preferred-width: flow.preferred-width + 2px;
+    height: max(Theme.control-height(ControlSize.md), flow.preferred-height + 2px);
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: field.has-focus ? Theme.colors.focus : root.unaccepted ? Theme.colors.danger : Theme.colors.border-strong;
+        background: Theme.colors.surface;
+    }
+
+    TouchArea {
+        mouse-cursor: MouseCursor.text;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                field.focus();
+            }
+        }
+    }
+
+    flow := FlexboxLayout {
+        x: 1px;
+        y: 1px;
+        width: root.width - 2px;
+        height: root.height - 2px;
+        // 4 px sides, 2 px above and below, inside the border.
+        padding-left: 4px;
+        padding-right: 4px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        spacing: 4px;
+        cross-axis-alignment: center;
+
+        for tag[ix] in root.tags: Tag {
+            text: Choices.label-of(root.suggestions, tag);
+            tone: !root.check(tag) ? Tone.danger : Tone.neutral;
+            removable: true;
+            remove => {
+                root.tags-changed(Choices.without(root.tags, ix));
+            }
+        }
+
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            min-width: Theme.pane-min / 2;
+            padding-left: 4px;
+            padding-right: 4px;
+
+            field := TextField {
+                placeholder: root.placeholder;
+                label: root.label;
+                font-size: Theme.text-size(TextSize.base);
+                edited(text) => {
+                    root.dismissed = false;
+                    root.typing(text);
+                    if Choices.comma-ends(text) {
+                        root.add(Choices.tag-word(text));
+                    }
+                }
+                accepted => {
+                    root.add(Choices.tag-word(self.text));
+                }
+                key-pressed(event) => {
+                    if root.open && event.text == Key.UpArrow {
+                        root.chosen = Choices.step(root.rows, root.highlighted, -1);
+                        return accept;
+                    }
+                    if root.open && event.text == Key.DownArrow {
+                        root.chosen = Choices.step(root.rows, root.highlighted, 1);
+                        return accept;
+                    }
+                    if root.open && event.text == Key.Return && !event.modifiers.control {
+                        root.add(root.rows[root.highlighted].value);
+                        return accept;
+                    }
+                    if root.open && event.text == Key.Escape {
+                        root.dismissed = true;
+                        return accept;
+                    }
+                    if event.text == Key.Backspace && self.text == "" && root.tags.length > 0 {
+                        root.tags-changed(Choices.without(root.tags, root.tags.length - 1));
+                        return accept;
+                    }
+                    reject
+                }
+            }
+        }
+    }
+
+    anchor := OptionAnchor {
+        owner: root.owner;
+        open: root.open;
+        rows: root.rows;
+        highlighted: root.highlighted;
+        picked(ix) => {
+            root.add(root.rows[ix].value);
+        }
+    }
+}
