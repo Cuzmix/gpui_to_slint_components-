@@ -14,6 +14,7 @@ pub mod format;
 pub mod keys;
 pub mod layout;
 pub mod open;
+pub mod options;
 pub mod panes;
 pub mod text;
 pub mod toggles;

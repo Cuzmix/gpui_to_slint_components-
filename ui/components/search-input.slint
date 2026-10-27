@@ -1,0 +1,65 @@
+// Port of ely-core/src/forms/search.rs (`SearchInput`): a search field with a magnifier and a
+// clear button; while it is focused and empty, recent searches float under it. Picking one
+// fills the field. Its rows need `wire_options!`. The list needs an `OptionLayer` last in the window (options.slint).
+
+import { Theme, ControlSize } from "../theme/theme.slint";
+import { Input } from "input.slint";
+import { Icons } from "../icons/icons.slint";
+import { OptionAnchor } from "options.slint";
+
+export component SearchInput {
+    // Names the field's list; unique among the fields that show lists.
+    in property <string> owner: "search";
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    // Recent searches, newest first; shown while the field is empty.
+    in property <[string]> history;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // Whether the recent searches float under it.
+    out property <bool> open: field.has-focus && root.text == "" && root.history.length > 0;
+
+    callback edited(text: string);
+    callback accepted();
+    // A recent search filled the field.
+    callback picked(query: string);
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := Input {
+        width: root.width;
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: root.label;
+        size: root.size;
+        enabled: root.enabled;
+        clearable: true;
+        prefix-icon: Icons.search;
+        edited(text) => {
+            root.edited(text);
+        }
+        accepted => {
+            root.accepted();
+        }
+    }
+
+    OptionAnchor {
+        owner: root.owner;
+        open: root.open;
+        labels: root.history;
+        picked(ix) => {
+            // Read through `text`: a string local used twice moves in Slint 1.18's Rust output.
+            root.text = root.history[ix];
+            root.edited(root.text);
+            root.picked(root.text);
+        }
+    }
+}
