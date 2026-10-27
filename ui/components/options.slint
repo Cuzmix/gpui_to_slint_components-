@@ -80,8 +80,13 @@ export component OptionRow {
     in property <bool> checks;
     in property <bool> checked;
     in property <string> unavailable-text: @tr("Unavailable");
+    // Picks on the press, keeping focus where it is (floating lists); false picks on the click
+    // (ListBox).
+    in property <bool> pick-on-press: true;
 
     callback picked();
+    // A left press landed on the row.
+    callback pressed-down();
 
     private property <color> fg: root.choice.disabled ? Theme.colors.fg-disabled : Theme.colors.fg;
 
@@ -152,6 +157,14 @@ export component OptionRow {
         mouse-cursor: MouseCursor.pointer;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.pressed-down();
+                if root.pick-on-press {
+                    root.picked();
+                }
+            }
+        }
+        clicked => {
+            if !root.pick-on-press {
                 root.picked();
             }
         }

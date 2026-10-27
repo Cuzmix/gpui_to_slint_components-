@@ -1,0 +1,117 @@
+// Port of ely-core/src/forms/listbox.rs (`ListBox`, `chosen`): a list to choose from in place,
+// one row at a time or several with `multiple`. A tab stop; Up, Down, Home and End move the
+// cursor past disabled rows (wrapping), Enter or Space choose the row under it, a click chooses a
+// row. Each row has a check column.
+//
+// List edits run in Rust (`Choices`, `wire_options!`, with `wire_toggles!`). Like Select (G48),
+// `selected` is `in-out`.
+
+import { Theme, Radius, TextSize } from "../theme/theme.slint";
+import { Choice, Choices, OptionRow } from "options.slint";
+import { Toggles } from "button-group.slint";
+
+export component ListBox {
+    in property <[Choice]> choices;
+    // The values chosen.
+    in-out property <[string]> selected;
+    // Lets any number of rows be chosen.
+    in property <bool> multiple;
+    // The name assistive technology reads; nothing is drawn.
+    in property <string> label;
+
+    out property <bool> has-focus: keys.has-focus;
+    // The cursor's row.
+    out property <int> highlighted: min(root.cursor, root.choices.length - 1);
+
+    // The values chosen after each press.
+    callback selection-changed(selected: [string]);
+
+    private property <int> cursor;
+
+    function press(ix: int) {
+        root.cursor = ix;
+        root.selected = root.multiple ? Choices.toggled(root.choices, root.selected, root.choices[ix].value, !Toggles.contains(root.selected, root.choices[ix].value)) : [root.choices[ix].value];
+        root.selection-changed(root.selected);
+    }
+
+    forward-focus: keys;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    min-height: 0;
+    preferred-height: column.preferred-height + 10px;
+    max-height: Theme.list-max-height;
+    min-width: column.min-width + 10px;
+    preferred-width: column.preferred-width + 10px;
+    accessible-role: AccessibleRole.list;
+    accessible-label: root.label;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.lg);
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border;
+        background: Theme.colors.surface;
+        clip: true;
+
+        keys := FocusScope {
+            key-pressed(event) => {
+                let at = root.highlighted;
+                if event.text == Key.DownArrow {
+                    root.cursor = Choices.step(root.choices, at, 1);
+                    return accept;
+                }
+                if event.text == Key.UpArrow {
+                    root.cursor = Choices.step(root.choices, at, -1);
+                    return accept;
+                }
+                if event.text == Key.Home {
+                    root.cursor = Choices.step(root.choices, root.choices.length - 1, 1);
+                    return accept;
+                }
+                if event.text == Key.End {
+                    root.cursor = Choices.step(root.choices, 0, -1);
+                    return accept;
+                }
+                if (event.text == Key.Return || event.text == " ") && at >= 0 && !root.choices[at].disabled {
+                    root.press(at);
+                    return accept;
+                }
+                reject
+            }
+
+            flick := Flickable {
+                // Inside the hairline, 4 px in.
+                x: 5px;
+                y: 5px;
+                width: parent.width - 10px;
+                height: parent.height - 10px;
+                content-height: column.preferred-height;
+
+                column := VerticalLayout {
+                    for choice[ix] in root.choices: OptionRow {
+                        choice: choice;
+                        highlighted: keys.has-focus && ix == root.highlighted;
+                        checks: true;
+                        checked: Toggles.contains(root.selected, choice.value);
+                        pick-on-press: false;
+                        pressed-down => {
+                            keys.focus();
+                        }
+                        picked => {
+                            root.press(ix);
+                        }
+                        // Keeps the cursor's row in view.
+                        changed highlighted => {
+                            if self.highlighted {
+                                if self.y < -flick.content-y {
+                                    flick.content-y = -self.y;
+                                } else if self.y + self.height > -flick.content-y + flick.height {
+                                    flick.content-y = -(self.y + self.height - flick.height);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
