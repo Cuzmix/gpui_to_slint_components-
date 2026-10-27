@@ -22,6 +22,7 @@ slint::slint! {
         out property <length> text-base: Theme.text-size(TextSize.base);
         out property <length> modal-far-blur: Theme.shadow-far(Elevation.modal).blur;
         out property <color> modal-far-color: Theme.shadow-far(Elevation.modal).color;
+        public pure function spring(t: float) -> float { Theme.spring(t) }
         public function set-mode(m: Mode) { Theme.mode = m; }
         public function set-mode-now(m: Mode) { Theme.set-mode-now(m); }
         public function set-density(d: Density) { Theme.density = d; }
@@ -159,4 +160,15 @@ fn reduced_motion_cuts_the_fade_short() {
     assert_eq!(h.get_bg(), hex(0x252525));
 }
 
-cases!(theme: light_palette_values_match_source, mode_change_fades_over_280ms_with_ease_in_out_cubic, set_mode_now_skips_the_fade, without_fader_changes_apply_at_once, high_contrast_strengthens_borders, color_blind_safe_swaps_chart_hues_only, measures_follow_density_and_scales, modal_shadow_layers_match_source, reduced_motion_cuts_the_fade_short);
+// The spring overshoots a little, then settles, as gpui's `motion::spring` (its own test).
+fn the_spring_overshoots_a_little_then_settles() {
+    init();
+    let h = Harness::new().unwrap();
+    assert_eq!(h.invoke_spring(0.0), 0.0);
+    assert_eq!(h.invoke_spring(1.0), 1.0);
+    let peak = (0..=100).map(|i| h.invoke_spring(i as f32 / 100.0)).fold(0.0, f32::max);
+    assert!(peak > 1.01 && peak < 1.05, "peak {peak}");
+    assert!((h.invoke_spring(0.95) - 1.0).abs() < 0.01);
+}
+
+cases!(theme: the_spring_overshoots_a_little_then_settles, light_palette_values_match_source, mode_change_fades_over_280ms_with_ease_in_out_cubic, set_mode_now_skips_the_fade, without_fader_changes_apply_at_once, high_contrast_strengthens_borders, color_blind_safe_swaps_chart_hues_only, measures_follow_density_and_scales, modal_shadow_layers_match_source, reduced_motion_cuts_the_fade_short);

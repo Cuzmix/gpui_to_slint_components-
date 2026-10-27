@@ -238,6 +238,12 @@ export global Theme {
         1 - Math.pow(1 - t, 3)
     }
 
+    // gpui's `motion::spring`: a damped spring (damping 0.75, omega 6.91 / 0.75) that overshoots a
+    // little and settles by 1; for markers driven by `animation-tick()`.
+    public pure function spring(t: float) -> float {
+        t >= 1 ? 1 : 1 - Math.exp(-0.75 * 9.213333 * t) * (Math.cos(6.0940472 * t * 1rad) + 0.75 * 9.213333 / 6.0940472 * Math.sin(6.0940472 * t * 1rad))
+    }
+
     // Gentle at both ends, fast between.
     public pure function ease-in-out-cubic(t: float) -> float {
         t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2

@@ -1,0 +1,322 @@
+// Port of ely-core/src/buttons/segmented.rs (`SegmentedControl`): mutually exclusive segments in
+// a sunken strip; a raised thumb glides to the chosen one.
+//
+// Segments share the strip as CSS flexbox would: each starts at its content's width, then all
+// grow by the same amount, or shrink in proportion to their width with their labels ending in
+// an ellipsis, down to twice a control's height each. Too narrow for every label in full, a
+// control whose segments all have icons shows icons only, each label a tooltip. Narrower still,
+// the strip scrolls sideways, and a focused segment comes into view.
+//
+// The thumb is drawn by the chosen segment's twin in a layer of the same segments under the
+// real ones, so it can glide under its neighbours; the twin it leaves hands it the start.
+
+import { Theme, ControlSize, Radius, Elevation } from "../theme/theme.slint";
+import { ButtonStyle } from "button-style.slint";
+import { Icon } from "icon.slint";
+import { Ellipsis } from "ellipsis.slint";
+import { Elevated } from "elevated.slint";
+import { TooltipController } from "tooltip.slint";
+import { ClickKeys } from "click-keys.slint";
+
+// One segment: the value it stands for, its label and an optional icon.
+export struct Segment {
+    value: string,
+    label: string,
+    icon: image,
+}
+
+// A segment's content: an icon, then its label unless compact, centered.
+component SegmentContent inherits HorizontalLayout {
+    in property <Segment> segment;
+    in property <bool> on;
+    in property <bool> compact;
+    in property <ControlSize> size;
+    in property <color> ink;
+
+    // Inside the 1 px border.
+    padding-left: Theme.control-padding(root.size) + 1px;
+    padding-right: self.padding-left;
+    spacing: 6px;
+    alignment: center;
+    cross-axis-alignment: center;
+
+    if root.segment.icon.width > 0: Icon {
+        source: root.segment.icon;
+        size: ButtonStyle.icon-size(root.size);
+        color: root.ink;
+    }
+    if root.segment.label != "" && !root.compact: Ellipsis {
+        text: root.segment.label;
+        font-size: Theme.text-size(ButtonStyle.text-size(root.size));
+        font-weight: root.on ? 600 : 500;
+        color: root.ink;
+    }
+}
+
+// The control's sizing for a segment: a control's height tall, as wide as its content, growing
+// and shrinking with its neighbours.
+component SegmentCell {
+    in property <Segment> segment;
+    in property <bool> on;
+    in property <bool> compact;
+    in property <ControlSize> size;
+
+    height: Theme.control-height(root.size);
+    min-width: 0;
+    horizontal-stretch: 1;
+
+    @children
+}
+
+// A segment's twin under the real row: the same width, and the thumb while it is the chosen one.
+component ThumbCell inherits SegmentCell {
+    // Where the thumb left from, in the row, and when (`animation-tick()`).
+    in property <length> from-x;
+    in property <length> from-width;
+    in property <duration> started;
+    in property <bool> tripping;
+
+    // This twin was chosen and no longer is: hand its span on as the start of the next trip.
+    callback left(x: length, width: length);
+
+    private property <float> t: root.tripping ? Theme.spring(clamp((animation-tick() - root.started) / Theme.motion-slow, 0, 1)) : 1;
+
+    changed on => {
+        if !root.on {
+            root.left(self.x, self.width);
+        }
+    }
+
+    SegmentContent {
+        visible: false;
+        segment: root.segment;
+        on: root.on;
+        compact: root.compact;
+        size: root.size;
+    }
+
+    if root.on: thumb := Elevated {
+        x: (root.from-x - root.x) * (1 - root.t);
+        y: 0;
+        width: root.from-width + (root.width - root.from-width) * root.t;
+        height: root.height;
+        elevation: Elevation.raised;
+        border-radius: Theme.radius(Radius.md);
+        background: Theme.colors.surface;
+        border-width: 1px;
+        border-color: Theme.colors.border;
+    }
+}
+
+// A segment that can be pressed.
+component SegmentFace inherits SegmentCell {
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> tooltip-shown: tip.shown;
+
+    callback pressed();
+    // It took focus: bring it into view.
+    callback focused(x: length, width: length);
+
+    private property <color> ink: root.on ? Theme.colors.fg : Theme.colors.fg-muted;
+
+    accessible-role: radio-button;
+    accessible-label: root.segment.label != "" ? root.segment.label : root.segment.value;
+    accessible-checkable: true;
+    accessible-checked: root.on;
+    accessible-action-default => {
+        root.pressed();
+    }
+
+    forward-focus: keys;
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : transparent;
+    }
+
+    SegmentContent {
+        segment: root.segment;
+        on: root.on;
+        compact: root.compact;
+        size: root.size;
+        ink: root.ink;
+    }
+
+    tip := TooltipController {
+        x: 0;
+        y: 0;
+        text: root.compact ? root.segment.label : "";
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.pressed();
+        }
+        pointer-event(event) => {
+            tip.pointer-event(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            tip.dismiss();
+            reject
+        }
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+    }
+
+    keys := ClickKeys {
+        activated => {
+            root.pressed();
+        }
+        focus-changed-event => {
+            if self.has-focus {
+                root.focused(root.x, root.width);
+            }
+        }
+    }
+}
+
+// Every label and icon in full, with padding: the width that cuts none.
+component NaturalWidth inherits HorizontalLayout {
+    in property <[Segment]> segments;
+    in property <ControlSize> size;
+
+    // 2 px padding and a hairline each side.
+    padding: 3px;
+
+    for segment in root.segments: Rectangle {
+        private property <length> glyph: segment.icon.width > 0 ? Theme.icon-size(ButtonStyle.icon-size(root.size)) + 6px : 0;
+        preferred-width: (Theme.control-padding(root.size) + 1px) * 2 + label.preferred-width + self.glyph;
+
+        label := Text {
+            visible: false;
+            text: segment.label;
+            font-size: Theme.text-size(ButtonStyle.text-size(root.size));
+            font-weight: 600;
+            font-family: Theme.font-family;
+        }
+    }
+}
+
+export component SegmentedControl inherits Rectangle {
+    in property <[Segment]> segments;
+    // The chosen segment's value.
+    in-out property <string> selected;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+
+    out property <bool> compact: root.all-icons && root.shown > 0 && root.shown < natural.preferred-width;
+    // How far the strip is scrolled.
+    out property <length> scrolled: -flick.content-x;
+
+    // A segment other than the chosen one was pressed.
+    callback selection-changed(value: string);
+
+    // gpui decides from the last frame's width.
+    private property <length> shown;
+    // Each segment without an icon stands 1 px tall in `iconless`, so the column has height
+    // exactly when some segment lacks one (Slint cannot test every item of an array).
+    private property <bool> all-icons: root.segments.length > 0 && iconless.preferred-height == 0;
+    // The control is at least this wide; narrower, the strip scrolls.
+    private property <length> least: Theme.control-height(root.size) * (root.compact ? 1 : 2) * root.segments.length;
+    private property <length> from-x;
+    private property <length> from-width;
+    private property <duration> started;
+    private property <bool> tripping;
+
+    changed width => {
+        root.shown = self.width;
+    }
+
+    min-width: 0;
+    preferred-width: row.preferred-width + 6px;
+    height: Theme.control-height(root.size) + 6px;
+    border-radius: Theme.radius(Radius.lg);
+    border-width: 1px;
+    border-color: Theme.colors.border;
+    background: Theme.colors.sunken;
+    clip: true;
+
+    // Measures only; sized nothing, so it never holds the strip wider.
+    Rectangle {
+        width: 0;
+        height: 0;
+        natural := NaturalWidth {
+            visible: false;
+            segments: root.segments;
+            size: root.size;
+        }
+
+        iconless := VerticalLayout {
+            visible: false;
+            for segment in root.segments: Rectangle {
+                height: segment.icon.width > 0 ? 0 : 1px;
+            }
+        }
+    }
+
+    flick := Flickable {
+        x: 3px;
+        y: 3px;
+        width: root.width - 6px;
+        height: Theme.control-height(root.size);
+        content-width: max(self.width, root.least);
+        content-height: self.height;
+
+        FlexboxLayout {
+            width: flick.content-width;
+            height: flick.content-height;
+            flex-wrap: no-wrap;
+            alignment: stretch;
+            for segment in root.segments: ThumbCell {
+                segment: segment;
+                on: segment.value == root.selected;
+                compact: root.compact;
+                size: root.size;
+                from-x: root.from-x;
+                from-width: root.from-width;
+                started: root.started;
+                tripping: root.tripping;
+                left(x, width) => {
+                    root.from-x = x;
+                    root.from-width = width;
+                    root.started = animation-tick();
+                    root.tripping = true;
+                }
+            }
+        }
+
+        row := FlexboxLayout {
+            width: flick.content-width;
+            height: flick.content-height;
+            flex-wrap: no-wrap;
+            alignment: stretch;
+            for segment in root.segments: SegmentFace {
+                segment: segment;
+                on: segment.value == root.selected;
+                compact: root.compact;
+                size: root.size;
+                pressed => {
+                    if !self.on {
+                        root.selected = segment.value;
+                        root.selection-changed(segment.value);
+                    }
+                }
+                focused(x, width) => {
+                    // gpui's `bring_into_view`: the least shift that shows it, its start first.
+                    let first = -flick.content-x;
+                    let last = first + flick.width;
+                    if x < first {
+                        flick.content-x = -x;
+                    } else if x + width > last {
+                        flick.content-x = -min(x, first + (x + width - last));
+                    }
+                }
+            }
+        }
+    }
+}
