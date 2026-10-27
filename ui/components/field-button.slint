@@ -1,0 +1,80 @@
+// Port of ely-core/src/forms/select.rs (`field_button`, `field_text`): the bordered box of a
+// field that opens something, such as a select or a picker. A press focuses it (gpui's tab stop
+// takes focus on mouse down) and reports `pressed`; keys go to the owner through `key-pressed`.
+
+import { Theme, ControlSize, Radius } from "../theme/theme.slint";
+import { InputStyle } from "input.slint";
+import { Ellipsis } from "ellipsis.slint";
+
+export component FieldButton {
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: keys.has-focus;
+
+    // A left press, after it took focus.
+    callback pressed();
+    // A key while focused; reject to pass it on.
+    callback key-pressed(event: KeyEvent) -> EventResult;
+
+    forward-focus: keys;
+    horizontal-stretch: 1;
+    min-width: row.min-width;
+    preferred-width: row.preferred-width;
+    height: Theme.control-height(root.size);
+
+    Rectangle {
+        border-radius: Theme.radius(Radius.md);
+        border-width: 1px;
+        border-color: keys.has-focus ? Theme.colors.focus : Theme.colors.border-strong;
+        background: root.enabled ? Theme.colors.surface : Theme.colors.sunken;
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                keys.focus();
+                root.pressed();
+            }
+        }
+    }
+
+    keys := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            root.key-pressed(event)
+        }
+    }
+
+    row := HorizontalLayout {
+        // Inside the 1 px border.
+        padding-left: Theme.control-padding(root.size) + 1px;
+        padding-right: self.padding-left;
+        spacing: 8px;
+        alignment: start;
+
+        @children
+    }
+}
+
+// A field's value, or its placeholder in a quieter tone, cut with an ellipsis.
+export component FieldText inherits VerticalLayout {
+    // The value; empty shows the placeholder.
+    in property <string> text;
+    in property <string> placeholder;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    horizontal-stretch: 1;
+    min-width: 0;
+    alignment: center;
+
+    Ellipsis {
+        text: root.text != "" ? root.text : root.placeholder;
+        font-size: Theme.text-size(InputStyle.text-size(root.size));
+        color: !root.enabled ? Theme.colors.fg-disabled : root.text != "" ? Theme.colors.fg : Theme.colors.fg-subtle;
+    }
+}
