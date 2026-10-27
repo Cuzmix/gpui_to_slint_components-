@@ -1,0 +1,218 @@
+// Port of ely-core/src/forms/masked.rs: `MaskedInput`, `PhoneInput`. A field that fits typing
+// into a pattern such as `(999) 999-9999`: `9` a digit, `a` a letter, `*` either; the rest is
+// literal. While empty it shows the mask with its slots as underscores.
+//
+// The fitting runs in Rust (`TextFields`, `wire_fields!`). A text given before the host wires
+// it is fitted on the first timer tick; a new mask refits what the slots hold. Children sit
+// before the text (PhoneInput's country code).
+
+import { Theme, ControlSize, IconSize, Radius } from "../theme/theme.slint";
+import { InputFrame, InputText, InputStyle } from "input.slint";
+import { TextFields } from "text-field.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { Choice, OptionAnchor } from "options.slint";
+
+export component MaskedInput {
+    in-out property <string> text;
+    // Such as `(999) 999-9999`.
+    in property <string> mask;
+    in property <string> label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+
+    callback edited(text: string);
+    callback accepted();
+
+    // The mask the text is fitted to; empty until the first fit.
+    private property <string> fitted-to;
+
+    function refit() {
+        root.text = TextFields.remask(root.fitted-to, root.mask, root.text);
+        root.fitted-to = root.mask;
+    }
+
+    changed mask => {
+        root.refit();
+    }
+
+    // The first fit waits for the host to wire `TextFields`.
+    first-fit := Timer {
+        interval: 1ms;
+        running: root.fitted-to == "";
+        triggered => {
+            self.running = false;
+            root.refit();
+        }
+    }
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: frame.min-width;
+    preferred-width: frame.preferred-width;
+    height: frame.height;
+
+    frame := InputFrame {
+        width: root.width;
+        size: root.size;
+        enabled: root.enabled;
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        @children
+
+        field := InputText {
+            text <=> root.text;
+            label: root.label;
+            placeholder: TextFields.mask-hint(root.mask);
+            fit-kind: "mask:" + root.mask;
+            size: root.size;
+            enabled: root.enabled;
+            edited(text) => {
+                root.fitted-to = root.mask;
+                root.edited(text);
+            }
+            accepted => {
+                root.accepted();
+            }
+        }
+    }
+}
+
+// A country PhoneInput offers: its code, dialing code, flag and number pattern.
+export struct PhoneCountry {
+    code: string,
+    dial: string,
+    flag: string,
+    mask: string,
+}
+
+// The countries offered, as ely's `COUNTRIES`.
+export global PhoneCountries {
+    out property <[PhoneCountry]> all: [
+        { code: "US", dial: "+1", flag: "🇺🇸", mask: "(999) 999-9999" },
+        { code: "GB", dial: "+44", flag: "🇬🇧", mask: "9999 999999" },
+        { code: "DE", dial: "+49", flag: "🇩🇪", mask: "9999 9999999" },
+        { code: "FR", dial: "+33", flag: "🇫🇷", mask: "9 99 99 99 99" },
+        { code: "JP", dial: "+81", flag: "🇯🇵", mask: "99-9999-9999" },
+        { code: "CN", dial: "+86", flag: "🇨🇳", mask: "999 9999 9999" },
+    ];
+    // Each as a row: flag and code, the dialing code as its note.
+    out property <[Choice]> rows: [
+        { value: "US", label: "🇺🇸  US", note: "+1" },
+        { value: "GB", label: "🇬🇧  GB", note: "+44" },
+        { value: "DE", label: "🇩🇪  DE", note: "+49" },
+        { value: "FR", label: "🇫🇷  FR", note: "+33" },
+        { value: "JP", label: "🇯🇵  JP", note: "+81" },
+        { value: "CN", label: "🇨🇳  CN", note: "+86" },
+    ];
+
+    // The index of `code` among them; the first when it is none of them (gpui panics).
+    public pure function index-of(code: string) -> int {
+        code == "GB" ? 1 : code == "DE" ? 2 : code == "FR" ? 3 : code == "JP" ? 4 : code == "CN" ? 5 : 0
+    }
+}
+
+// A phone number: a country picker for the code, then its number pattern.
+export component PhoneInput {
+    in-out property <string> text;
+    // Names the field's country list; unique among the fields that show lists.
+    in property <string> owner: "phone";
+    // A code from `PhoneCountries`.
+    in property <string> country: "US";
+    in property <string> label;
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // Whether the country list is open.
+    out property <bool> picking;
+
+    callback edited(text: string);
+    callback accepted();
+    // A country was chosen.
+    callback country-changed(code: string);
+
+    private property <PhoneCountry> current: PhoneCountries.all[PhoneCountries.index-of(root.country)];
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    min-width: field.min-width;
+    preferred-width: field.preferred-width;
+    height: field.height;
+
+    field := MaskedInput {
+        width: root.width;
+        text <=> root.text;
+        mask: root.current.mask;
+        label: root.label;
+        size: root.size;
+        enabled: root.enabled;
+        edited(text) => {
+            root.edited(text);
+        }
+        accepted => {
+            root.accepted();
+        }
+
+        Rectangle {
+            width: row.preferred-width;
+            height: row.preferred-height;
+            border-radius: Theme.radius(Radius.sm);
+            background: touch.has-hover ? Theme.colors.hover : transparent;
+            accessible-role: button;
+            accessible-label: root.current.flag + " " + root.current.dial;
+            accessible-action-default => {
+                root.picking = !root.picking;
+            }
+
+            row := HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                spacing: 4px;
+                cross-axis-alignment: center;
+
+                Text {
+                    text: root.current.flag + " " + root.current.dial;
+                    color: Theme.colors.fg-muted;
+                    font-size: Theme.text-size(InputStyle.text-size(root.size));
+                    font-family: Theme.font-family;
+                }
+
+                Icon {
+                    source: Icons.chevron-down;
+                    size: IconSize.xs;
+                    color: Theme.colors.fg-muted;
+                }
+            }
+
+            // Presses never take focus from the field.
+            touch := TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    root.picking = !root.picking;
+                }
+            }
+        }
+    }
+
+    OptionAnchor {
+        owner: root.owner;
+        open: root.picking;
+        rows: PhoneCountries.rows;
+        checks: true;
+        checked: [root.current.code];
+        dismissable: true;
+        picked(ix) => {
+            root.picking = false;
+            root.country-changed(PhoneCountries.all[ix].code);
+        }
+        dismissed => {
+            root.picking = false;
+        }
+    }
+}

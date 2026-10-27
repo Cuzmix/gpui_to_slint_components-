@@ -24,6 +24,10 @@ export global TextFields {
     // Whether the text reads as one email address, or as a web link (EmailInput, UrlInput).
     pure callback is-email(text: string) -> bool;
     pure callback is-url(text: string) -> bool;
+    // A mask's hint while empty, slots as underscores; and `text`, fitted to `old` (empty: none
+    // yet), refitted to `new` (MaskedInput).
+    pure callback mask-hint(mask: string) -> string;
+    pure callback remask(old: string, new: string, text: string) -> string;
 }
 
 export component TextField {
