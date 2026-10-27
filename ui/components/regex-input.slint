@@ -1,0 +1,91 @@
+// Port of ely-core/src/forms/pattern.rs (`RegexInput`, `regex_highlights`): a regular
+// expression field between slashes, colored as you type and checked as you type; a pattern that
+// does not compile draws the frame in danger and its error under it.
+//
+// Coloring and checking run in Rust (`TextFields`, `wire_fields!`).
+
+import { Theme, ControlSize, TextSize } from "../theme/theme.slint";
+import { InputFrame, InputText, InputStyle } from "input.slint";
+import { TextFields } from "text-field.slint";
+import { TypeText } from "type-text.slint";
+
+// A slash at either end, in the field's mono text.
+component Slash inherits Text {
+    in property <ControlSize> size;
+
+    text: "/";
+    color: Theme.colors.fg-subtle;
+    font-family: Theme.mono-family;
+    font-size: Theme.text-size(InputStyle.text-size(root.size));
+    vertical-alignment: center;
+}
+
+export component RegexInput inherits VerticalLayout {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    // Its height and text size.
+    in property <ControlSize> size: ControlSize.md;
+    in property <bool> enabled: true;
+
+    out property <bool> has-focus: field.has-focus;
+    // Why the pattern does not compile; empty while it does.
+    out property <string> error: TextFields.regex-error(root.text);
+
+    callback edited(text: string);
+    callback accepted();
+
+    forward-focus: field;
+    horizontal-stretch: 1;
+    spacing: 4px;
+
+    InputFrame {
+        size: root.size;
+        enabled: root.enabled;
+        invalid: root.error != "";
+        focused: field.has-focus;
+        pressed => {
+            field.focus();
+        }
+
+        Slash {
+            size: root.size;
+        }
+
+        field := InputText {
+            text <=> root.text;
+            placeholder: root.placeholder;
+            label: root.label;
+            description: root.error;
+            size: root.size;
+            enabled: root.enabled;
+            font-family: Theme.mono-family;
+            highlighting: true;
+            highlights: TextFields.regex-colors(root.text, [
+                Theme.colors.syntax.keyword,
+                Theme.colors.syntax.string,
+                Theme.colors.syntax.function,
+                Theme.colors.syntax.number,
+                Theme.colors.syntax.constant,
+                Theme.colors.syntax.operator,
+            ], root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled);
+            edited(text) => {
+                root.edited(text);
+            }
+            accepted => {
+                root.accepted();
+            }
+        }
+
+        Slash {
+            size: root.size;
+        }
+    }
+
+    if root.error != "": TypeText {
+        text: root.error;
+        color: Theme.colors.danger;
+        font-size: Theme.text-size(TextSize.xs);
+        wrap: word-wrap;
+    }
+}

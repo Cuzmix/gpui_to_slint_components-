@@ -125,6 +125,29 @@ fn escape_markdown(grapheme: &str) -> String {
     out
 }
 
+/// Markdown that colors the byte `runs` of `text` (sorted, apart) and the rest `plain`. Every
+/// run is a span, so leading and doubled spaces stay as typed.
+pub fn spans_markdown(text: &str, runs: &[(std::ops::Range<usize>, [u8; 4])], plain: [u8; 4]) -> String {
+    let mut out = String::new();
+    let mut push = |part: &str, [r, g, b, a]: [u8; 4]| {
+        if !part.is_empty() {
+            out.push_str(&format!("<font color=\"#{r:02x}{g:02x}{b:02x}{a:02x}\">{}</font>", escape_markdown(part)));
+        }
+    };
+    let mut at = 0;
+    for (range, color) in runs {
+        let (start, end) = (range.start.max(at).min(text.len()), range.end.min(text.len()));
+        if start >= end {
+            continue;
+        }
+        push(&text[at..start], plain);
+        push(&text[start..end], *color);
+        at = end;
+    }
+    push(&text[at..], plain);
+    out
+}
+
 /// Markdown that gives each grapheme of `text` its own color.
 pub fn tinted_markdown(text: &str, color: impl Fn(usize, usize) -> [u8; 4]) -> String {
     let spans = graphemes(text);

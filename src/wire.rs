@@ -116,11 +116,11 @@ pub fn grapheme_prefix(text: &str, count: i32) -> SharedString {
     text::grapheme_prefix(text, count.max(0) as usize).into()
 }
 
-fn rgba(color: Color) -> [u8; 4] {
+pub(crate) fn rgba(color: Color) -> [u8; 4] {
     [color.red(), color.green(), color.blue(), color.alpha()]
 }
 
-fn styled(markdown: &str, text: &str) -> StyledText {
+pub(crate) fn styled(markdown: &str, text: &str) -> StyledText {
     StyledText::from_markdown(markdown).unwrap_or_else(|error| {
         log::error!("styled text: {error}");
         StyledText::from_plain_text(text)

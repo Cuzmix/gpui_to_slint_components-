@@ -89,9 +89,13 @@ export component InputText inherits VerticalLayout {
     in property <bool> enabled: true;
     in property <ControlSize> size: ControlSize.md;
     in property <string> least;
+    in property <string> font-family: Theme.font-family;
+    in property <styled-text> highlights;
+    in property <bool> highlighting;
 
     out property <bool> has-focus: field.has-focus;
     out property <bool> empty: field.empty;
+    out property <int> cursor: field.cursor;
     out property <bool> multi-line: field.multi-line;
 
     callback edited(text: string);
@@ -120,6 +124,9 @@ export component InputText inherits VerticalLayout {
         fit-kind: root.fit-kind;
         enabled: root.enabled;
         font-size: Theme.text-size(InputStyle.text-size(root.size));
+        font-family: root.font-family;
+        highlights: root.highlights;
+        highlighting: root.highlighting;
         color: root.enabled ? Theme.colors.fg : Theme.colors.fg-disabled;
         edited(text) => {
             root.edited(text);
@@ -142,7 +149,7 @@ export component InputText inherits VerticalLayout {
         strut := Text {
             visible: false;
             text: root.least;
-            font-family: Theme.font-family;
+            font-family: root.font-family;
             font-size: Theme.text-size(InputStyle.text-size(root.size));
         }
     }

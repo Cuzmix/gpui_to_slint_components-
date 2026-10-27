@@ -199,6 +199,12 @@ macro_rules! wire_fields {
         });
         $app.global::<TextFields>().on_mask_hint(|mask| $crate::fields::mask_hint(&mask).into());
         $app.global::<TextFields>().on_remask(|old, new, text| $crate::fields::remask(&old, &new, &text).into());
+        $app.global::<TextFields>().on_regex_colors(|pattern, palette, plain| {
+            use ::slint::Model;
+            let palette: Vec<::slint::Color> = palette.iter().collect();
+            $crate::highlight::regex_colors(&pattern, &palette, plain)
+        });
+        $app.global::<TextFields>().on_regex_error(|pattern| $crate::highlight::regex_error(&pattern).unwrap_or_default().into());
     }};
 }
 

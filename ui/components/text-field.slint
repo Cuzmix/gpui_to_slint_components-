@@ -5,6 +5,10 @@
 // `rows-max`, then scrolls to keep the caret in view; Enter and Shift+Enter break the line.
 // Ctrl+Enter (⌘↩) accepts either way. Masked text shows bullets and stays off the clipboard.
 //
+// `highlights` colors spans of one line of text (gap G53): the editor's own text and caret go
+// clear and the colored text is drawn over them, with a caret in the focus color blinking every
+// 530 ms, as ely draws it. Text wider than the field shows plain, since the editor then scrolls.
+//
 // Filters, `max-len` and fits run in Rust, since Slint cannot walk a string's characters; the
 // host wires the `TextFields` global once (only fields with a `fit-kind` or a `max-len` ask it;
 // it registers the kinds `digits` and `alnum`):
@@ -31,6 +35,11 @@ export global TextFields {
     // Each character of `text` (PinInput's boxes).
     pure callback chars(text: string) -> [string];
     pure callback remask(old: string, new: string, text: string) -> string;
+    // A pattern colored by part: escape, class, group, quantifier, anchor and alternation
+    // colors in `palette`, the rest `plain`; and why it does not compile, empty if it does
+    // (RegexInput).
+    pure callback regex-colors(pattern: string, palette: [color], plain: color) -> styled-text;
+    pure callback regex-error(pattern: string) -> string;
 }
 
 export component TextField {
@@ -52,7 +61,11 @@ export component TextField {
     in property <string> fit-kind;
     in property <bool> enabled: true;
     in property <length> font-size: Theme.text-size(TextSize.base);
+    in property <string> font-family: Theme.font-family;
     in property <color> color: Theme.colors.fg;
+    // Colored spans of the text, kept in step with it by the owner, and whether to draw them.
+    in property <styled-text> highlights;
+    in property <bool> highlighting;
 
     out property <bool> has-focus: input.has-focus;
     out property <bool> empty: root.text == "";
@@ -60,6 +73,8 @@ export component TextField {
     // The caret and the selection's other end, as byte offsets.
     out property <int> cursor: input.cursor-position-byte-offset;
     out property <int> anchor: input.anchor-position-byte-offset;
+    // Whether the colored text is drawn now.
+    out property <bool> painting: root.highlighting && !root.multi-line && !root.masked && !root.empty && input.preferred-width + Theme.caret-width <= root.width;
 
     // The text changed by an edit (not by setting `text`).
     callback edited(text: string);
@@ -82,6 +97,18 @@ export component TextField {
         root.content = root.wrapped;
     }
     private property <bool> asks: root.fit-kind != "" || root.max-len > 0;
+    private property <float> line-ratio: root.font-family == Theme.mono-family ? Theme.mono-line-ratio : Theme.font-line-ratio;
+    // The painted caret: where the editor's caret is, and its blink.
+    private property <Point> caret-at;
+    private property <bool> caret-on: true;
+
+    blink := Timer {
+        interval: 530ms;
+        running: root.painting && input.has-focus && !Theme.reduced-motion;
+        triggered => {
+            root.caret-on = !root.caret-on;
+        }
+    }
 
     init => {
         root.committed = root.text;
@@ -113,7 +140,7 @@ export component TextField {
         height: root.multi-line ? root.line : root.height;
         text: root.placeholder;
         color: Theme.colors.fg-subtle;
-        font-family: Theme.font-family;
+        font-family: root.font-family;
         font-size: root.font-size;
         vertical-alignment: center;
         overflow: elide;
@@ -134,13 +161,13 @@ export component TextField {
             single-line: !root.multi-line;
             wrap: root.multi-line ? TextWrap.word-wrap : TextWrap.no-wrap;
             vertical-alignment: root.multi-line ? TextVerticalAlignment.top : TextVerticalAlignment.center;
-            font-family: Theme.font-family;
+            font-family: root.font-family;
             font-size: root.font-size;
-            color: root.color;
+            color: root.painting ? transparent : root.color;
             selection-background-color: Theme.colors.selection;
-            selection-foreground-color: root.color;
-            text-cursor-width: Theme.caret-width;
-            line-height-factor: (root.line - 0.001px) / (root.font-size * Theme.font-line-ratio);
+            selection-foreground-color: root.painting ? transparent : root.color;
+            text-cursor-width: root.painting ? 0 : Theme.caret-width;
+            line-height-factor: (root.line - 0.001px) / (root.font-size * root.line-ratio);
             accessible-label: root.label != "" ? root.label : root.placeholder;
             accessible-description: root.description;
 
@@ -170,12 +197,37 @@ export component TextField {
             }
             // Keeps the caret's line in view, as gpui's `keep_in_view`.
             cursor-position-changed(at) => {
+                root.caret-at = at;
+                root.caret-on = true;
+                blink.restart();
                 if at.y < -flick.content-y {
                     flick.content-y = -at.y;
                 } else if at.y + root.line > -flick.content-y + flick.height {
                     flick.content-y = -(at.y + root.line - flick.height);
                 }
             }
+        }
+
+        paint := StyledText {
+            x: 0;
+            y: 0;
+            width: flick.width;
+            height: flick.height;
+            visible: root.painting;
+            text: root.highlights;
+            default-font-family: root.font-family;
+            default-font-size: root.font-size;
+            default-color: root.color;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+
+        if root.painting && input.has-focus && root.cursor == root.anchor && root.caret-on: Rectangle {
+            x: root.caret-at.x;
+            y: (flick.height - root.line) / 2;
+            width: Theme.caret-width;
+            height: root.line;
+            background: Theme.colors.focus;
         }
     }
 }

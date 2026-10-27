@@ -11,6 +11,7 @@ pub mod dock;
 pub mod fields;
 pub mod focus;
 pub mod format;
+pub mod highlight;
 pub mod keys;
 pub mod layout;
 pub mod numbers;
