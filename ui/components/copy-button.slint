@@ -1,0 +1,95 @@
+// Port of ely-core/src/buttons/copy.rs (`CopyButton`).
+// A small ghost icon button that copies its text, then shows a success check for 1.4 s. The
+// check turns in from -0.6 rad over the fast motion; the tip reads "Copy", then "Copied".
+
+import { Theme, ControlSize, IconSize } from "../theme/theme.slint";
+import { IconButton } from "icon-button.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons/icons.slint";
+import { TooltipController } from "tooltip.slint";
+import { ClipboardWriter } from "clipboard.slint";
+
+export component CopyButton {
+    // What a press copies.
+    in property <string> text;
+    // True for the 1.4 s the check shows.
+    out property <bool> copied: false;
+    // Runs after each copy.
+    callback did-copy();
+
+    width: Theme.control-height(ControlSize.sm);
+    height: self.width;
+    accessible-role: none;
+
+    clipboard := ClipboardWriter { }
+
+    area := TouchArea {
+        tip := TooltipController {
+            x: 0;
+            y: 0;
+            text: root.copied ? @tr("Copied") : @tr("Copy");
+        }
+
+        changed has-hover => {
+            if !self.has-hover {
+                tip.dismiss();
+            }
+        }
+        changed mouse-x => {
+            tip.track(self.mouse-x, self.mouse-y);
+            if self.has-hover && !tip.shown {
+                tip.arm(self.mouse-x, self.mouse-y);
+            }
+        }
+        changed mouse-y => {
+            tip.track(self.mouse-x, self.mouse-y);
+            if self.has-hover && !tip.shown {
+                tip.arm(self.mouse-x, self.mouse-y);
+            }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                tip.dismiss();
+            }
+        }
+
+        if !root.copied: IconButton {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            icon: Icons.copy;
+            icon-name: "copy";
+            size: ControlSize.sm;
+            clicked => {
+                clipboard.write(root.text);
+                root.copied = true;
+                root.did-copy();
+            }
+        }
+
+        if root.copied: Icon {
+            property <float> turned: 0;
+            animate turned {
+                duration: Theme.motion-fast;
+                // Cubic ease-out.
+                easing: cubic-bezier(0.3333333, 1, 0.6666667, 1);
+            }
+            init => {
+                self.turned = 1;
+            }
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            source: Icons.check;
+            size: IconSize.sm;
+            color: Theme.colors.success;
+            rotation: (1 - self.turned) * -0.6rad;
+        }
+    }
+
+    Timer {
+        interval: 1400ms;
+        running: root.copied;
+        triggered => {
+            root.copied = false;
+        }
+    }
+}

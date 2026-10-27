@@ -1,0 +1,22 @@
+// Writes text to the system clipboard from `.slint`, as gpui's `write_to_clipboard`.
+// Slint reaches the clipboard only through TextInput's copy(), so this holds a TextInput that
+// never draws and lends it the text for one copy.
+
+export component ClipboardWriter {
+    width: 0;
+    height: 0;
+    accessible-role: none;
+
+    public function write(text: string) {
+        carrier.text = text;
+        carrier.select-all();
+        carrier.copy();
+        carrier.text = "";
+    }
+
+    carrier := TextInput {
+        visible: false;
+        read-only: true;
+        accessible-role: none;
+    }
+}
