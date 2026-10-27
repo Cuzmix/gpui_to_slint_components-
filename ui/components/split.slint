@@ -1,0 +1,156 @@
+// Port of ely-core/src/layout/split.rs: `SplitPane`, `resize_handle`, `resize_edge`.
+//
+// Slint cannot put handles between children it did not make, so the owner lays out the cells
+// and handles in order, each naming its index:
+//     split := SplitPane {
+//         count: 2;
+//         sizes: [0.3, 0.7];
+//         min: 96px;
+//         SplitCell { share: split.share(0); Files { } }
+//         ResizeHandle {
+//             orientation: split.orientation;
+//             grabbed => { split.grab(0); }
+//             moved(along) => { split.drag(0, along); }
+//         }
+//         SplitCell { share: split.share(1); Editor { } }
+//     }
+// The shares and each drag step need a loop over the panes, so they come from `LayoutMath`
+// (Rust, `ely_slint::wire_layout!`). Unwired, `sizes` are the panes' weights as given and the
+// handles do not move.
+
+import { Theme } from "../theme/theme.slint";
+import { LayoutMath } from "layout-math.slint";
+
+// A thin line with a wide grab (`resize_handle`); `orientation` is the split's direction, so a
+// horizontal split's handle is a vertical line. The line lights while hovered.
+export component ResizeHandle inherits Rectangle {
+    in property <Orientation> orientation: Orientation.horizontal;
+    // The line at rest: `border`, or transparent for an edge whose box draws its own border
+    // (`resize_edge`).
+    in property <color> line: Theme.colors.border;
+    // The grab is held.
+    out property <bool> pressed: touch.pressed;
+    out property <bool> has-hover: touch.has-hover;
+    // A press on the grab.
+    callback grabbed();
+    // The pointer moved during the press: its position along the split, in window coordinates.
+    callback moved(along: length);
+    // The press ended.
+    callback released();
+
+    private property <bool> across: root.orientation == Orientation.horizontal;
+
+    horizontal-stretch: root.across ? 0 : 1;
+    vertical-stretch: root.across ? 1 : 0;
+    min-width: root.across ? Theme.handle-hit : 0;
+    min-height: root.across ? 0 : Theme.handle-hit;
+    preferred-width: root.across ? Theme.handle-hit : 0;
+    preferred-height: root.across ? 0 : Theme.handle-hit;
+
+    Rectangle {
+        x: root.across ? (parent.width - 1px) / 2 : 0;
+        y: root.across ? 0 : (parent.height - 1px) / 2;
+        width: root.across ? 1px : parent.width;
+        height: root.across ? parent.height : 1px;
+        background: touch.has-hover ? Theme.colors.focus : root.line;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.across ? MouseCursor.col-resize : MouseCursor.row-resize;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.grabbed();
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                root.released();
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.moved(root.across ? root.absolute-position.x + self.mouse-x : root.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+}
+
+// One pane of a SplitPane: it takes `share` of the room the handles leave, may shrink to
+// nothing, and clips.
+export component SplitCell inherits Rectangle {
+    in property <float> share: 1;
+
+    clip: true;
+    horizontal-stretch: root.share;
+    vertical-stretch: root.share;
+    min-width: 0;
+    min-height: 0;
+    preferred-width: 0;
+    preferred-height: 0;
+
+    // Children fill the cell; a layout here would cap the cell at the layout's maximum.
+    @children
+}
+
+// Panes side by side (horizontal) or stacked (vertical), split by draggable handles
+// (`SplitPane`). It fills its parent.
+export component SplitPane inherits FlexboxLayout {
+    in property <Orientation> orientation: Orientation.horizontal;
+    // How many panes; gpui requires two or more.
+    in property <int> count: 2;
+    // One weight per pane, normalized; none gives even shares. A new value replaces what drags
+    // made.
+    in property <[float]> sizes;
+    // The smallest a pane may be dragged to.
+    in property <length> min: 0;
+    // The shares now, one per pane, summing to 1.
+    out property <[float]> shares: root.dragged ? root.held : root.seeded;
+    // After each drag step, with the new shares.
+    callback resized(shares: [float]);
+
+    private property <[float]> seeded: LayoutMath.split-shares(root.sizes, root.count);
+    private property <bool> wired: root.seeded.length == root.count;
+    private property <bool> dragged: false;
+    private property <[float]> held;
+    private property <[float]> start;
+    private property <length> anchor;
+    private property <bool> anchored: false;
+    private property <length> extent: root.orientation == Orientation.horizontal ? root.width : root.height;
+
+    // Pane `index`'s share.
+    public pure function share(index: int) -> float {
+        root.wired ? root.shares[index] : root.sizes.length == root.count ? max(0, root.sizes[index]) : 1
+    }
+
+    // Divider `index` (between panes `index` and `index + 1`) was grabbed.
+    public function grab(index: int) {
+        root.start = root.shares;
+        root.anchored = false;
+    }
+
+    // Divider `index` follows the pointer at `along` (window coordinates), from where the drag
+    // first moved.
+    public function drag(index: int, along: length) {
+        if !root.wired || root.extent <= 0 {
+            return;
+        }
+        if !root.anchored {
+            root.anchor = along;
+            root.anchored = true;
+        }
+        let next = LayoutMath.split-shift(root.start, index, (along - root.anchor) / root.extent, root.min / root.extent);
+        if next.length != root.count {
+            return;
+        }
+        root.resized(next);
+        root.held = next;
+        root.dragged = true;
+    }
+
+    changed sizes => {
+        root.dragged = false;
+    }
+
+    flex-direction: root.orientation == Orientation.horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+    flex-wrap: no-wrap;
+    alignment: stretch;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+}

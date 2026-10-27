@@ -242,5 +242,13 @@ macro_rules! wire_layout {
         math.on_masonry_height(|heights, columns, gap| {
             $crate::layout::masonry_height(&lengths(heights), columns.max(1) as usize, gap)
         });
+        math.on_split_shares(|weights, count| {
+            let shares = $crate::layout::split_shares(&lengths(weights), count.max(0) as usize);
+            ::slint::ModelRc::new(::slint::VecModel::from(shares))
+        });
+        math.on_split_shift(|start, ix, delta, floor| {
+            let next = $crate::layout::split_shift(&lengths(start), ix.max(0) as usize, delta, floor);
+            ::slint::ModelRc::new(::slint::VecModel::from(next))
+        });
     }};
 }

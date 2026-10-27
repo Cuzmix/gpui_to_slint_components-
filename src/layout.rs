@@ -1,5 +1,5 @@
 //! Layout math the `.slint` components cannot loop over themselves, after
-//! `ely-core/src/layout/grid.rs`.
+//! `ely-core/src/layout/grid.rs` and `split.rs`.
 
 /// Columns for `width`, each at least `min`, `gap` apart; at least one.
 pub fn columns_for(width: f32, min: f32, gap: f32) -> u16 {
@@ -56,9 +56,87 @@ pub fn masonry_height(heights: &[f32], columns: usize, gap: f32) -> f32 {
         .fold(0.0, f32::max)
 }
 
+/// Weights are finite and non-negative, with a finite, positive sum; returns the sum.
+pub fn check_weights(weights: &[f32]) -> Result<f32, String> {
+    if !weights.iter().all(|weight| weight.is_finite() && *weight >= 0.0) {
+        return Err(format!("split weights {weights:?} must be finite and non-negative"));
+    }
+    let total: f32 = weights.iter().sum();
+    if !(total.is_finite() && total > 0.0) {
+        return Err(format!("split weights {weights:?} need a finite, positive sum"));
+    }
+    Ok(total)
+}
+
+/// A split's shares for `count` panes: `weights` normalized, or even shares (logged) when
+/// there are none, too few or too many, or they do not check.
+pub fn split_shares(weights: &[f32], count: usize) -> Vec<f32> {
+    let even = vec![1.0 / count.max(1) as f32; count];
+    if weights.is_empty() {
+        return even;
+    }
+    if weights.len() != count {
+        log::error!("split pane: {} sizes for {count} panes; even shares", weights.len());
+        return even;
+    }
+    match check_weights(weights) {
+        Ok(total) => weights.iter().map(|weight| weight / total).collect(),
+        Err(error) => {
+            log::error!("split pane: {error}; even shares");
+            even
+        }
+    }
+}
+
+/// Moves divider `ix` by `delta` of the whole, keeping each pane at `floor` or more.
+/// Returns nothing for a divider the shares do not have.
+pub fn split_shift(start: &[f32], ix: usize, delta: f32, floor: f32) -> Vec<f32> {
+    if ix + 1 >= start.len() {
+        log::error!("split pane: divider {ix} of {} panes", start.len());
+        return Vec::new();
+    }
+    let pair = start[ix] + start[ix + 1];
+    let floor = floor.min(pair / 2.0);
+    let left = (start[ix] + delta).clamp(floor, pair - floor);
+    let mut next = start.to_vec();
+    next[ix] = left;
+    next[ix + 1] = pair - left;
+    next
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weights_must_be_finite_non_negative_and_sum_positive() {
+        assert_eq!(check_weights(&[1.0, 3.0]).unwrap(), 4.0);
+        assert_eq!(check_weights(&[0.0, 1.0]).unwrap(), 1.0);
+        assert!(check_weights(&[0.0, 0.0]).is_err());
+        assert!(check_weights(&[-1.0, 2.0]).is_err());
+        assert!(check_weights(&[f32::NAN, 1.0]).is_err());
+        assert!(check_weights(&[f32::MAX, f32::MAX]).is_err());
+    }
+
+    #[test]
+    fn shares_normalize_or_fall_back_to_even() {
+        assert_eq!(split_shares(&[1.0, 3.0], 2), vec![0.25, 0.75]);
+        assert_eq!(split_shares(&[], 4), vec![0.25; 4]);
+        assert_eq!(split_shares(&[1.0], 2), vec![0.5, 0.5]);
+        assert_eq!(split_shares(&[-1.0, 2.0], 2), vec![0.5, 0.5]);
+    }
+
+    #[test]
+    fn shift_moves_one_boundary_and_respects_the_floor() {
+        let moved = split_shift(&[0.5, 0.5], 0, 0.1, 0.1);
+        assert!((moved[0] - 0.6).abs() < 1e-6 && (moved[1] - 0.4).abs() < 1e-6);
+        let floored = split_shift(&[0.5, 0.5], 0, -0.9, 0.2);
+        assert!((floored[0] - 0.2).abs() < 1e-6);
+        let three = split_shift(&[0.2, 0.3, 0.5], 1, 0.1, 0.05);
+        assert!((three[1] - 0.4).abs() < 1e-6 && (three[2] - 0.4).abs() < 1e-6);
+        assert!((three[0] - 0.2).abs() < 1e-6);
+        assert!(split_shift(&[0.5, 0.5], 1, 0.1, 0.1).is_empty());
+    }
 
     #[test]
     fn a_nan_height_never_stops_the_shortest_column() {

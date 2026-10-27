@@ -18,4 +18,10 @@ export global LayoutMath {
     pure callback masonry(heights: [length], columns: int, gap: length) -> [MasonrySpot];
     // How tall the masonry of `heights` stands: its tallest column.
     pure callback masonry-height(heights: [length], columns: int, gap: length) -> length;
+    // A split's shares for `count` panes: `weights` normalized to sum to 1, or even shares when
+    // there are none, a different number, or any is negative or not finite.
+    pure callback split-shares(weights: [float], count: int) -> [float];
+    // `start` with divider `index` moved by `delta` of the whole, each pane kept at `floor` or
+    // more; empty for a divider it does not have.
+    pure callback split-shift(start: [float], index: int, delta: float, floor: float) -> [float];
 }
